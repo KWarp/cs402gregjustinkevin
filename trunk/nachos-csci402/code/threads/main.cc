@@ -61,6 +61,10 @@ extern void Print(char *file), PerformanceTest(void);
 extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
 extern void MailTest(int networkID);
 
+#ifdef CHANGED
+  extern void TestSuite(void);
+#endif
+
 //----------------------------------------------------------------------
 // main
 // 	Bootstrap the operating system kernel.  
@@ -86,6 +90,9 @@ main(int argc, char **argv)
     
 #ifdef THREADS
     ThreadTest();
+    #ifdef CHANGED
+      TestSuite();
+    #endif
 #endif
 
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
