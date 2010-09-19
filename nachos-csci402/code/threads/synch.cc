@@ -305,6 +305,18 @@ int numLocks = 0;
 Condition* CVs[MaxNumLocks]= {};
 int numCVs = 0;
 
+int numThreads = 0;
+void Fork(int func)
+{
+    Thread * thread;
+    char *name;
+	numThreads ++;
+    name = new char [20];
+    sprintf(name,"Thread #%d",numThreads);
+	thread = new Thread(name);
+
+	thread->Fork((VoidFunctionPtr)func,0);
+}
 
 int GetLock()
 {
