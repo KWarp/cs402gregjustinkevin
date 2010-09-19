@@ -80,6 +80,12 @@ class Lock {
   private:
     char* name;				// for debugging
     // plus some other stuff you'll need to define
+	#ifdef CHANGED
+		enum LockState { FREE, BUSY };
+		LockState state;
+		Thread *owner;
+		List *waitingThreads;
+	#endif
 };
 
 // The following class defines a "condition variable".  A condition
