@@ -371,7 +371,7 @@ void hireCook(index)
 	
 	Get_CookIsHiredFromInventoryIndex[index] = -1;
 	index_Ck_InventoryIndex = index;
-	newThread(Cook);
+	Fork(Cook);
 	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
 	
 	Release(lock_HireCook[index]);
