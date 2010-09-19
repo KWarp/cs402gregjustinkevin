@@ -407,5 +407,44 @@ void TestSuite() {
     t->Fork((VoidFunctionPtr)t5_t2,0);
 
 }
+
+#include "simulation.c"
+
+void TestCustomer()
+{
+  Thread t = new Thread("Customer0");
+  for (int i= 0; i < 5; ++i)
+    t->Fork((VoidFunctionPtr)Customer, 0);
+
+  // Get the customers into the restaurant.
+  for (int i= 0; i < 5; ++i)
+    checkLineToEnterRest();
+  
+  // Take the customers' orders.
+  for (int i= 0; i < 5; ++i)
+    ServiceCustomer();
+  
+  // Give the customers their orders
+  for (int i = 0; i < maxNumOrders; ++i)
+  {
+    if (ordersNeedingBagging[i] > 0)
+    {
+      // If the customer is eat-in.
+      if (Get_CustomerTogoOrEatinFromCustomerID[GET_CustomerIDFromOrderNumber[i]] == 1)
+      {
+        
+      }
+      else // if customer is togo.
+      {
+        baggedOrders[numBaggedOrdersWaiting] = i;
+        numBaggedOrdersWaiting++;
+        broadcast(lock_BaggedOrders, CV_BaggedOrders);
+      }
+    }
+  }
+}
+
+
+
 #endif
 
