@@ -411,7 +411,7 @@ void hireCook(int index)
 	
 	Get_CookIsHiredFromInventoryIndex[index] = -1;
 	index_Ck_InventoryIndex = index;
-	Fork(Cook);
+	Fork((VoidFunctionPtr)Cook);
 	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
 	
 	Release(lock_HireCook);
@@ -464,7 +464,7 @@ void Cook()
 		Acquire(lock_MrCk_InventoryLocks[ID]);
 
 		if(Get_CookOnBreakFromInventoryIndex[ID])
-			Wait(CV_MrCk_InventoryLocks[ID], lock_MrCk_InventoryLocks[ID])
+			Wait(CV_MrCk_InventoryLocks[ID], lock_MrCk_InventoryLocks[ID]);
 		
 		/* Cook something */
 		if(inventoryCount[ID] > 0)
@@ -503,7 +503,7 @@ void OrderTaker()
 	while(TRUE)
 	{
 		serviceCustomer(ID);
-		bagOrder(ID);
+		bagOrder();
 	}
 }
 
@@ -550,7 +550,6 @@ void serviceCustomer(int ID)
 	Release(lock_OrdersNeedingBagging);
 
 	Release(lock_OrderTakerBusy[ID]);
-	}
 
 }
 
@@ -564,7 +563,7 @@ void serviceCustomer(int ID)
 void bagOrder()
 {
     Acquire(lock_OrdersNeedingBagging);
-    for (int i = 0; i < maxNumOrders; i++)
+    for (int i = 0; i < count_MaxNumCustomers; i++)
     {
       /* If order i still needs food to be fully bagged. */
       if (ordersNeedingBagging[i] > 0)
@@ -584,7 +583,7 @@ void bagOrder()
         if (ordersNeedingBagging[i] <= 1)
         {
           /* If the customer for order i is an eatin customer (i.e. he is Waiting at a table). */
-          if (Get_CustomerTogoOrEatinFromCustomerID[GET_CustomerIDFromOrderNumber[i]] == 1)
+          if (Get_CustomerTogoOrEatinFromCustomerID[Get_CustomerIDFromToken[i]] == 1)
           {
             /* Tell Waiters there is a bagged order to be delivered. */
             Acquire(lock_OrWr_BaggedOrders);
@@ -636,42 +635,4 @@ void Waiter()
 		Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 	}
 }
- 
-/* =============================================================	
- * UTILITY METHODS
- * =============================================================*/	
 
-int randomNumber(int count)
-{
-	return 4;
-}
-
-void PrintOut(unsigned int vaddr, int len)
-{
-	char *buf;	/* Kernel buffer for output */
-
-	if ( !(buf = new char[len]) ) 
-	{
-		printf("%s","Error allocating kernel buffer for write!\n");
-		return;
-	} else {
-		if ( copyin(vaddr,len,buf) == -1 ) {
-			printf("%s","Bad pointer passed to to write: data not written\n");
-			delete[] buf;
-			return;
-		}
-	}
-
-	for (int ii=0; ii<len; ii++) 
-	{
-		printf("%c",buf[ii]);
-	}
-
-	delete[] buf;
-}
-
-
-void PrintNumber(int number)
-{
-	printf("%d", number);
-}

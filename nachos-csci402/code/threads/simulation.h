@@ -1,5 +1,5 @@
-#ifndef SIMULATION.H
-#define SIMULATION.H
+#ifndef SIMULATION_H
+#define SIMULATION_H
 
 /*
  * simulation.h
@@ -32,11 +32,6 @@ void bagOrder();
 
 /* Waiter */
 void Waiter();
-
-/* Utility */
-int randomNumber(int count);
-void PrintOut(unsigned int vaddr, int len);
-void printNumber(int i);
 
 void RunSimulation(int scenario);
 

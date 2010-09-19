@@ -155,4 +155,9 @@ void Broadcast(int CV, int lock);
 void Yield(int time);
 void Fork(VoidFunctionPtr func);
 
+/* Utility */
+int randomNumber(int count);
+void PrintOut(const char* vaddr, int len);
+void printNumber(int i);
+
 #endif // SYNCH_H
