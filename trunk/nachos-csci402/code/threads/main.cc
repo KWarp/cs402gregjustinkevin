@@ -96,21 +96,21 @@ main(int argc, char **argv)
             printf (copyright);
 		
 #ifdef CHANGED		
-		if (!strcmp(*argv, "-T"))               // Test Suite: link for this code is at the bottom of part 1 description
+		if (!strcmp(*argv, "-T"))               		// Test Suite: link for this code is at the bottom of part 1 description
                         TestSuite();		
-		if (!strcmp(*argv, "-TT"))              // ThreadTest: Runs the simple thread test
+		if (!strcmp(*argv, "-TT"))              		// ThreadTest: Runs the simple thread test
                         ThreadTest();			
-		//if (!strcmp(*argv, "-Sim"))              // ThreadTest: Runs the simple thread test
+		//if (!strcmp(*argv, "-Sim"))              		// ThreadTest: Runs the simple thread test
         //                Simulation();		
-		//if (!strcmp(*argv, "-SimT1"))              // ThreadTest: Runs the simple thread test
+		//if (!strcmp(*argv, "-SimT1"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
-		//if (!strcmp(*argv, "-SimT2"))              // ThreadTest: Runs the simple thread test
+		//if (!strcmp(*argv, "-SimT2"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
-		//if (!strcmp(*argv, "-SimT3"))              // ThreadTest: Runs the simple thread test
+		//if (!strcmp(*argv, "-SimT3"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
-		//if (!strcmp(*argv, "-SimT4"))              // ThreadTest: Runs the simple thread test
+		//if (!strcmp(*argv, "-SimT4"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
-		//if (!strcmp(*argv, "-SimT5"))              // ThreadTest: Runs the simple thread test
+		//if (!strcmp(*argv, "-SimT5"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
 #endif		
 		

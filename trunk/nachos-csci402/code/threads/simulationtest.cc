@@ -4,10 +4,9 @@
 
 void TestCustomer()
 {
-  Thread t = new Thread("Customer0");
   for (int i= 0; i < 5; ++i)
-    t->Fork((VoidFunctionPtr)Customer, 0);
-
+	Fork(Customer);
+	
   // Get the customers into the restaurant.
   for (int i= 0; i < 5; ++i)
     checkLineToEnterRest();
