@@ -10,8 +10,6 @@
  */
 
 
-
-
 /* =============================================================	
  * DATA
  * =============================================================*/	
@@ -21,6 +19,7 @@ int TRUE = 1;
 int FALSE = 0;
 
 /* Number of Agents in the simulation */
+int count_MaxNumOrderTakers;
 int count_NumOrderTakers;
 int count_MaxNumCustomers;
 int count_NumCustomers;
@@ -44,11 +43,11 @@ int CV_OrCr_LineToOrderFoodFromCustomerID[count_MaxNumCustomers ];
 
 /* Used by the Customer routine */
 int ID_Get_OrderTakerIDFromCustomerID[count_MaxNumCustomers ];
-int Get_CustomerOrderFoodChoiceFromOrderTakerID[count_NumOrderTakers ];
+int Get_CustomerOrderFoodChoiceFromOrderTakerID[count_MaxNumOrderTakers ];
 int Get_CustomerTogoOrEatinFromCustomerID[count_MaxNumCustomers ];
-int Get_CustomerMoneyPaidFromOrderTakerID[count_NumOrderTakers ];
-int lock_OrderTakerBusy[count_NumOrderTakers ];
-int CV_OrderTakerBusy[count_NumOrderTakers ];
+int Get_CustomerMoneyPaidFromOrderTakerID[count_MaxNumOrderTakers ];
+int lock_OrderTakerBusy[count_MaxNumOrderTakers ];
+int CV_OrderTakerBusy[count_MaxNumOrderTakers ];
 int token_OrCr_OrderNumberFromCustomerID[count_MaxNumCustomers ];
 int lock_CustomerSittingFromCustomerID[count_MaxNumCustomers ]; 
 int CV_CustomerSittingFromCustomerID[count_MaxNumCustomers ];
@@ -254,7 +253,7 @@ void waitInLineToOrderFood(int ID)
 void Manager()
 {
 	Acquire(lock_Init_InitializationLock);
-	int ID = count_numOrderTakers++;
+	int ID = count_NumOrderTakers++;
 	count_numManagers++;	
 	Release(lock_Init_InitializationLock);
 
@@ -458,7 +457,7 @@ void Cook()
 void OrderTaker()
 {
 	Acquire(lock_Init_InitializationLock);
-	int ID = count_numOrderTakers++;
+	int ID = count_NumOrderTakers++;
 	Release(lock_Init_InitializationLock);
 	
 	while(TRUE)
