@@ -43,8 +43,21 @@ void TestCustomer()
 
 void TestWaiter()
 {
-  Acquire(lock_OrWr_BaggedOrders);
+  int token = 12; // Arbitrary order number.
+  Get_CustomerIDFromToken[token] = 1; // Also arbitrary.
   
+  Fork((VoidFunctionPtr)Waiter);
+  Acquire(lock_OrWr_BaggedOrders);
+    baggedOrders[count_NumOrdersBaggedAndReady] = 12;
+    count_NumOrdersBaggedAndReady++;
+    Signal(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
+    Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+  Release(lock_OrWr_BaggedOrders);
+  
+	Wait(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
+		   lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+
+  // If we get here, the waiter signaled us correctly.
 }
 
 void TestCook()
