@@ -292,3 +292,68 @@ void Condition::Broadcast(Lock* conditionLock)
 			Signal(conditionLock);
 	#endif
 }
+
+const int MaxNumLocks = 200;
+
+Lock* locks[MaxNumLocks];
+int numLocks = 0;
+
+Condition* CVs[MaxNumLocks];
+int numCVs = 0;
+
+int GetLock()
+{
+	locks[numLocks] = new Lock("Lock #"+numLocks);
+	numLocks = numLocks + 1;
+	return numLocks-1;
+}
+
+int GetCV()
+{
+	CVs[numCVs] = new Condition("Condition #"+numCVs );
+	numCVs = numCVs +1;
+	return numCVs -1;
+}
+
+void Acquire(int lock)
+{
+	locks[lock]->Acquire();
+}
+
+void Release(int lock)
+{
+	locks[lock]->Release();
+}
+
+void Wait(int CV, int lock)
+{
+	CVs[CV]->Wait(locks[lock]);
+}
+
+void Signal(int CV, int lock)
+{
+	CVs[CV]->Signal(locks[lock]);
+}
+
+void Broadcast(int CV, int lock)
+{
+	CVs[CV]->Broadcast(locks[lock]);
+}
+
+void Yield(int time)
+{
+	while(time > 0)
+	{
+		currentThread->Yield();
+		time -= 1;
+	}
+}
+
+int numThreads = 0;
+
+void Fork(VoidFunctionPtr func)
+{
+  Thread *t = new Thread("forked thread #" + numThreads);
+
+  t->Fork(func, 1);
+}
