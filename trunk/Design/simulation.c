@@ -26,7 +26,6 @@ int count_NumCustomers;
 int count_NumCooks;
 int count_NumManagers;
 
-
 /* Line To Enter Restaurant */
 int count_lineToEnterRestLength;
 int max_lineToEnterRestLength;
@@ -60,7 +59,6 @@ int bool_ListOrdersReadyFromToken[count_MaxNumCustomers ]; /* TO DO: initialize 
 /* Used by the Waiter Routine */
 int Get_CustomerIDFromToken[count_MaxNumCustomers ];
 
-
 /* Used by the Manager Routine */
 int lock_MrWr;
 int CV_MrWr;
@@ -83,8 +81,6 @@ int lock_HireCook;
 int CV_HireCook;
 int index_Ck_InventoryIndex;
 
-
-
 /* Used by the Order Taker Routine */
 int orderNumCounter = 0;
 int lock_OrdersNeedingBagging;
@@ -102,8 +98,29 @@ int count_NumFoodChoices;
 int lock_Init_InitializationLock;
 
 /* =============================================================	
+ * Initializes and runs the simulation
+ * =============================================================*/
+void RunSimulation()
+{
+  /* Initialize Locks */
+  lock_MrCr_LineToEnterRest = GetLock();
+  lock_OrCr_LineToOrderFood = GetLock();
+  for (int i = 0; i < count_MaxNumOrderTakers; ++i)
+    lock_OrderTakerBusy[i] = GetLock();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    lock_CustomerSittingFromCustomerID[i] = GetLock();
+  lock_OrCr_OrderReady = GetLock();
+  lock_MrWr = GetLock();
+  lock_MrCk_InventoryLocks = GetLock();
+  lock_HireCook = GetLock();
+  lock_OrdersNeedingBagging = GetLock();
+  lock_OrWr_BaggedOrders = GetLock();
+  lock_Init_InitializationLock = GetLock();
+}
+
+/* =============================================================	
  * CUSTOMER
- * =============================================================*/	
+ * =============================================================*/
 
 /*-----------------------------
  * Top Level Customer Routine
