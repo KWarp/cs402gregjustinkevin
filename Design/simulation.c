@@ -1,6 +1,6 @@
 
 #include "simulation.h"
-#include "synch.c"
+#include "synch.h"
 
 /*
  * simulation.c
