@@ -52,14 +52,13 @@ void ThreadTest()
 
 #ifdef CHANGED
 // =========================================================================
-// Test Suite - Test A through B
+// Test Suite - Test A through E
 // =========================================================================
 
 
 // =========================================================================
 // test A
-// Show that if a signal is thrown before a wait is called, 
-// the wait is not released
+// Demonstrate that a waiting thread will not wake from a preexisting signal
 // =========================================================================
 Semaphore testA_semaphore1("testA_semaphore1",0);     	// Used so that the signal will appear before the wait.
 Semaphore testA_done("testA_done",0);     				// Semaphore to show when test is complete
@@ -316,18 +315,18 @@ void testC()
 
 // =========================================================================
 // test D
-// Show that Signal only wakes 1 thread
+// Show that when multiple threads are waiting, a signal will only wake one of them.
 // =========================================================================
-Lock testD_lock1("testD_lock1");            			// For mutual exclusion
-Condition testD_condition1("testD_condition1");       	// The condition variable to test
-Semaphore testD_semaphore1("testD_semaphore1",0);     	// To ensure the Signal comes before the wait
-Semaphore testD_done("testD_done",0); 					// So that TestSuite knows when test D is done
+Semaphore testD_semaphore1("testD_semaphore1",0);     	// Used to set up ordering of threads
+Semaphore testD_done("testD_done",0); 					// Semaphore to show when test is complete 
+Lock testD_lock1("testD_lock1");            			// Lock to be used by wait and signal
+Condition testD_condition1("testD_condition1");       	// Condition to be used by wait and signal
 
 // =========================================================================
 // testD_waiter()
-//     These threads will wait on the testD_condition1 condition variable.  Only
-//     one testD_waiter will be released
+// Waits for a signal.
 // =========================================================================
+
 void testD_waiter() 
 {
     testD_lock1.Acquire();
@@ -343,8 +342,7 @@ void testD_waiter()
 
 // =========================================================================
 // testD_signaller()
-//     This threads will signal the testD_condition1 condition variable.  Only
-//     one testD_signaller will be released
+// signals waiters
 // =========================================================================
 void testD_signaller() 
 {
@@ -385,7 +383,7 @@ void testD()
     thread = new Thread("testD_signaller");
     thread->Fork((VoidFunctionPtr)testD_signaller,0);
 
-    // Wait for test D to complete
+    // Wait until all threads are complete
     i = 0;
 	while(i <2)
 	{
@@ -396,20 +394,18 @@ void testD()
     printf("Completed test D\n");
 }
 
-
 // =========================================================================
 // test E 
-// Show that Signalling a thread waiting under one lock
-// while holding another is a Fatal error
+// Demonstrate that a thread holding one lock cannot release another lock.
 // =========================================================================
-Lock testE_lock1("testE_lock1");            // For mutual exclusion
-Lock testE_lock2("testE_lock2");            // Second lock for the bad behavior
-Condition testE_condition1("testE_condition1");       // The condition variable to test
-Semaphore testE_semaphore1("testE_semaphore1",0);     // To make sure testE_thread2 acquires the lock after testE_thread1
+Semaphore testE_semaphore1("testE_semaphore1",0);     	// Used to garantee order of thread opperations.
+Lock testE_lock1("testE_lock1");            			// Lock to be held legally
+Lock testE_lock2("testE_lock2");            			// Lock to be used illegally
+Condition testE_condition1("testE_condition1");       	// Condition to be used to wake the sleeping thread.
 
 // =========================================================================
 // testE_thread1() -- test E thread 1
-//     This thread will wait on a condition under testE_lock1
+// Waits on the condition to be signalled
 // =========================================================================
 void testE_thread1() 
 {
@@ -425,8 +421,7 @@ void testE_thread1()
 
 // =========================================================================
 // testE_thread1() -- test E thread 1
-//     This thread will wait on a testE_condition1 condition under testE_lock2, which is
-//     a Fatal error
+// Waits on testE_condition1 with testE_lock2 which is illegal
 // =========================================================================
 void testE_thread2() 
 {
@@ -462,39 +457,36 @@ void testE()
 }
 
 
-// Run test B through 5
+// Run test A through E
 void TestSuite() 
-{
+{	
+	// =========================================================================
+	// test A
+	// Demonstrate that a waiting thread will not wake from a preexisting signal
+	// =========================================================================
+	testA();
+	
 	// =========================================================================
 	// test B 
-	// Show that a thread trying to release a lock it does not
-	// hold does not work
+	// Demonstrate that a thread cannot release a lock which it does not hold.
 	// =========================================================================
 	testB();	
 
-	// =========================================================================
-	// test A
-	// Show that Signals are not stored -- a Signal with no
-	// thread waiting is ignored
-	// =========================================================================
-	testA();
-		
-	// =========================================================================
-	// test D
-	// Show that Signal only wakes 1 thread
-	// =========================================================================
-	testD();
-	
 	// =========================================================================
 	// test C
 	// Show that Broadcast wakes all waiting threads
 	// =========================================================================
 	testC();
+		
+	// =========================================================================
+	// test D
+	// Show that when multiple threads are waiting, a signal will only wake one of them.
+	// =========================================================================
+	testD();
 	
 	// =========================================================================
 	// test E 
-	// Show that Signalling a thread waiting under one lock
-	// while holding another is a Fatal error
+	// Demonstrate that a thread holding one lock cannot release another lock.
 	// =========================================================================
 	testE();   
 }
