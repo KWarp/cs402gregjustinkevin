@@ -11,8 +11,8 @@
 
 /* Customer */ 
 void Customer(int ID);
-void waitInLineToEnterRest(int ID);
-void waitInLineToOrderFood(int ID);
+void WaitInLineToEnterRest(int ID);
+void WaitInLineToOrderFood(int ID);
 
 /* Manager */
 void Manager();

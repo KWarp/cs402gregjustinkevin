@@ -52,7 +52,7 @@
 
 #include "utility.h"
 #include "system.h"
-#include "simulation.h"
+#include "simulation.c"
 
 // External functions used by this file
 
@@ -100,8 +100,8 @@ main(int argc, char **argv)
                         TestSuite();		
 		if (!strcmp(*argv, "-TT"))              		// ThreadTest: Runs the simple thread test
                         ThreadTest();			
-		//if (!strcmp(*argv, "-Sim"))              		// ThreadTest: Runs the simple thread test
-        //                Simulation();		
+		if (!strcmp(*argv, "-Sim"))              		// ThreadTest: Runs the simple thread test
+                        RunSimulation(0);		
 		//if (!strcmp(*argv, "-SimT1"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
 		//if (!strcmp(*argv, "-SimT2"))              	// ThreadTest: Runs the simple thread test
