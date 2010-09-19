@@ -143,4 +143,16 @@ class Condition {
 		List *waitingThreads;
 	#endif
 };
+
+
+int GetLock();
+int GetCV();
+void Acquire(int lock);
+void Release(int lock);
+void Wait(int CV, int lock);
+void Signal(int CV, int lock);
+void Broadcast(int CV, int lock);
+void Yield(int time);
+void Fork(VoidFunctionPtr func);
+
 #endif // SYNCH_H
