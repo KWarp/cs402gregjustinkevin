@@ -429,7 +429,24 @@ void Cook()
 /* =============================================================	
  * WAITER
  * =============================================================*/	
-
+void Waiter()
+{
+  while (true)
+  {
+    acquire(lock_BaggedOrders);
+    wait(CV_BaggedOrders, lock_BaggedOrders);
+    if (numTokens > 0)
+    {
+      order = waiterOrderTokens[numTokens - 1];
+      numTokens--;
+    }
+    release(lock_BaggedOrders);
+    acquire(CV_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]],
+            lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
+    signal(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
+    release(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
+  }
+}
 
 
 
