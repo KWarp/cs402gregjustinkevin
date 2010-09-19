@@ -562,6 +562,9 @@ void OrderTaker()
 {
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
+	PrintOut("OrderTaker ", 11);
+	PrintNumber(ID);
+	PrintOut(":: Created\n", 11);	
 	Release(lock_Init_InitializationLock);
 	
 	while(TRUE)
@@ -582,6 +585,9 @@ void serviceCustomer(int ID)
 	if (count_lineToOrderFoodLength <= 0)
 	{
 		/* no one in line */
+		PrintOut("OrderTaker ", 11);
+		PrintNumber(ID);
+		PrintOut(":: No one in line\n", 18);
 		Release(lock_OrCr_LineToOrderFood);
 		return;
 	}
@@ -591,6 +597,14 @@ void serviceCustomer(int ID)
 	Signal(CV_OrCr_LineToOrderFoodFromCustomerID[custID], lock_OrCr_LineToOrderFood); 
 	Acquire(lock_OrderTakerBusy[ID]);
 	Release(lock_OrCr_LineToOrderFood);
+	
+	/* Ask the customer what he would like to order */
+	PrintOut("OrderTaker ", 11);
+	PrintNumber(ID);
+	PrintOut(":: What would you like to order Customer ", 41);
+	PrintNumber(custID);
+	PrintOut("?\n", 2);
+	
 	Wait(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
 
 	/* Customer has placed order by the time we get here. */
@@ -603,6 +617,13 @@ void serviceCustomer(int ID)
 	/* Give the customer's order an order number. */
 	int token = orderNumCounter++;
 	token_OrCr_OrderNumberFromCustomerID[custID] = token;
+	
+	PrintOut("OrderTaker ", 11);
+	PrintNumber(ID);
+	PrintOut(":: Thanks for the order. Your token number is: ", 47);
+	PrintNumber(token);
+	PrintOut("\n", 1);
+	
 	/* Tell all Waiters the token too */
 	Get_CustomerIDFromToken[token] = custID;
 	/* Tell the customer to pick up the order number. */
@@ -611,6 +632,11 @@ void serviceCustomer(int ID)
 	/* Add order list of orders needing to get bagged. */
 	Acquire(lock_OrdersNeedingBagging);
 	ordersNeedingBagging[token] = Get_CustomerOrderFoodChoiceFromOrderTakerID[ID];
+	PrintOut("OrderTaker ", 11);
+	PrintNumber(ID);
+	PrintOut(":: Order ", 9);
+	PrintNumber(token);
+	PrintOut(" needs to be bagged.\n", 21);
 	Release(lock_OrdersNeedingBagging);
 
 	Release(lock_OrderTakerBusy[ID]);
@@ -640,6 +666,11 @@ void bagOrder()
             {
               ordersNeedingBagging[i] ^= (1 << j);
               cookedFoodStacks[j]--;
+			  
+			  PrintOut("OrderTaker ", 11);
+			  PrintNumber(ID);
+			  //PrintOut(":: ", 99);
+			  
             }
         }
         
