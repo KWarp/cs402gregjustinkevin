@@ -597,12 +597,32 @@ int randomNumber(int count)
 	return 4;
 }
 
-void printString(char[] s, int length)
+void PrintOut(unsigned int vaddr, int len)
 {
-	/* ??? */
+  char *buf;          // Kernel buffer for output
+
+  if ( !(buf = new char[len]) ) 
+  {
+    printf("%s","Error allocating kernel buffer for write!\n");
+    return;
+  } else {
+   	if ( copyin(vaddr,len,buf) == -1 ) {
+      printf("%s","Bad pointer passed to to write: data not written\n");
+      delete[] buf;
+      return;
+  	}
+  }
+
+  for (int ii=0; ii<len; ii++) 
+	{
+   	printf("%c",buf[ii]);
+  }
+
+  delete[] buf;
 }
 
-void printNumber(int i)
+
+void PrintNumber(int number)
 {
-	/* ??? */
+	printf("%d",number);
 }
