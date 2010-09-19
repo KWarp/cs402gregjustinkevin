@@ -410,7 +410,7 @@ void manageCook()
 /*-----------------------------
  * Manager hiring a new Cook
  * ---------------------------*/
-void hireCook(index)
+void hireCook(int index)
 {
 	/* Acquire(lock_MrCk_InventoryLocks[index])  <-- this is already done! */
 
