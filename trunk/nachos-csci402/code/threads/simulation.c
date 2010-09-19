@@ -95,6 +95,23 @@ int lock_Init_InitializationLock;
 /* =============================================================	
  * Initialize functions
  * =============================================================*/
+ 
+int numThreads = 0;
+
+void Fork(int func)
+{
+    Thread * thread;
+    char *name;
+	numThreads ++;
+    name = new char [20];
+    sprintf(name,"Thread #%d",numThreads);
+	thread = new Thread(name);
+
+	thread->Fork((VoidFunctionPtr)func,0);
+	printf("%s %d - %d \n",name,(int)func,numThreads);
+}
+
+ 
 void Initialize()
 {
   lock_MrCr_LineToEnterRest = GetLock();
@@ -144,16 +161,24 @@ void RunSimulation(int scenario)
 	PrintOut("Initializing...\n",16);
 	Initialize();
 	PrintOut("Initialized\n",12);
+	/**/
 	
-	Fork((VoidFunctionPtr)Manager);
-	Fork((VoidFunctionPtr)OrderTaker);
-	Fork((VoidFunctionPtr)Waiter);
-	Fork((VoidFunctionPtr)Customer);
-	Fork((VoidFunctionPtr)Customer);
-	Fork((VoidFunctionPtr)Customer);
-	Fork((VoidFunctionPtr)Customer);
-	Fork((VoidFunctionPtr)Customer);
-	Fork((VoidFunctionPtr)Customer);
+	count_NumTablesAvailable = 10;
+	for(int i = 0; i < numInventoryItemTypes; i += 1)
+	{
+		minCookedFoodStacks[i] = 2;
+		maxCookedFoodStacks[i] = 5;
+		cookedFoodStacks[i] = 0;
+		cookTime[i] = 50;
+		Get_CookIsHiredFromInventoryIndex[i ] = 0;
+		Get_CookOnBreakFromInventoryIndex[i ] = 0;
+	}
+	
+	Fork((int)Manager);
+	Fork((int)OrderTaker);
+	Fork((int)Waiter);
+	Fork((int)Customer);
+	
 }
 
 /* =============================================================	
@@ -163,17 +188,17 @@ void RunSimulation(int scenario)
 /*-----------------------------
  * Top Level Customer Routine
  * ---------------------------*/
-void Customer()
+void Customer(int debug)
 {
-	PrintNumber(1);
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumCustomers++;
 	Release(lock_Init_InitializationLock);
 
 	int eatIn = randomNumber(1);
 	
-	PrintOut("Customer:: Created #\n",21);
+	PrintOut("Customer:: Created #",21);
 	PrintNumber(ID);
+	PrintOut("\n",1);
 	
 	if(eatIn)
 	{
@@ -260,6 +285,9 @@ void Customer()
 		count_NumTablesAvailable += 1;
 		Release(lock_MrCr_LineToEnterRest);
 		
+		PrintOut("Customer ",11);
+		PrintNumber(ID);
+		PrintOut("Left Store full",15);
 		/* leave store; */
 		return;
 	}
@@ -279,6 +307,9 @@ void Customer()
 		bool_ListOrdersReadyFromToken[token] = FALSE;
 		Release(lock_OrCr_OrderReady);		
 		
+		PrintOut("Customer ",11);
+		PrintNumber(ID);
+		PrintOut("Left Store with food",20);
 		/*leave store; */
 		return;
 	}
@@ -340,7 +371,7 @@ void WaitInLineToOrderFood(int ID)
  * Top Level Manager Routine
  * ---------------------------*/
 
-void Manager()
+void Manager(int debug)
 {
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
@@ -372,6 +403,7 @@ void Manager()
 		orderInventoryFood();
 		manageCook();
 		checkLineToEnterRest();
+		Yield(100);
 	}
 }
 
@@ -423,6 +455,7 @@ void orderInventoryFood()
  * ---------------------------*/
 void manageCook()
 {
+	//printf("manageCook");
 	for(int i = 0; i < numInventoryItemTypes; i += 1)
 	{
 		Acquire(lock_MrCk_InventoryLocks[i]);
@@ -430,11 +463,13 @@ void manageCook()
 		{
 			if(Get_CookIsHiredFromInventoryIndex[i] == 0)
 			{
+				printf("hireCook");
 				//Cook is not hired so hire new cook
 				hireCook(i);
 			}
 			else
 			{
+				printf("wakeUpCook");
 				//cook is hired so Signal him to make sure he is not on break;
 				Get_CookOnBreakFromInventoryIndex[i] = FALSE;
 				Signal(CV_MrCk_InventoryLocks[i], lock_MrCk_InventoryLocks[i]);
@@ -442,6 +477,7 @@ void manageCook()
 		}
 		else if(cookedFoodStacks[i] > maxCookedFoodStacks[i])
 		{
+				printf("sleepCook");
 			Get_CookOnBreakFromInventoryIndex[i] = TRUE;
 		}
 		
@@ -461,7 +497,7 @@ void hireCook(int index)
 	
 	Get_CookIsHiredFromInventoryIndex[index] = -1;
 	index_Ck_InventoryIndex = index;
-	Fork((VoidFunctionPtr)Cook);
+	Fork((int)Cook);
 	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
 	
 	Release(lock_HireCook);
@@ -496,7 +532,7 @@ void checkLineToEnterRest()
  /*-----------------------------
  * Top Level Cook Routine
  * ---------------------------*/
-void Cook()
+void Cook(int debug)
 {
 	Acquire(lock_HireCook);
 	
@@ -558,7 +594,7 @@ void Cook()
  /*-----------------------------
  * Top Level OrderTaker Routine
  * ---------------------------*/
-void OrderTaker()
+void OrderTaker(int debug)
 {
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
@@ -566,11 +602,13 @@ void OrderTaker()
 	PrintNumber(ID);
 	PrintOut(":: Created\n", 11);	
 	Release(lock_Init_InitializationLock);
+	printf("OrderTaker %d",ID);
 	
 	while(TRUE)
 	{
 		serviceCustomer(ID);
 		bagOrder();
+		Yield(100);
 	}
 }
 
@@ -585,9 +623,6 @@ void serviceCustomer(int ID)
 	if (count_lineToOrderFoodLength <= 0)
 	{
 		/* no one in line */
-		PrintOut("OrderTaker ", 11);
-		PrintNumber(ID);
-		PrintOut(":: No one in line\n", 18);
 		Release(lock_OrCr_LineToOrderFood);
 		return;
 	}
@@ -667,10 +702,8 @@ void bagOrder()
               ordersNeedingBagging[i] ^= (1 << j);
               cookedFoodStacks[j]--;
 			  
-			  PrintOut("OrderTaker ", 11);
-			  PrintNumber(ID);
-			  //PrintOut(":: ", 99);
-			  
+			  PrintOut("Bagging Order #", 15);
+			  PrintNumber(i);
             }
         }
         
@@ -707,7 +740,7 @@ void bagOrder()
 /* =============================================================	
  * WaitER
  * =============================================================*/	
-void Waiter()
+void Waiter(int debug)
 {
 	while (TRUE)
 	{

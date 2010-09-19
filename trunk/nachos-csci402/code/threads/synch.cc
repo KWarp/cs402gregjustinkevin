@@ -354,18 +354,6 @@ void Yield(int time)
 	}
 }
 
-int numThreads = 0;
-
-void Fork(VoidFunctionPtr func)
-{
-	PrintNumber(1);
-  Thread *t = new Thread("forked thread #" + numThreads);
-	PrintNumber(2);
-	PrintNumber(3);
-
-  t->Fork(func, 1);
-}
-
 int randomNumber(int count)
 {
 	return 4;

@@ -153,7 +153,6 @@ void Wait(int CV, int lock);
 void Signal(int CV, int lock);
 void Broadcast(int CV, int lock);
 void Yield(int time);
-void Fork(VoidFunctionPtr func);
 
 /* Utility */
 int randomNumber(int count);
