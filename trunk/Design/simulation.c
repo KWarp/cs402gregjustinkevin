@@ -1,5 +1,6 @@
 
-#include "simulation.c"
+#include "simulation.h"
+#include "synch.c"
 
 /*
  * simulation.c
@@ -599,30 +600,30 @@ int randomNumber(int count)
 
 void PrintOut(unsigned int vaddr, int len)
 {
-  char *buf;          // Kernel buffer for output
+	char *buf;	/* Kernel buffer for output */
 
-  if ( !(buf = new char[len]) ) 
-  {
-    printf("%s","Error allocating kernel buffer for write!\n");
-    return;
-  } else {
-   	if ( copyin(vaddr,len,buf) == -1 ) {
-      printf("%s","Bad pointer passed to to write: data not written\n");
-      delete[] buf;
-      return;
-  	}
-  }
-
-  for (int ii=0; ii<len; ii++) 
+	if ( !(buf = new char[len]) ) 
 	{
-   	printf("%c",buf[ii]);
-  }
+		printf("%s","Error allocating kernel buffer for write!\n");
+		return;
+	} else {
+		if ( copyin(vaddr,len,buf) == -1 ) {
+			printf("%s","Bad pointer passed to to write: data not written\n");
+			delete[] buf;
+			return;
+		}
+	}
 
-  delete[] buf;
+	for (int ii=0; ii<len; ii++) 
+	{
+		printf("%c",buf[ii]);
+	}
+
+	delete[] buf;
 }
 
 
 void PrintNumber(int number)
 {
-	printf("%d",number);
+	printf("%d", number);
 }

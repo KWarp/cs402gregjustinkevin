@@ -35,7 +35,7 @@ void Waiter();
 
 /* Utility */
 int randomNumber(int count);
-void printString(char[] s, int length);
+void PrintOut(unsigned int vaddr, int len)
 void printNumber(int i);
 
 
