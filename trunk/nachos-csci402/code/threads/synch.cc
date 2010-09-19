@@ -293,6 +293,10 @@ void Condition::Broadcast(Lock* conditionLock)
 	#endif
 }
 
+/* =============================================================	
+ * UTILITY METHODS
+ * =============================================================*/	
+
 const int MaxNumLocks = 200;
 
 Lock* locks[MaxNumLocks];
@@ -356,4 +360,20 @@ void Fork(VoidFunctionPtr func)
   Thread *t = new Thread("forked thread #" + numThreads);
 
   t->Fork(func, 1);
+}
+
+int randomNumber(int count)
+{
+	return 4;
+}
+
+void PrintOut(const char* vaddr, int len)
+{
+	//for(int i = 0 ; i < len; i ++)
+	printf(vaddr);
+}
+
+void PrintNumber(int number)
+{
+	printf("%d", number);
 }
