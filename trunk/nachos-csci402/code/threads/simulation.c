@@ -631,23 +631,36 @@ void Waiter()
 {
 	while (TRUE)
 	{
-		int token;
+		int token = -1;
 		Acquire(lock_OrWr_BaggedOrders);
 		/* Wait to get Signaled by the Order Taker*/
+    PrintOut("Waiter::Waiting for order to deliver\n", 37);
 		Wait(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
+    PrintOut("Waiter::Received broadcast\n", 27);
 		if (count_NumOrdersBaggedAndReady > 0)
 		{
 			/* Grab the order that is ready */
 			token = baggedOrders[count_NumOrdersBaggedAndReady - 1];
+      PrintOut("Waiter::Grabbing order number: ", 31);
+      PrintNumber(token);
+      PrintOut("\n", 1);
 			count_NumOrdersBaggedAndReady--;
 		}
 		Release(lock_OrWr_BaggedOrders);
 		
-		/* Signal to the customer that the order is ready */
-		Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-		Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
-			   lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-		Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+    if (token != -1)
+    {
+      /* Signal to the customer that the order is ready */
+      PrintOut("Waiter::Giving order number: ", 31);
+      PrintNumber(token);
+      PrintOut("to customer number: ", 20);
+      PrintNumber(Get_CustomerIDFromToken[token]);
+      
+      Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+      Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
+           lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+      Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+    }
 	}
 }
 
