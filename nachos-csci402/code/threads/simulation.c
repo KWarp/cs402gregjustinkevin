@@ -503,6 +503,10 @@ void Cook()
 	int ID = index_Ck_InventoryIndex;
 	Get_CookIsHiredFromInventoryIndex[ID] = 1;
 
+  PrintOut("Cook", 4);
+  PrintNumber(ID);
+  PrintOut("::I\'M ALIVE!!!\n", 15);
+  
 	Signal(CV_HireCook, lock_HireCook); 
 	
 	Release(lock_HireCook);
@@ -514,21 +518,32 @@ void Cook()
 		Acquire(lock_MrCk_InventoryLocks[ID]);
 
 		if(Get_CookOnBreakFromInventoryIndex[ID])
+    {
+      PrintOut("Cook", 4);
+      PrintNumber(ID);
+      PrintOut("::Going on break\n", 17);
+      
 			Wait(CV_MrCk_InventoryLocks[ID], lock_MrCk_InventoryLocks[ID]);
+    }
 		
 		/* Cook something */
 		if(inventoryCount[ID] > 0)
 		{
+      PrintOut("Cook", 4);
+      PrintNumber(ID);
+      PrintOut("::Cooking...\n", 13);
+      
 			inventoryCount[ID]--;
-		
 			Release(lock_MrCk_InventoryLocks[ID]);
-
-			Yield(cookTime[ID]);
-		
+			
+      Yield(cookTime[ID]);
+      
 			Acquire(lock_MrCk_InventoryLocks[ID]);
-		
 			cookedFoodStacks[ID]++;
 		
+      PrintOut("Cook", 4);
+      PrintNumber(ID);
+      PrintOut("::Food Ready +1\n", 13);
 		}
 
 		Release(lock_MrCk_InventoryLocks[ID]);
