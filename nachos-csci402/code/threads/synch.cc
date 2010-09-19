@@ -165,10 +165,8 @@ void Lock::Release()
 
 		if (!waitingThreads->IsEmpty())
 		{
-			// Remove a thread from waitingThreads.
+			// Wake up 1 Thread from waitingThreads.
 			Thread* thread = (Thread*)waitingThreads->Remove();
-
-			// Wake up the thread and put it on the scheduler's ready queue.
 			scheduler->ReadyToRun(thread);
 
 			// Make it the new owner.
@@ -193,8 +191,104 @@ bool Lock::isHeldByCurrentThread()
 	#endif
 }
 
-Condition::Condition(char* debugName) { }
-Condition::~Condition() { }
-void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
-void Condition::Signal(Lock* conditionLock) { }
-void Condition::Broadcast(Lock* conditionLock) { }
+Condition::Condition(char* debugName)
+{
+	#ifdef CHANGED
+		name = debugName;
+		waitingLock = NULL;
+		waitingThreads = new List;
+	#endif
+}
+
+Condition::~Condition()
+{
+	#ifdef CHANGED
+		delete waitingThreads;
+	#endif
+}
+
+void Condition::Wait(Lock* conditionLock)
+{
+	#ifdef CHANGED
+		// Disable interrupts.
+		IntStatus old = interrupt->SetLevel(IntOff);
+
+		if (conditionLock == NULL)
+		{
+			printf("Condition::Error - conditionLock cannot be NULL\n");
+			// Restore interrupts and return.
+			interrupt->SetLevel(old);
+			return;
+		}
+
+		if (waitingLock == NULL)
+		{
+			// First thread calling wait.
+			waitingLock = conditionLock;	// Save the lock.
+		}
+
+		// Make sure conditionLock matches waitingLock.
+		if (conditionLock != waitingLock)
+		{
+			// Lock must match.
+			printf("Condition::Error - Invalid conditionLock\n");
+			// Restore interrupts and return.
+			interrupt->SetLevel(old);
+			return;
+		}
+
+		// Everything OK to be a "waitingThread" at this point.
+		
+		// Add thread to waitingThreads and sleep.
+		waitingThreads->Append((void*)currentThread);
+		conditionLock->Release();
+		currentThread->Sleep();
+		conditionLock->Acquire();
+
+		// Restore interrupts.
+		interrupt->SetLevel(old);
+	#endif
+}
+
+void Condition::Signal(Lock* conditionLock)
+{
+	#ifdef CHANGED
+		// Disable interrupts.
+		IntStatus old = interrupt->SetLevel(IntOff);
+
+		// If there are no waitingThreads to signal.
+		if (waitingThreads->IsEmpty())
+		{
+			// Restore interrupts and return.
+			interrupt->SetLevel(old);
+			return;
+		}
+
+		if (waitingLock != conditionLock)
+		{
+			// Lock must match.
+			printf("Condition::Error - Invalid conditionLock\n");
+			// Restore interrupts and return.
+			interrupt->SetLevel(old);
+			return;
+		}
+
+		// Wake up 1 Thread from waitingThreads.
+		Thread* thread = (Thread*)waitingThreads->Remove();
+		scheduler->ReadyToRun(thread);
+
+		if (waitingThreads->IsEmpty())
+			waitingLock = NULL;
+
+		// Restore interrupts.
+		interrupt->SetLevel(old);
+	#endif
+}
+
+void Condition::Broadcast(Lock* conditionLock)
+{
+	#ifdef CHANGED
+		while (!waitingThreads->IsEmpty())
+			Signal(conditionLock);
+	#endif
+}
