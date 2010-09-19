@@ -145,7 +145,6 @@ void RunSimulation(int scenario)
 	Initialize();
 	PrintOut("Initialized\n",12);
 	
-	
 	Fork((VoidFunctionPtr)Manager);
 	Fork((VoidFunctionPtr)OrderTaker);
 	Fork((VoidFunctionPtr)Waiter);
@@ -166,31 +165,60 @@ void RunSimulation(int scenario)
  * ---------------------------*/
 void Customer()
 {
+	PrintNumber(1);
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumCustomers++;
 	Release(lock_Init_InitializationLock);
 
 	int eatIn = randomNumber(1);
 	
+	PrintOut("Customer:: Created #\n",21);
+	PrintNumber(ID);
+	
 	if(eatIn)
 	{
+		PrintOut("Customer ",11);
+		PrintNumber(ID);
+		PrintOut(":: Waiting In Line for eatingin\n",33);
+		
 		WaitInLineToEnterRest(ID);
 	}
 	
+	PrintOut("Customer ",11);
+	PrintNumber(ID);
+	PrintOut(":: Waiting In Line for food\n",29);
 	WaitInLineToOrderFood(ID);
 	/* at this point we are locked with the order taker */
-	
 	
 	/* randomly pick an order and tell it to order taker */
 	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = randomNumber(count_NumFoodChoices);
 	/* Tell OrderTaker whether eating in or togo */
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
 	/* Ordered, Signal Order Taker - this represents talking to ordertaker */
+	
+	PrintOut("Customer ",11);
+	PrintNumber(ID);
+	PrintOut(":: Signalling OrderTaker #",26);
+	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+	
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
+					
+	PrintOut("Customer ",11);
+	PrintNumber(ID);
+	PrintOut(":: Waiting for OrderTaker #",27);
+	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+	PrintOut("\n",1);
+	
 	/* Wait for order taker to respond */
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
+	
+	PrintOut("Customer ",11);
+	PrintNumber(ID);
+	PrintOut(":: Paying OrderTaker #",22);
+	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+	PrintOut("\n",1);
 	
 	/* this is the money the customer gives to the orderTaker */
 	Get_CustomerMoneyPaidFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] 
@@ -200,6 +228,12 @@ void Customer()
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]],
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 
+	PrintOut("Customer ",11);
+	PrintNumber(ID);
+	PrintOut(":: Giving order to Order Taker #",32);
+	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+	PrintOut("\n",1);
+	
 	/* Wait for order taker to respond */
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
