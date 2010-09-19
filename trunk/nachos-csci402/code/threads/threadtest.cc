@@ -432,13 +432,19 @@ void TestCustomer()
       // If the customer is eat-in.
       if (Get_CustomerTogoOrEatinFromCustomerID[GET_CustomerIDFromOrderNumber[i]] == 1)
       {
-        
+        // Pretend we are waiter delivering food and signal eat-in customer directly.
+        acquire(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[i]]);
+        signal(CV_eatinCustomersWaitingForFood[customerNumberFromorderNumber[i]], 
+               lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[i]]);
+        release(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[i]]);
       }
       else // if customer is togo.
       {
-        baggedOrders[numBaggedOrdersWaiting] = i;
-        numBaggedOrdersWaiting++;
-        broadcast(lock_BaggedOrders, CV_BaggedOrders);
+        // Tell the waiting togo customers that order i is ready.
+        acquire(lock_OrderReady);
+          bool_ListOrdersReadyFromToken[i] = 1;
+          broadcast(lock_OrderReady, CV_OrderReady);
+        release(lock_OrderReady);
       }
     }
   }
