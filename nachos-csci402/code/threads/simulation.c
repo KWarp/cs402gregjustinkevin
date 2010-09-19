@@ -98,11 +98,10 @@ int count_NumFoodChoices;
 int lock_Init_InitializationLock;
 
 /* =============================================================	
- * Initializes and runs the simulation
+ * Initialize functions
  * =============================================================*/
-void RunSimulation()
+void InitializeLocks()
 {
-  /* Initialize Locks */
   lock_MrCr_LineToEnterRest = GetLock();
   lock_OrCr_LineToOrderFood = GetLock();
   for (int i = 0; i < count_MaxNumOrderTakers; ++i)
@@ -116,7 +115,10 @@ void RunSimulation()
   lock_OrdersNeedingBagging = GetLock();
   lock_OrWr_BaggedOrders = GetLock();
   lock_Init_InitializationLock = GetLock();
-  
+}
+
+void InitializeCVs()
+{
   /* Initialize CV's */
   CV_OrWr_BaggedOrders = GetCV();
   CV_HireCook = GetCV();
@@ -134,6 +136,15 @@ void RunSimulation()
     CV_OrCr_LineToOrderFoodFromCustomerID[i] = GetCV();
   for (int i = 0; i < count_MaxNumCustomers; ++i)
     CV_MrCr_LineToEnterRestFromCustomerID[i] = GetCV();
+}
+
+/* =============================================================	
+ * Runs the simulation
+ * =============================================================*/
+void RunSimulation(int scenario)
+{
+  InitializeLocks();
+  InitializeCVs();
   
 }
 

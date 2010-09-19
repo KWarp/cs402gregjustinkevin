@@ -38,7 +38,7 @@ int randomNumber(int count);
 void PrintOut(unsigned int vaddr, int len)
 void printNumber(int i);
 
-
+void RunSimulation(int scenario);
 
 #endif  /* SIMULATION.H */
 
