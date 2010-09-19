@@ -37,6 +37,7 @@ int[] CV_MrCr_LineToOrderFoodFromCustomerID;
 // Used by the Customer routine
 int[] ID_Get_OrderTakerIDFromCustomerID;
 int[] Get_CustomerOrderFoodChoiceFromOrderTakerID;
+int[] Get_CustomerTogoOrEatinFromCustomerID;
 int[] Get_CustomerMoneyPaidFromOrderTakerID;
 int[] lock_OrderTakerBusy;
 int[] CV_OrderTakerBusy;
@@ -73,15 +74,14 @@ void Customer(int ID)
 	
 	// randomly pick an order and tell it to order taker
 	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = randomNumber(max_FoodChoices);
+  // Tell OrderTaker whether eating in or togo
+  Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
 	// Ordered, signal Order Taker - this represents talking to ordertaker
 	signal(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]],
 					CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 	//wait for order taker to respond
 	wait(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 			
 					CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
-	// Order Taker got my order, and money
-	// Order Taker gives me an order number in exchange
-	int token = token_OrCr_OrderNumberFromCustomerID[ID];
 	
 	//this is the money the customer gives to the orderTaker
 	Get_CustomerMoneyPaidFromOrderTakerID = Get_CostFromFoodChoice[Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]]];
@@ -89,6 +89,14 @@ void Customer(int ID)
 	signal(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 
+	//wait for order taker to respond
+	wait(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 			
+					CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
+          
+	// Order Taker got my order, and money
+	// Order Taker gives me an order number in exchange
+	int token = token_OrCr_OrderNumberFromCustomerID[ID];
+          
 	if(eatIn)
 	{
 		// we want the customer to be ready to receive the order
