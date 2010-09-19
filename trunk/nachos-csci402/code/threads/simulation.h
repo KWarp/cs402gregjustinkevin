@@ -12,14 +12,14 @@
 /* Customer */ 
 void Customer(int ID);
 void waitInLineToEnterRest(int ID);
-void waitInLineToOrderFood(int ID)
+void waitInLineToOrderFood(int ID);
 
 /* Manager */
 void Manager();
 void callWaiter();
 void orderInventoryFood();
 void manageCook();
-void hireCook(index);
+void hireCook(int index);
 void checkLineToEnterRest();
 
 /* Cook */
@@ -35,7 +35,7 @@ void Waiter();
 
 /* Utility */
 int randomNumber(int count);
-void PrintOut(unsigned int vaddr, int len)
+void PrintOut(unsigned int vaddr, int len);
 void printNumber(int i);
 
 void RunSimulation(int scenario);
