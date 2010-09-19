@@ -241,13 +241,12 @@ Condition testC_condition1("testC_condition1");       	// Condition to use for b
 
 // =========================================================================
 // testC_waiter()
-//     These threads will wait on the testC_condition1 condition variable.  All
-//     testC_waiters will be released
+//     Wait on the condition variable until they are signalled to be released
 // =========================================================================
 void testC_waiter() 
 {
     testC_lock1.Acquire();
-    testC_semaphore1.V();          // Let the signaller know we're ready to wait
+    testC_semaphore1.V();          // Bam im waiting on you bitch
     printf("%s: Lock %s acquired, waiting on %s\n",currentThread->getName(),
            testC_lock1.getName(), testC_condition1.getName());
     testC_condition1.Wait(&testC_lock1);
@@ -259,8 +258,7 @@ void testC_waiter()
 
 // =========================================================================
 // testC_signaller()
-//     This thread will broadcast to the testC_condition1 condition variable.
-//     All testC_waiters will be released
+//     Broadcasting thread.  I yell loudly
 // =========================================================================
 void testC_signaller() 
 {
@@ -273,15 +271,19 @@ void testC_signaller()
 	
     testC_lock1.Acquire();
     printf("%s: Lock %s acquired, broadcasting %s\n",currentThread->getName(),testC_lock1.getName(), testC_condition1.getName());
-    testC_condition1.Broadcast(&testC_lock1);
-    printf("%s: Releasing %s\n",currentThread->getName(), testC_lock1.getName());
-    testC_lock1.Release();
+    
+	testC_condition1.Broadcast(&testC_lock1);
+    
+	printf("%s: Releasing %s\n",currentThread->getName(), testC_lock1.getName());
+    
+	testC_lock1.Release();
     testC_done.V();
 }
 
 // =========================================================================
 // initialize threads for testC
 // =========================================================================
+
 void testC()
 {
     Thread * thread;
