@@ -1,4 +1,12 @@
 
+#include "simulation.c"
+
+/*
+ * simulation.c
+ * Implementation of the Restaurant Simulation
+ * CSCI 402 Fall 2010
+ *
+ */
 
 
 
@@ -261,7 +269,7 @@ void Manager()
 			}
 		}
 
-		BagOrder(ID);
+		bagOrder(ID);
 		
 		callWaiter();
 		orderInventoryFood();
