@@ -441,25 +441,12 @@ void Waiter()
       numTokens--;
     }
     release(lock_BaggedOrders);
-    acquire(CV_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]],
-            lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
-    signal(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
+    acquire(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
+    signal(CV_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]],
+           lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
     release(lock_eatinCustomersWaitingForFood[customerNumberFromorderNumber[order]]);
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
  
 /* =============================================================	
  * UTILITY METHODS
