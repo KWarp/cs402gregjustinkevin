@@ -100,10 +100,98 @@ Semaphore::V()
 // Dummy functions -- so we can compile our later assignments 
 // Note -- without a correct implementation of Condition::Wait(), 
 // the test case in the network assignment won't work!
-Lock::Lock(char* debugName) {}
-Lock::~Lock() {}
-void Lock::Acquire() {}
-void Lock::Release() {}
+Lock::Lock(char* debugName)
+{
+	#ifdef CHANGED
+		name = debugName;
+		state = FREE;
+		waitingThreads = new List;
+		owner = NULL;
+	#endif
+}
+
+Lock::~Lock()
+{
+	#ifdef CHANGED
+		delete waitingThreads;
+	#endif
+}
+
+void Lock::Acquire()
+{
+	#ifdef CHANGED
+		// Disable interrupts.
+		IntStatus old = interrupt->SetLevel(IntOff);
+
+		// If we already own the lock.
+		if (isHeldByCurrentThread())
+		{
+			// Restore interrupts and return.
+			interrupt->SetLevel(old);
+			return;
+		}
+
+		// If the lock is not already owned by somebody else.
+		if (state == FREE)
+		{
+			// Take the lock and make ourselves the owner.
+			state = BUSY;
+			owner = currentThread;
+		}
+		else // if (state == BUSY)
+		{
+			waitingThreads->Append((void*)currentThread);
+			currentThread->Sleep();
+		}
+
+		// Restore interrupts.
+		interrupt->SetLevel(old);
+	#endif
+}
+
+void Lock::Release()
+{
+	#ifdef CHANGED
+		// Disable interrupts.
+		IntStatus old = interrupt->SetLevel(IntOff);
+
+		if (!isHeldByCurrentThread())
+		{
+			// printf("Lock::Error - Release called by non-owner");
+			// Restore interrupts and return.
+			interrupt->SetLevel(old);
+			return;
+		}
+
+		if (!waitingThreads->IsEmpty())
+		{
+			// Remove a thread from waitingThreads.
+			Thread* thread = (Thread*)waitingThreads->Remove();
+
+			// Wake up the thread and put it on the scheduler's ready queue.
+			scheduler->ReadyToRun(thread);
+
+			// Make it the new owner.
+			owner = thread;
+		}
+		else // There are no threads in waitingThreads.
+		{
+            // Make the Lock available and clear lock ownership.
+            state = FREE;
+            owner = NULL;
+		}
+
+		// Restore interrupts.
+		interrupt->SetLevel(old);
+	#endif
+}
+
+bool Lock::isHeldByCurrentThread()
+{
+	#ifdef CHANGED
+		return currentThread == owner;
+	#endif
+}
 
 Condition::Condition(char* debugName) { }
 Condition::~Condition() { }
