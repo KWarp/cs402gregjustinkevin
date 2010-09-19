@@ -88,17 +88,33 @@ main(int argc, char **argv)
     DEBUG('t', "Entering main");
     (void) Initialize(argc, argv);
     
-#ifdef THREADS
-    ThreadTest();
-    #ifdef CHANGED
-      TestSuite();
-    #endif
-#endif
-
-    for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
-	argCount = 1;
+    for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) 
+	{
+		argCount = 1;
+		
         if (!strcmp(*argv, "-z"))               // print copyright
             printf (copyright);
+		
+#ifdef CHANGED		
+		if (!strcmp(*argv, "-T"))               // Test Suite: link for this code is at the bottom of part 1 description
+                        TestSuite();		
+		if (!strcmp(*argv, "-TT"))              // ThreadTest: Runs the simple thread test
+                        ThreadTest();			
+		//if (!strcmp(*argv, "-Sim"))              // ThreadTest: Runs the simple thread test
+        //                Simulation();		
+		//if (!strcmp(*argv, "-SimT1"))              // ThreadTest: Runs the simple thread test
+        //                Simulation();		
+		//if (!strcmp(*argv, "-SimT2"))              // ThreadTest: Runs the simple thread test
+        //                Simulation();		
+		//if (!strcmp(*argv, "-SimT3"))              // ThreadTest: Runs the simple thread test
+        //                Simulation();		
+		//if (!strcmp(*argv, "-SimT4"))              // ThreadTest: Runs the simple thread test
+        //                Simulation();		
+		//if (!strcmp(*argv, "-SimT5"))              // ThreadTest: Runs the simple thread test
+        //                Simulation();		
+#endif		
+		
+			
 #ifdef USER_PROGRAM
         if (!strcmp(*argv, "-x")) {        	// run a user program
 	    ASSERT(argc > 1);
