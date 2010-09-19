@@ -99,8 +99,10 @@ void Initialize()
 {
   lock_MrCr_LineToEnterRest = GetLock();
   lock_OrCr_LineToOrderFood = GetLock();
+  
   for (int i = 0; i < count_MaxNumOrderTakers; ++i)
     lock_OrderTakerBusy[i] = GetLock();
+	
   for (int i = 0; i < count_MaxNumCustomers; ++i)
     lock_CustomerSittingFromCustomerID[i] = GetLock();
   lock_OrCr_OrderReady = GetLock();
@@ -138,7 +140,21 @@ void Initialize()
  * =============================================================*/
 void RunSimulation(int scenario)
 {
-  Initialize();
+	PrintOut("Starting Simulation\n",20);
+	PrintOut("Initializing...\n",16);
+	Initialize();
+	PrintOut("Initialized\n",12);
+	
+	
+	Fork((VoidFunctionPtr)Manager);
+	Fork((VoidFunctionPtr)OrderTaker);
+	Fork((VoidFunctionPtr)Waiter);
+	Fork((VoidFunctionPtr)Customer);
+	Fork((VoidFunctionPtr)Customer);
+	Fork((VoidFunctionPtr)Customer);
+	Fork((VoidFunctionPtr)Customer);
+	Fork((VoidFunctionPtr)Customer);
+	Fork((VoidFunctionPtr)Customer);
 }
 
 /* =============================================================	
@@ -486,7 +502,6 @@ void Cook()
 
 }
  
-
 /* =============================================================	
  * ORDER TAKER
  * =============================================================*/	
