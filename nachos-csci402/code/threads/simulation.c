@@ -116,6 +116,25 @@ void RunSimulation()
   lock_OrdersNeedingBagging = GetLock();
   lock_OrWr_BaggedOrders = GetLock();
   lock_Init_InitializationLock = GetLock();
+  
+  /* Initialize CV's */
+  CV_OrWr_BaggedOrders = GetCV();
+  CV_HireCook = GetCV();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    CV_MrCk_InventoryLocks[i] = GetCV();
+  CV_MrWr = GetCV();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    CV_CustomerWaitingForFood[i] = GetCV();
+  CV_OrCr_OrderReady = GetCV();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    CV_CustomerSittingFromCustomerID[i] = GetCV();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    CV_OrderTakerBusy[i] = GetCV();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    CV_OrCr_LineToOrderFoodFromCustomerID[i] = GetCV();
+  for (int i = 0; i < count_MaxNumCustomers; ++i)
+    CV_MrCr_LineToEnterRestFromCustomerID[i] = GetCV();
+  
 }
 
 /* =============================================================	
