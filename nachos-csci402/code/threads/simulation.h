@@ -10,12 +10,12 @@
  
 
 /* Customer */ 
-void Customer();
+void Customer(int debug);
 void WaitInLineToEnterRest(int ID);
 void WaitInLineToOrderFood(int ID);
 
 /* Manager */
-void Manager();
+void Manager(int debug);
 void callWaiter();
 void orderInventoryFood();
 void manageCook();
@@ -23,18 +23,19 @@ void hireCook(int index);
 void checkLineToEnterRest();
 
 /* Cook */
-void Cook();
+void Cook(int debug);
 
 /* Order Taker */
-void OrderTaker();
+void OrderTaker(int debug);
 void serviceCustomer(int ID);
 void bagOrder();
 
 /* Waiter */
-void Waiter();
+void Waiter(int debug);
 
 void RunSimulation(int scenario);
 
+void Fork(int func);
 #endif  /* SIMULATION.H */
 
 
