@@ -96,23 +96,9 @@ int lock_Init_InitializationLock;
  * Initialize functions
  * =============================================================*/
  
-int numThreads = 0;
-
-void Fork(int func)
-{
-    Thread * thread;
-    char *name;
-	numThreads ++;
-    name = new char [20];
-    sprintf(name,"Thread #%d",numThreads);
-	thread = new Thread(name);
-
-	thread->Fork((VoidFunctionPtr)func,0);
-}
-
- 
 void Initialize()
 {
+  /* Initialize Locks */
   lock_MrCr_LineToEnterRest = GetLock();
   lock_OrCr_LineToOrderFood = GetLock();
   
@@ -149,19 +135,8 @@ void Initialize()
     CV_OrCr_LineToOrderFoodFromCustomerID[i] = GetCV();
   for (int i = 0; i < count_MaxNumCustomers; ++i)
     CV_MrCr_LineToEnterRestFromCustomerID[i] = GetCV();
-}
-
-/* =============================================================	
- * Runs the simulation
- * =============================================================*/
-void RunSimulation(int scenario)
-{
-	PrintOut("Starting Simulation\n",20);
-	PrintOut("Initializing...\n",16);
-	Initialize();
-	PrintOut("Initialized\n",12);
-	/**/
-	
+    
+  /* Initialize Monitor Variables and Globals */
 	count_NumTablesAvailable = 10;
 	for(int i = 0; i < numInventoryItemTypes; i += 1)
 	{
@@ -189,6 +164,19 @@ void RunSimulation(int scenario)
 
 	money_Rest = 0;
 	count_NumOrderTokens = 0;
+}
+
+/* =============================================================	
+ * Runs the simulation
+ * =============================================================*/
+void RunSimulation(int scenario)
+{
+	PrintOut("Starting Simulation\n",20);
+	PrintOut("Initializing...\n",16);
+	Initialize();
+	PrintOut("Initialized\n",12);
+	/**/
+	
 		//todo make menu;
 		
 	Fork((int)Manager);
@@ -404,6 +392,10 @@ void Manager(int debug)
 	count_NumManagers++;	
 	Release(lock_Init_InitializationLock);
 
+  PrintOut("Manager", 7);
+  PrintNumber(ID);
+  PrintOut("::I\'M ALIVE!!!\n", 15);
+  
 	while(TRUE)
 	{
 		int helpOT = 0;
@@ -411,8 +403,13 @@ void Manager(int debug)
 		Acquire(lock_OrCr_LineToOrderFood);
 
 		if(count_lineToOrderFoodLength > 3*(count_NumOrderTakers - count_NumManagers))
+    {
+      PrintOut("Manager", 7);
+      PrintNumber(ID);
+      PrintOut("::Helping Bag\n", 15);
 			helpOT = 1;
-
+    }
+    
 		Release(lock_OrCr_LineToOrderFood);
 
 		if(helpOT)
@@ -749,7 +746,7 @@ void bagOrder()
           {
             /* Tell Waiters there is a bagged order to be delivered. */
             Acquire(lock_OrWr_BaggedOrders);
-			  /* Store the token */
+            /* Store the token */
               baggedOrders[count_NumOrdersBaggedAndReady] = i;
               count_NumOrdersBaggedAndReady++;
               Broadcast(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);

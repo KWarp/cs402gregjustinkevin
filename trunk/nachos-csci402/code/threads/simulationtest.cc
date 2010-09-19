@@ -4,19 +4,21 @@
 
 void TestCustomer()
 {
-  for (int i= 0; i < 5; ++i)
+  int numTestCustomers = 1;
+  
+  for (int i= 0; i < numTestCustomers; ++i)
 	Fork(Customer);
 	
   // Get the customers into the restaurant.
-  for (int i= 0; i < 5; ++i)
+  for (int i= 0; i < numTestCustomers; ++i)
     checkLineToEnterRest();
   
   // Take the customers' orders.
-  for (int i= 0; i < 5; ++i)
+  for (int i= 0; i < numTestCustomers; ++i)
     ServiceCustomer();
   
   // Give the customers their orders
-  for (int token = 0; token < count_NumCustomers; ++token)
+  for (int token = 0; token < numTestCustomers; ++token)
   {
     if (ordersNeedingBagging[token] > 0)
     {
@@ -115,7 +117,8 @@ void TestManager()
 
 void TestSimulation()
 {
-  // Initialize();
+  Initialize();
+  
   TestCustomer();
   TestWaiter();
   TestCook();
