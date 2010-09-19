@@ -158,6 +158,6 @@ void Fork(VoidFunctionPtr func);
 /* Utility */
 int randomNumber(int count);
 void PrintOut(const char* vaddr, int len);
-void printNumber(int i);
+void PrintNumber(int i);
 
 #endif // SYNCH_H

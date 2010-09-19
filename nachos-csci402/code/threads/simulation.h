@@ -10,7 +10,7 @@
  
 
 /* Customer */ 
-void Customer(int ID);
+void Customer();
 void WaitInLineToEnterRest(int ID);
 void WaitInLineToOrderFood(int ID);
 

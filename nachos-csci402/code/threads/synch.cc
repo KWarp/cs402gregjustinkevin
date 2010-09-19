@@ -297,13 +297,14 @@ void Condition::Broadcast(Lock* conditionLock)
  * UTILITY METHODS
  * =============================================================*/	
 
-const int MaxNumLocks = 200;
+const int MaxNumLocks = 500;
 
-Lock* locks[MaxNumLocks];
+Lock* locks[MaxNumLocks] = {};
 int numLocks = 0;
 
-Condition* CVs[MaxNumLocks];
+Condition* CVs[MaxNumLocks]= {};
 int numCVs = 0;
+
 
 int GetLock()
 {
@@ -375,5 +376,5 @@ void PrintOut(const char* vaddr, int len)
 
 void PrintNumber(int number)
 {
-	printf("%d", number);
+	printf("%d\n", number);
 }
