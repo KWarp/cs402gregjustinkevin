@@ -260,9 +260,10 @@ void Customer(int debug)
 	PrintOut("\n",1);
 	
 	/* this is the money the customer gives to the orderTaker */
+	/* Customer pays double the inventory cost */
 	Get_CustomerMoneyPaidFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] 
 				= inventoryCost[Get_CustomerOrderFoodChoiceFromOrderTakerID[					
-				ID_Get_OrderTakerIDFromCustomerID[ID]]];
+				ID_Get_OrderTakerIDFromCustomerID[ID]]] * 2; 
 	
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]],
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
@@ -789,7 +790,7 @@ void Waiter(int debug)
 		
 		PrintOut("Waiter::Received broadcast\n", 27);
 		
-			/* Grab the order that is ready */
+		/* Grab the order that is ready */
 		token = baggedOrders[count_NumOrdersBaggedAndReady - 1];
 		PrintOut("Waiter::Grabbing order number: ", 31);
 		PrintNumber(token);
@@ -798,19 +799,19 @@ void Waiter(int debug)
 		
 		Release(lock_OrWr_BaggedOrders);
 		
-    if (token != -1)
-    {
-      /* Signal to the customer that the order is ready */
-      PrintOut("Waiter::Giving order number: ", 31);
-      PrintNumber(token);
-      PrintOut("to customer number: ", 20);
-      PrintNumber(Get_CustomerIDFromToken[token]);
-      
-      Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-      Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
-           lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-      Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-    }
+		if (token != -1)
+		{
+		  /* Signal to the customer that the order is ready */
+		  PrintOut("Waiter::Giving order number: ", 31);
+		  PrintNumber(token);
+		  PrintOut("to customer number: ", 20);
+		  PrintNumber(Get_CustomerIDFromToken[token]);
+		  
+		  Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+		  Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
+				lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+		  Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+		}
 	}
 }
 
