@@ -147,7 +147,7 @@ void Initialize()
 	count_NumTablesAvailable = 10;
 	for(int i = 0; i < numInventoryItemTypes; i += 1)
 	{
-	    inventoryCount[i] = 0;
+	  inventoryCount[i] = 0;
 		minCookedFoodStacks[i] = 2;
 		maxCookedFoodStacks[i] = 5;
 		cookedFoodStacks[i] = 0;
@@ -175,7 +175,6 @@ void Initialize()
 		bool_ListOrdersReadyFromToken[i] = 0;
 	}
 	
-	
 	count_NumOrdersBaggedAndReady= 0;
 
   for (int i = 0; i < count_MaxNumMenuItems; ++i)
@@ -201,7 +200,7 @@ void Initialize()
 	count_NumOrderTokens = 0;
 }
 
-/* =============================================================	
+/* =============================================================
  * Runs the simulation
  * =============================================================*/
 void RunSimulation(int scenario)
@@ -214,15 +213,14 @@ void RunSimulation(int scenario)
 		
 	Fork((int)Manager);
 	Fork((int)OrderTaker);
+	Fork((int)OrderTaker);
+	Fork((int)OrderTaker);
 	Fork((int)Waiter);
-	Fork((int)Customer);
+	Fork((int)Waiter);
+	Fork((int)Waiter);
   
-  /*
 	for(int i = 0; i < count_MaxNumCustomers ; i +=1)
-	{
 		Fork((int)Customer);
-	}
-	*/
 }
 
 /* =============================================================	
@@ -341,12 +339,6 @@ void Customer(int debug)
     PrintOut("::Eatin - Eating\n",17);
     
 		/* Yield(10); */ /* while eating for 1 second */
-
-    /*
-    PrintOut("Customer",8);
-    PrintNumber(ID);
-    PrintOut("::Eatin - Done eating\n",22);
-    */
     
 		/* make the table available again. */
 		Acquire(lock_MrCr_LineToEnterRest);
@@ -431,9 +423,9 @@ void WaitInLineToEnterRest(int ID)
 	}
 	else  /* Should never get here */
 	{
-      PrintOut("Customer",8);
-      PrintNumber(ID);
-      PrintOut("::Something is wrong while customer getting out of order line\n",47);
+    PrintOut("Customer",8);
+    PrintNumber(ID);
+    PrintOut("::Something is wrong while customer getting out of order line\n",47);
 	}	
 	Release(lock_MrCr_LineToEnterRest);
 }
@@ -544,7 +536,8 @@ void orderInventoryFood()
         PrintNumber(i);
         PrintOut("\n",1);
         
-				Yield(cookTime[i]*(5));
+				/* Yield(cookTime[i]*(5)); */ /* Takes forever */
+        Yield(5);
 				money_Rest += inventoryCost[i]*2*(numBought+5);
         
         PrintOut("Manager",7);
@@ -774,9 +767,9 @@ void serviceCustomer(int ID)
 	Release(lock_OrCr_LineToOrderFood);
 	
 	/* Ask the customer what he would like to order */
-	PrintOut("OrderTaker ", 11);
+	PrintOut("OrderTaker", 10);
 	PrintNumber(ID);
-	PrintOut(":: What would you like to order Customer ", 41);
+	PrintOut("::What would you like to order Customer ", 41);
 	PrintNumber(custID);
 	PrintOut("?\n", 2);
 	
@@ -793,9 +786,9 @@ void serviceCustomer(int ID)
 	int token = orderNumCounter++;
 	token_OrCr_OrderNumberFromCustomerID[custID] = token;
 	
-	PrintOut("OrderTaker ", 11);
+	PrintOut("OrderTaker", 10);
 	PrintNumber(ID);
-	PrintOut(":: Thanks for the order. Your token number is: ", 47);
+	PrintOut("::Thanks for the order. Your token number is: ", 47);
 	PrintNumber(token);
 	PrintOut("\n", 1);
 	
@@ -807,9 +800,9 @@ void serviceCustomer(int ID)
 	/* Add order list of orders needing to get bagged. */
 	Acquire(lock_OrdersNeedingBagging);
 	ordersNeedingBagging[token] = Get_CustomerOrderFoodChoiceFromOrderTakerID[ID];
-	PrintOut("OrderTaker ", 11);
+	PrintOut("OrderTaker", 10);
 	PrintNumber(ID);
-	PrintOut(":: Order ", 9);
+	PrintOut("::Order #", 9);
 	PrintNumber(token);
 	PrintOut(" needs to be bagged.\n", 21);
 	Release(lock_OrdersNeedingBagging);
@@ -837,17 +830,17 @@ void bagOrder()
         /* Start at 1 because FoodType 0 is Soda (which we can assume will be always immediately available). */
         for (int j = 1; j < numInventoryItemTypes; j++)
         {
-            if (((ordersNeedingBagging[i] >> j) > 0) && (cookedFoodStacks[j] > 0))
-            {
-              ordersNeedingBagging[i] ^= (1 << j);
-              cookedFoodStacks[j]--;
-			  
-              PrintOut("Bagging item #", 14);
-              PrintNumber(j);
-              PrintOut(" for order #", 12);
-              PrintNumber(i);
-              PrintOut("\n", 1);
-            }
+          if ((((ordersNeedingBagging[i] >> j) & 1) > 0) && (cookedFoodStacks[j] > 0))
+          {
+            ordersNeedingBagging[i] ^= (1 << j);
+            cookedFoodStacks[j]--;
+      
+            PrintOut("Bagging item #", 14);
+            PrintNumber(j);
+            PrintOut(" for order #", 12);
+            PrintNumber(i);
+            PrintOut("\n", 1);
+          }
         }
         
         /* If we just completely bagged order i. */
@@ -879,7 +872,7 @@ void bagOrder()
               PrintOut("Eatout order #", 14);
               PrintNumber(i);
               PrintOut(" is ready\n", 10);
-			Release(lock_OrCr_OrderReady);
+            Release(lock_OrCr_OrderReady);
           }
         }
       }
@@ -898,11 +891,8 @@ void Waiter(int debug)
 		Acquire(lock_OrWr_BaggedOrders);
 		/* Wait to get Signaled by the Order Taker*/
 		PrintOut("Waiter::Waiting for order to deliver\n", 37);
-		
 		while(count_NumOrdersBaggedAndReady <= 0)
-		{
 			Wait(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
-		}
 		
 		PrintOut("Waiter::Received broadcast\n", 27);
 		
@@ -927,7 +917,7 @@ void Waiter(int debug)
 		  
 		  Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		  Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
-				lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+             lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		  Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		}
 	}
