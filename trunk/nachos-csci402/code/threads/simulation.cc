@@ -433,7 +433,7 @@ void Customer(int debug)
 		/* leave restaurant */
 	}
 	Acquire(lock_Init_InitializationLock);
-	  PrintOut("~~~Total Customers left to be served: ", 38);
+	  PrintOut("~~~ Total Customers left to be served: ", 39);
 	  PrintNumber(count_NumCustomers-(count_NumCustomersServed++));
       PrintOut(" ~~~\n", 5);
 	Release(lock_Init_InitializationLock);
@@ -490,11 +490,10 @@ void Manager(int debug)
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
 	count_NumManagers++;	
+	PrintOut("Manager", 7);
+    PrintOut("::Created - I\'m the boss.\n", 26);
 	Release(lock_Init_InitializationLock);
 
-  PrintOut("Manager", 7);
-  PrintNumber(ID);
-  PrintOut("::I\'M ALIVE!!!\n", 15);
   
 	while(TRUE)
 	{
@@ -505,7 +504,6 @@ void Manager(int debug)
 		if(count_lineToOrderFoodLength > 3*(count_NumOrderTakers - count_NumManagers))
     {
       PrintOut("Manager", 7);
-      PrintNumber(ID);
       PrintOut("::Helping service customers\n", 28);
 			helpOT = 1;
     }
