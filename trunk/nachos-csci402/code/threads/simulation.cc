@@ -473,12 +473,35 @@ void Customer(int debug)
       }
       else
       {
+        if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+        {
+          PrintOut("OrderTaker ", 11);
+          PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+        }
+        else
+        {
+          PrintOut("Manager", 7);
+        }
+        PrintOut(" gives token number ", 47);
+        PrintNumber(token);
+        PrintOut(" to Customer ", 13);
+        PrintNumber(ID);
+        PrintOut("\n", 1);
+      
         PrintOut("Customer ", 9);
         PrintNumber(ID);
         PrintOut(" is given token number ", 23);
         PrintNumber(token);
-        PrintOut(" by the OrderTaker ", 19);
-        PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+        PrintOut(" by ", 4);
+        if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+        {
+          PrintOut("OrderTaker ", 11);
+          PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+        }
+        else
+        {
+          PrintOut("the Manager", 11);
+        }
         PrintOut("\n", 1);
       }
       
@@ -495,9 +518,32 @@ void Customer(int debug)
     
     if (hasCheckedOrder == 0)
     {
+      if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+      {
+        PrintOut("OrderTaker ", 11);
+        PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+      }
+      else
+      {
+        PrintOut("Manager", 7);
+      }
+      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+      PrintOut(" gives food to Customer ", 24);
+      PrintNumber(ID);
+      PrintOut("\n", 1);
+    
       PrintOut("Customer ", 9);
       PrintNumber(ID);
-      PrintOut(" receives food from the OrderTaker ", 34);
+      PrintOut(" receives food from ", 20);
+      if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+      {
+        PrintOut("OrderTaker ", 11);
+        PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+      }
+      else
+      {
+        PrintOut("the Manager", 11);
+      }
       PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
       PrintOut("\n", 1);
     }
@@ -512,11 +558,11 @@ void Customer(int debug)
       PrintOut("\n", 1);
     }
     
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Eatout - Taking order #", 25);
-      PrintNumberV(token);
-      PrintOutV("\n",1);
+    PrintOutV("Customer", 8);
+    PrintNumberV(ID);
+    PrintOutV("::Eatout - Taking order #", 25);
+    PrintNumberV(token);
+    PrintOutV("\n",1);
     
 		bool_ListOrdersReadyFromToken[token] = FALSE;
 		Release(lock_OrCr_OrderReady);
