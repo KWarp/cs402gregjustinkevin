@@ -235,15 +235,28 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
   
 	PrintOut("Initializing...\n",16);
 	Initialize();
-	PrintOut("Initialized\n",12);
+	PrintOut("Initialized",12);
   
-	PrintOut("Running Simulation with:\n",25);
-  PrintNumber(numOrderTakers);
-  PrintOut(" OrderTaker(s)\n",15);
-  PrintNumber(numWaiters);
-  PrintOut(" Waiter(s)\n",11);
-  PrintNumber(numCustomers);
-  PrintOut(" Customer(s)\n",13);
+  PrintOut("\nNumber of OrderTakers = ",25);
+	PrintNumber(numOrderTakers);
+	PrintOut("\nNumber of Waiters = ",25);
+	PrintNumber(numWaiters);
+	PrintOut("\nNumber of Cooks = ",25);
+	PrintNumber(0);
+	PrintOut("\nNumber of Customers = ",25);
+	PrintNumber(numCustomers);
+	PrintOut("\nTotal Number of tables in the Restaurant = ",25);
+	PrintNumber(count_NumTablesAvailable);
+	PrintOut("\nMinimum number of cooked 6-dollar burger = ",25);
+	PrintNumber(2);
+	PrintOut("\nMinimum number of cooked 3-dollar burger = ",25);
+	PrintNumber(2);
+	PrintOut("\nMinimum number of cooked veggie burger = ",25);
+	PrintNumber(2);
+	PrintOut("\nMinimum number of cooked french fries burger = ",25);
+	PrintNumber(2);
+	PrintOut("\n",1);
+  
   PrintOut("===================================================\n",52);
 		
 	Fork((int)Manager);
@@ -276,22 +289,18 @@ void Customer(int debug)
   else
     eatIn = ID%2; //randomNumber(1);
 	
-	PrintOut("Customer", 8);
-	PrintNumber(ID);
-	PrintOut("::Created - I\'m hungry. \n", 25);
-	
 	if(eatIn)
 	{
-		PrintOut("Customer", 8);
-		PrintNumber(ID);
-		PrintOut("::Waiting In Line for eating in\n", 32);
+		PrintOutV("Customer", 8);
+		PrintNumberV(ID);
+		PrintOutV("::Waiting In Line for eating in\n", 32);
 		
 		WaitInLineToEnterRest(ID);
 	}
 	
-	PrintOut("Customer", 8);
-	PrintNumber(ID);
-	PrintOut("::Waiting in line for food\n", 27);
+	PrintOutV("Customer", 8);
+	PrintNumberV(ID);
+	PrintOutV("::Waiting in line for food\n", 27);
 	WaitInLineToOrderFood(ID);
 	/* at this point we are locked with the order taker */
 	
@@ -306,13 +315,55 @@ void Customer(int debug)
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
 	/* Ordered, Signal Order Taker - this represents talking to ordertaker */
 	
-	PrintOut("Customer", 8);
+  PrintOut("Customer ", 9);
 	PrintNumber(ID);
-	PrintOut("::Ordering #", 12);
-    PrintNumber(orderCombo);
-    PrintOut(" from OrderTaker #", 17);
-	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+  PrintOut(" is giving order to OrderTaker ", 31);
+  PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
 	PrintOut("\n", 1);
+  
+  PrintOut("Customer ", 9);
+  PrintNumber(ID);
+  PrintOut(" is ", 4);
+  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 4) & 1) == 0)
+    PrintOut("not ", 4);
+  PrintOut("ordering 6-dollar burger\n", 25);
+  
+  PrintOut("Customer ", 9);
+  PrintNumber(ID);
+  PrintOut(" is ", 4);
+  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 3) & 1) == 0)
+    PrintOut("not ", 4);
+  PrintOut("ordering 3-dollar burger\n", 25);
+  
+  PrintOut("Customer ", 9);
+  PrintNumber(ID);
+  PrintOut(" is ", 4);
+  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 2) & 1) == 0)
+    PrintOut("not ", 4);
+  PrintOut("ordering veggie burger\n", 23);
+  
+  PrintOut("Customer ", 9);
+  PrintNumber(ID);
+  PrintOut(" is ", 4);
+  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 1) & 1) == 0)
+    PrintOut("not ", 4);
+  PrintOut("ordering french fries\n", 22);
+  
+  PrintOut("Customer ", 9);
+  PrintNumber(ID);
+  PrintOut(" is ", 4);
+  if ((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] & 1) == 0)
+    PrintOut("not ", 4);
+  PrintOut("ordering soda\n", 14);
+  
+  PrintOut("Customer ", 8);
+	PrintNumber(ID);
+	PrintOut(" chooses to ", 10);
+	if(eatIn)
+		PrintOut("eat-in", 7);
+	else
+		PrintOut("to-go", 6);
+  PrintOut(" the food\n", 10);
   
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
@@ -321,11 +372,11 @@ void Customer(int debug)
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 	
-	PrintOut("Customer", 8);
-	PrintNumber(ID);
-	PrintOut("::Paying OrderTaker #", 21);
-	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-	PrintOut("\n", 1);
+	PrintOutV("Customer", 8);
+	PrintNumberV(ID);
+	PrintOutV("::Paying OrderTaker #", 21);
+	PrintNumberV(ID_Get_OrderTakerIDFromCustomerID[ID]);
+	PrintOutV("\n", 1);
 	
 	/* this is the money the customer gives to the orderTaker */
 	/* Customer pays double the inventory cost */
@@ -343,46 +394,46 @@ void Customer(int debug)
   /* Order Taker got my order, and money */
   /* Order Taker gives me an order number in exchange */
   int token = token_OrCr_OrderNumberFromCustomerID[ID];
-   
+  
   if (orderCombo != 0)
   {
-    PrintOut("Customer", 8);
-    PrintNumber(ID);
-    PrintOut("::My order is order #", 21);
-    PrintNumber(token);
-    PrintOut("\n", 1);
+    PrintOutV("Customer", 8);
+    PrintNumberV(ID);
+    PrintOutV("::My order is order #", 21);
+    PrintNumberV(token);
+    PrintOutV("\n", 1);
   }
   
 	if(eatIn)
 	{
-      PrintOut("Customer", 8);
-      PrintNumber(ID);
-      PrintOut("::Eatin - Sitting at table\n", 27);
+      PrintOutV("Customer", 8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatin - Sitting at table\n", 27);
 
 		/* we want the customer to be ready to receive the order */
 		/* before we Release the OrderTaker to process the order */
 		Acquire(lock_CustomerSittingFromCustomerID[ID]);
 		Release(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 
-      PrintOut("Customer", 8);
-      PrintNumber(ID);
-      PrintOut("::Eatin - Waiting for waiter\n", 29);		
+      PrintOutV("Customer", 8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatin - Waiting for waiter\n", 29);		
 
 		/* Wait for order to be ready.  Waiter will deliver it just to me, so I have my own condition variable. */
 	  Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
     
-      PrintOut("Customer", 8);
-      PrintNumber(ID);
-      PrintOut("::Eatin - Got served order #", 28);
-      PrintNumber(token);
-      PrintOut(" from waiter\n",13);
+      PrintOutV("Customer", 8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatin - Got served order #", 28);
+      PrintNumberV(token);
+      PrintOutV(" from waiter\n",13);
     
 		/* I received my order */
 		Release(lock_CustomerSittingFromCustomerID[ID]);
     
-      PrintOut("Customer", 8);
-      PrintNumber(ID);
-      PrintOut("::Eatin - Eating\n",17);
+      PrintOutV("Customer", 8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatin - Eating\n",17);
     
 		/* Yield(10); */ /* while eating for 1 second */
     
@@ -391,9 +442,9 @@ void Customer(int debug)
 		count_NumTablesAvailable += 1;
 		Release(lock_MrCr_LineToEnterRest);
 		
-		PrintOut("Customer", 8);
-		PrintNumber(ID);
-		PrintOut("::Eatin - Leaving Restaurant full and happy =)\n", 47);
+		PrintOutV("Customer", 8);
+		PrintNumberV(ID);
+		PrintOutV("::Eatin - Leaving Restaurant full and happy =)\n", 47);
 		
     /* leave restaurant */
 	}
@@ -404,12 +455,12 @@ void Customer(int debug)
 		/*let ordertaker go make food. */
 		Release(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 		
-      PrintOut("Customer", 8);
-      PrintNumber(ID);
-      PrintOut("::Eatout - Ready for food\n",26);
+      PrintOutV("Customer", 8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatout - Ready for food\n",26);
     
 		/* check if my order is ready */
-      int hasCheckedOrder = 0; /* used for print statement */
+    int hasCheckedOrder = 0; /* used for print statement */
 		while(bool_ListOrdersReadyFromToken[token] == FALSE)
 		{
       if (hasCheckedOrder > 0)
@@ -420,7 +471,17 @@ void Customer(int debug)
         PrintNumberV(token);
         PrintOutV("\n",1);
       }
-
+      else
+      {
+        PrintOut("Customer ", 9);
+        PrintNumber(ID);
+        PrintOut(" is given token number ", 23);
+        PrintNumber(token);
+        PrintOut(" by the OrderTaker ", 19);
+        PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+        PrintOut("\n", 1);
+      }
+      
 			/* Wait for an OrderReady Broadcast */
 			Wait(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
       hasCheckedOrder = 1;
@@ -429,28 +490,52 @@ void Customer(int debug)
       PrintNumberV(ID);
       PrintOutV("::Eatout - Checking if order called is #", 40);
       PrintNumberV(token);
-      PrintOutV("\n",1);
+      PrintOutV("\n", 1);
 		}
     
-      PrintOut("Customer", 8);
+    if (hasCheckedOrder == 0)
+    {
+      PrintOut("Customer ", 9);
       PrintNumber(ID);
-      PrintOut("::Eatout - Taking order #", 25);
+      PrintOut(" receives food from the OrderTaker ", 34);
+      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+      PrintOut("\n", 1);
+    }
+    else
+    {
+      PrintOut("Customer ", 9);
+      PrintNumber(ID);
+      PrintOut(" receives token number ", 23);
       PrintNumber(token);
-      PrintOut("\n",1);
+      PrintOut(" from the OrderTaker ", 21);
+      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+      PrintOut("\n", 1);
+    }
+    
+      PrintOutV("Customer", 8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatout - Taking order #", 25);
+      PrintNumberV(token);
+      PrintOutV("\n",1);
     
 		bool_ListOrdersReadyFromToken[token] = FALSE;
-		Release(lock_OrCr_OrderReady);		
-		
-		PrintOut("Customer", 8);
-		PrintNumber(ID);
-		PrintOut("::Eatout - Leaving Restaurant with food and a smile =)\n", 53);
+		Release(lock_OrCr_OrderReady);
+    
+    if (hasCheckedOrder > 0)
+    {
+      PrintOut("Customer ", 9);
+      PrintNumber(ID);
+      PrintOut(" is leaving the restaurant after OrderTaker ", 44);
+      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+      PrintOut(" packed the food\n", 17);
+    }
     
 		/* leave restaurant */
 	}
 	Acquire(lock_Init_InitializationLock);
-	  PrintOut("~~~ Total Customers left to be served: ", 39);
+	  PrintOutV("~~~ Total Customers left to be served: ", 39);
 	  PrintNumber(count_NumCustomers-(count_NumCustomersServed++));
-      PrintOut(" ~~~\n", 5);
+      PrintOutV(" ~~~\n", 5);
 	Release(lock_Init_InitializationLock);
 }
 
