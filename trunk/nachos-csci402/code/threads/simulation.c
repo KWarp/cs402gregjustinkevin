@@ -738,9 +738,9 @@ void OrderTaker(int debug)
 {
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
-	PrintOut("OrderTaker ", 11);
+	PrintOut("OrderTaker", 10);
 	PrintNumber(ID);
-	PrintOut(":: Created\n", 11);	
+	PrintOut("::I\'M ALIVE!!!\n", 15);	
 	Release(lock_Init_InitializationLock);
 	printf("OrderTaker %d",ID);
 	
