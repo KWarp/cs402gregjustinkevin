@@ -215,7 +215,7 @@ void Initialize()
  * =============================================================*/
 void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 {
-  PrintOut("Starting Simulation\n",20);
+  
 
   if (numCustomers < 0 || numCustomers > count_MaxNumCustomers)
   {
@@ -233,9 +233,9 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
     numWaiters = count_defaultNumWaiters;
   }
   
-	PrintOut("Initializing...\n",16);
+	/* Initialize Locks, CVs, and shared data */
 	Initialize();
-	PrintOut("Initialized",12);
+	
   
   PrintOut("\nNumber of OrderTakers = ",25);
 	PrintNumber(numOrderTakers);
@@ -415,18 +415,16 @@ void Customer(int debug)
 		Acquire(lock_CustomerSittingFromCustomerID[ID]);
 		Release(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Eatin - Waiting for waiter\n", 29);		
+      PrintOut("Customer ", 9);
+      PrintNumber(ID);
+      PrintOut(" is waiting for the waiter to serve the food\n", 45);		
 
 		/* Wait for order to be ready.  Waiter will deliver it just to me, so I have my own condition variable. */
 	  Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
     
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Eatin - Got served order #", 28);
-      PrintNumberV(token);
-      PrintOutV(" from waiter\n",13);
+      PrintOut("Customer ", 9);
+      PrintNumber(ID);
+      PrintOut(" is served by waiter 0\n", 24);
     
 		/* I received my order */
 		Release(lock_CustomerSittingFromCustomerID[ID]);
@@ -647,8 +645,8 @@ void Manager(int debug)
 
 		if(count_lineToOrderFoodLength > 3*(count_NumOrderTakers - count_NumManagers))
     {
-      PrintOut("Manager", 7);
-      PrintOut("::Helping service customers\n", 28);
+      PrintOutV("Manager", 7);
+      PrintOutV("::Helping service customers\n", 28);
 			helpOT = 1;
     }
     
@@ -936,9 +934,9 @@ void OrderTaker(int debug)
 {
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
-	PrintOut("OrderTaker", 10);
-	PrintNumber(ID);
-	PrintOut("::Created - At your service.\n", 29);	
+	PrintOutV("OrderTaker", 10);
+	PrintNumberV(ID);
+	PrintOutV("::Created - At your service.\n", 29);	
 	Release(lock_Init_InitializationLock);
 	
 	while(TRUE)
@@ -1014,11 +1012,11 @@ void serviceCustomer(int ID)
 	/* Add order list of orders needing to get bagged. */
 	Acquire(lock_OrdersNeedingBagging);
 	ordersNeedingBagging[token] = Get_CustomerOrderFoodChoiceFromOrderTakerID[ID];
-	PrintOut("OrderTaker", 10);
-	PrintNumber(ID);
-	PrintOut("::Order #", 9);
-	PrintNumber(token);
-	PrintOut(" needs to be bagged.\n", 21);
+	PrintOutV("OrderTaker", 10);
+	PrintNumberV(ID);
+	PrintOutV("::Order #", 9);
+	PrintNumberV(token);
+	PrintOutV(" needs to be bagged.\n", 21);
 	Release(lock_OrdersNeedingBagging);
 
 	Release(lock_OrderTakerBusy[ID]);
@@ -1083,9 +1081,9 @@ void bagOrder(int isManager)
 							
               Broadcast(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
               
-              PrintOut("Eatin order #", 13);
-              PrintNumber(i);
-              PrintOut(" is ready\n", 10);
+              PrintOutV("Eatin order #", 13);
+              PrintNumberV(i);
+              PrintOutV(" is ready\n", 10);
             Release(lock_OrWr_BaggedOrders);
           }
           else /* if the customer or order i is a togo customer. */
@@ -1095,9 +1093,9 @@ void bagOrder(int isManager)
               bool_ListOrdersReadyFromToken[i] = 1;
               Broadcast(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
               
-              PrintOut("Eatout order #", 14);
-              PrintNumber(i);
-              PrintOut(" is ready\n", 10);
+              PrintOutV("Eatout order #", 14);
+              PrintNumberV(i);
+              PrintOutV(" is ready\n", 10);
             Release(lock_OrCr_OrderReady);
           }
         }
