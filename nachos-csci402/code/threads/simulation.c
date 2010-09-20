@@ -431,9 +431,11 @@ void WaitInLineToEnterRest(int ID)
 	{
 		count_lineToEnterRestLength--;
 	}
-	else
+	else  /* Should never get here */
 	{
-		/* print error */
+      PrintOut("Customer",8);
+      PrintNumber(ID);
+      PrintOut("::Something is wrong while getting out of line\n",47);
 	}	
 	Release(lock_MrCr_LineToEnterRest);
 }
@@ -481,7 +483,7 @@ void Manager(int debug)
     {
       PrintOut("Manager", 7);
       PrintNumber(ID);
-      PrintOut("::Helping Bag\n", 15);
+      PrintOut("::Helping service customers\n", 28);
 			helpOT = 1;
     }
     
@@ -497,7 +499,7 @@ void Manager(int debug)
 
 		bagOrder();
 		
-		callWaiter();
+		callWaiter(); /* Is this necessary? I think this is handled in bagOrder() */
 		orderInventoryFood();
 		manageCook();
 		checkLineToEnterRest();
