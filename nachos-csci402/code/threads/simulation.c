@@ -113,6 +113,7 @@ void Initialize()
 	
   for (int i = 0; i < count_MaxNumCustomers; ++i)
     lock_CustomerSittingFromCustomerID[i] = GetLock();
+  
   lock_OrCr_OrderReady = GetLock();
   
   lock_MrWr = GetLock();
@@ -146,6 +147,7 @@ void Initialize()
 	count_NumTablesAvailable = 10;
 	for(int i = 0; i < numInventoryItemTypes; i += 1)
 	{
+	    inventoryCount[i] = 0;
 		minCookedFoodStacks[i] = 2;
 		maxCookedFoodStacks[i] = 5;
 		cookedFoodStacks[i] = 0;
@@ -153,6 +155,12 @@ void Initialize()
 		Get_CookIsHiredFromInventoryIndex[i ] = 0;
 		Get_CookOnBreakFromInventoryIndex[i ] = 0;
 	}
+	/* Declare the prices of each inventory item */
+	for(int i = 0; i < numInventoryItemTypes; i += 1)
+	{
+		inventoryCost[i] = i*5 + 5;
+	}
+	
 	count_NumOrderTakers = 0;
 	count_NumCustomers = 0;
 	count_NumCooks = 0;
@@ -162,9 +170,11 @@ void Initialize()
 	orderNumCounter = 0;
 	for(int i = 0; i < count_MaxNumCustomers ; i += 1)
 	{
-		ordersNeedingBagging[i ] = 0;
-		baggedOrders[i ] =0;
+		ordersNeedingBagging[i] = 0;
+		baggedOrders[i] = 0;
+		bool_ListOrdersReadyFromToken[i] = 0;
 	}
+	
 	
 	count_NumOrdersBaggedAndReady= 0;
 
