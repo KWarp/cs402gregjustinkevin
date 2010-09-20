@@ -206,7 +206,7 @@ void Initialize()
   test_AllCustomersEatIn = 0;
   test_AllCustomersEatOut = 0;
   test_NoCooks = 0;
-  test_AllCustomersOrderThisCombo = 0;
+  test_AllCustomersOrderThisCombo = -1;
 }
 
 /* =============================================================
