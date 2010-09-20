@@ -978,9 +978,9 @@ void serviceCustomer(int ID)
 	{
 		PrintOut("Manager", 7);
 	}
-	PrintOutV(" is taking order of Customer ", 29);
-	PrintNumberV(custID);
-	PrintOutV("\n", 2);
+	PrintOut(" is taking order of Customer ", 29);
+	PrintNumber(custID);
+	PrintOut("\n", 2);
 	
 	Wait(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
 
