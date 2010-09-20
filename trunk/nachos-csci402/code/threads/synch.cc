@@ -312,7 +312,7 @@ void Fork(int func)
     name = new char [20];
     sprintf(name,"Thread #%d",numThreads);
 	thread = new Thread(name);
-
+	
 	thread->Fork((VoidFunctionPtr)func,0);
 }
 
@@ -357,17 +357,19 @@ void Broadcast(int CV, int lock)
 
 void Yield(int time)
 {
-	time = randomNumber(time);
+	//printf("yield %d\n",time);
+	//time = randomNumber(time);
+	//printf("nyield %d\n",time);
 	while(time > 0)
 	{
 		currentThread->Yield();
-		time = randomNumber(time);
+		time --;
 	}
 }
 
 int randomNumber(int count)
 {
-	return Random() % count; // rand() % count;
+	return Random() % (count); // rand() % count;
 }
 
 void PrintOut(const char* vaddr, int len)

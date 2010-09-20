@@ -287,7 +287,7 @@ void Customer(int debug)
   else if (test_AllCustomersEatOut == TRUE)
     eatIn = 0;
   else
-    eatIn = randomNumber(1);
+    eatIn = randomNumber(2);
 	
 	if(eatIn)
 	{
@@ -309,7 +309,7 @@ void Customer(int debug)
   if (test_AllCustomersOrderThisCombo != -1)
     orderCombo = test_AllCustomersOrderThisCombo;
   else
-    orderCombo = randomNumber(5);
+    orderCombo = randomNumber(count_MaxNumMenuItems);
 	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = menu[orderCombo];
 	/* Tell OrderTaker whether eating in or togo */
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
@@ -441,8 +441,6 @@ void Customer(int debug)
       PrintNumberV(ID);
       PrintOutV("::Eatin - Eating\n",17);
     
-		/* Yield(10); */ /* while eating for 1 second */
-		Yield(10);
 		/* make the table available again. */
 		Acquire(lock_MrCr_LineToEnterRest);
 		count_NumTablesAvailable += 1;
@@ -614,7 +612,7 @@ void WaitInLineToEnterRest(int ID)
 	lineToEnterRest[count_lineToEnterRestLength] = ID;
 	/* Wait in line, and pass my ID as CV */
 	Wait(CV_MrCr_LineToEnterRestFromCustomerID[ID], lock_MrCr_LineToEnterRest);
-	Yield(10);
+
 	if (count_lineToEnterRestLength > 0)
 	{
     PrintOut("Customer ", 9);
@@ -638,7 +636,6 @@ void WaitInLineToEnterRest(int ID)
  * ---------------------------*/
 void WaitInLineToOrderFood(int ID)
 {
-	Yield(10);
 	Acquire(lock_OrCr_LineToOrderFood);
 	lineToOrderFood[count_lineToOrderFoodLength] = ID;
 	count_lineToOrderFoodLength++;
@@ -688,14 +685,12 @@ void Manager(int debug)
 				serviceCustomer(ID);
 			}
 		}
-		Yield(10);
 		bagOrder(TRUE);
 		
 		callWaiter(); /* Is this necessary? I think this is handled in bagOrder() */
 		orderInventoryFood();
 		manageCook();
 		checkLineToEnterRest();
-		Yield(5);
 	}
 }
 
@@ -708,7 +703,6 @@ void callWaiter()
 	
 	if(count_NumOrdersBaggedAndReady > 0)
 	{
-		Yield(10);
 		Broadcast(CV_MrWr, lock_MrWr);
 	}
 
@@ -745,8 +739,7 @@ void orderInventoryFood()
 				
 				PrintOut("Manager goes to bank to withdraw the cash\n", 42);
         
-				Yield(cookTime[i]*(5));
-				Yield(5);
+				//Yield(cookTime[i]*(5));
 				money_Rest += inventoryCost[i]*2*(numBought+5);
         
         PrintOutV("Manager",7);
@@ -767,7 +760,6 @@ void orderInventoryFood()
       PrintOutV(". Restaurant now has $",22);
       PrintNumberV(money_Rest);
       PrintOutV("\n",1);
-			Yield(5);
 			PrintOut("Inventory is loaded in the restaurant\n", 38);
 		}
 
@@ -789,10 +781,7 @@ void manageCook()
 		{
 			if(Get_CookIsHiredFromInventoryIndex[i] == 0)
 			{
-        PrintOutV("Manager",7);
-        PrintOutV("::Hiring cook for food item #",29);
-        PrintNumberV(i);
-        PrintOutV("\n",1);
+				printf("hire cook !!! %d\n",i);
         
 				/* Cook is not hired so hire new cook */
 				hireCook(i);
@@ -824,7 +813,6 @@ void manageCook()
 				Get_CookOnBreakFromInventoryIndex[i] = TRUE;
 			}
 		}
-		Yield(5);
 		Release(lock_MrCk_InventoryLocks[i]);
 	}
 }
@@ -835,14 +823,17 @@ void manageCook()
 void hireCook(int index)
 {
 	/* Acquire(lock_MrCk_InventoryLocks[index])  <-- this is already done! */
-	Yield(5);
+	
 	Acquire(lock_HireCook);
 	
 	Get_CookIsHiredFromInventoryIndex[index] = -1;
 	index_Ck_InventoryIndex = index;
+	printf("Hiring Cook %d\n",index);
 	Fork((int)Cook);
+	printf("waiting for Cook %d\n",index);
 	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
 	
+	printf("Cook done! %d\n",index);
 	Release(lock_HireCook);
 
 	/*Release(lock_MrCk_InventoryLocks[index])  <-- this will be done! */
@@ -858,7 +849,6 @@ void checkLineToEnterRest()
 	{
 		if (count_NumTablesAvailable > 0)
 		{
-			Yield(5);
 			count_NumTablesAvailable -= 1;
 			/* Signal to the customer to enter the restaurant */
 			Signal(CV_MrCr_LineToEnterRestFromCustomerID[lineToEnterRest[count_lineToEnterRestLength-1]],
@@ -877,14 +867,18 @@ void checkLineToEnterRest()
  * ---------------------------*/
 void Cook(int debug)
 {
+	printf("cook is made\n");
+	
 	Acquire(lock_HireCook);
 	
 	int ID = index_Ck_InventoryIndex;
+	printf("cook id = %d\n",ID);
 	Get_CookIsHiredFromInventoryIndex[ID] = 1;
   
 	Signal(CV_HireCook, lock_HireCook); 
 	
 	Release(lock_HireCook);
+	printf("cook is released,\n",ID);
 
 	/* I am Alive!!! */
 	
@@ -917,7 +911,6 @@ void Cook(int debug)
 			PrintOut("Cook ", 4);
 			PrintNumber(ID);
 			PrintOut(" returned from break\n", 21);
-			Yield(5);
 		}
 		
 		if(t == 1)
@@ -945,7 +938,7 @@ void Cook(int debug)
 			inventoryCount[ID]--;
 			Release(lock_MrCk_InventoryLocks[ID]);
 			
-			Yield(cookTime[ID]);
+			//Yield(cookTime[ID]);
       
 			Acquire(lock_MrCk_InventoryLocks[ID]);
 			cookedFoodStacks[ID]++;
@@ -976,7 +969,6 @@ void OrderTaker(int debug)
 	{
 		serviceCustomer(ID);
 		bagOrder(FALSE);
-		Yield(10);
 	}
 }
 
@@ -1016,7 +1008,6 @@ void serviceCustomer(int ID)
 	PrintOut("\n", 2);
 	
 	Wait(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
-	Yield(5);
 	/* Customer has placed order by the time we get here. */
 
 	Signal(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
@@ -1041,7 +1032,6 @@ void serviceCustomer(int ID)
 	Get_CustomerIDFromToken[token] = custID;
 	/* Tell the customer to pick up the order number. */
 	Signal(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
-	Yield(5);
 	/* Add order list of orders needing to get bagged. */
 	Acquire(lock_OrdersNeedingBagging);
 	ordersNeedingBagging[token] = Get_CustomerOrderFoodChoiceFromOrderTakerID[ID];
@@ -1125,7 +1115,7 @@ void bagOrder(int isManager)
             Acquire(lock_OrCr_OrderReady);
               bool_ListOrdersReadyFromToken[i] = 1;
               Broadcast(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
-              Yield(5);
+              
               PrintOutV("Eatout order #", 14);
               PrintNumberV(i);
               PrintOutV(" is ready\n", 10);
@@ -1134,7 +1124,6 @@ void bagOrder(int isManager)
         }
       }
     }
-	Yield(5);
 	Release(lock_OrdersNeedingBagging);
 }
  
@@ -1150,7 +1139,6 @@ void Waiter(int debug)
 	
 	while (TRUE)
 	{
-		Yield(5);
 		int token = -1;
 		Acquire(lock_OrWr_BaggedOrders);
 		/* Wait to get Signaled by the Order Taker*/
@@ -1163,7 +1151,6 @@ void Waiter(int debug)
 			PrintOut("Waiter ", 7);
 			PrintNumber(ID);
 			PrintOut(" returned from break\n", 21);
-			Yield(5);
 		}
 		
 		/* Grab the order that is ready */
@@ -1206,7 +1193,7 @@ void Waiter(int debug)
 		  Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		  Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
              lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-			 Yield(5);
+
 		  Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		}
 	}
