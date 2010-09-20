@@ -602,8 +602,9 @@ void orderInventoryFood()
  * ---------------------------*/
 void manageCook()
 {
-	//printf("manageCook");
-	for(int i = 0; i < numInventoryItemTypes; i += 1)
+	/* printf("manageCook"); */
+  /* Start at i = 1 because we never want to hire a cook for Soda!!! */
+	for(int i = 1; i < numInventoryItemTypes; i += 1)
 	{
 		Acquire(lock_MrCk_InventoryLocks[i]);
 		if(cookedFoodStacks[i] < minCookedFoodStacks[i])
@@ -615,7 +616,7 @@ void manageCook()
         PrintNumber(i);
         PrintOut("\n",1);
         
-				//Cook is not hired so hire new cook
+				/* Cook is not hired so hire new cook */
 				hireCook(i);
 			}
 			else
@@ -627,7 +628,7 @@ void manageCook()
           PrintNumber(i);
           PrintOut(" off break\n",11);
         
-					//cook is hired so Signal him to make sure he is not on break;
+					/* Cook is hired so Signal him to make sure he is not on break */
 					Get_CookOnBreakFromInventoryIndex[i] = FALSE;
 				}
 				Signal(CV_MrCk_InventoryLocks[i], lock_MrCk_InventoryLocks[i]);
