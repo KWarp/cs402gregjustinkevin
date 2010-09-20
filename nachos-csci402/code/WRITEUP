@@ -1,0 +1,221 @@
+ Title:  Writeup for Project 1, Fall 2010
+ Date:  09/19/2010
+ Group Number 28 : 
+
+Name            	                  Email                            Student ID
+Greg Lieberman         greglieb@usc.edu            6424286089
+Justin Lewis               jdl@usc.edu                     5771862417
+Kevin Greene            kgreene@usc.edu             7671772747
+
+=================
+Running the code:
+=================
+	
+nachos -Sim [num_order_takers] [num_waiters] [num_customers]
+
+For example, to run the simulation with 4 order takers, 3 waiters and 20 customers, type:
+		nachos -Sim 4 3 20
+If any parameters are invalid or not included (e.g. “nachos -Sim 2” or “nachos -Sim 1000 -3 4”), default values are assumed for the respective variables.
+
+
+=================
+I. Requirements:
+=================
+
+Part 1 - Implement Locks/Condition Variable Functions
+-- Signal, Wait, Acquire and Release functions must be written
+-- This implementation will be used for the creation of Monitors for Part 2.
+-- The provided test cases should properly use these functions and give the expected output.
+
+Part 2 - Create a multi-threaded restaurant simulation using the created Lock/Condition variable implementation from Part 1
+-- Customers can chose to eat in, or eat out. If they chose to eat in, they must wait for a table to open up. 
+-- Customers wait in line to get their order taken. When they order, they can chose from several combinations of food orders.
+-- Order Takers take orders from the Customers, take their money, and give them a token
+-- Order Takers bag food whenever there is a pending order and there is available food to bag
+-- Eat Out Customers wait for their order to be given to them by an Order Taker. Order Takers Broadcast ready orders to all waiting Eat Out Customers.
+-- Eat In Customers get their food delivered to them by a Waiter
+-- Waiters know the Customer’s token
+-- Waiters go on break when they have nothing to do
+-- Cooks are hired by the Manager, only when needed
+-- Cooks cook only 1 type of food
+-- Cooks keep cooking until they either run out of food in the inventory, or the Manager puts them on break
+-- Sodas are not cooked, obviously
+-- The Manager sometimes bags food orders. 
+-- When there are a lot of Customers in line, the Manager will take the orders of two customers
+-- Managers can hire new Cooks
+-- Managers can wake up Waiters 
+-- Managers manage food inventory, and orders several of a kind of food at a time
+-- Managers pay for new inventory. If they do not have enough cash, they go to the bank.
+
+Entities:
+-- Only 1 Manager in the simulation.
+-- At least 4 Cooks in the simulation.
+-- At least 3 Order Takers.
+-- At least 3 Waiters.
+-- At least 20 Customers, should run with any number of Customers.
+
+
+
+=================
+II. Assumptions:
+=================
+
+- How much inventory the restaurant has for each item. We set all these values to 0 so that the manager needs to buy them when the simulation starts.
+- How much money the restaurant starts with. We set this value to 0 by default. This way we know that the Manager can get money from the bank before any food can be bought.
+- How many different kinds of food order combinations there are. Since there are 5 types of food, there are 32 combinations of orders to chose from.
+- How much each food item costs when the manager buys it.
+- How much each food item costs when the customer buys it. We doubled the cost so that the restaurant makes a profit.
+- Minimum and maximum food that should be sitting around for the order to bag. We decided that at least 2 should be sitting around before a cook gets hired, and at most 5 should be sitting around before the cook goes on break,
+
+
+=================
+III. Design:
+=================
+Overview:
+This is a class on Operating Systems, so we expect that in future assignments that we will not get to use C++ language features. Therefore, we decided to implement all of our Simulation code in C. We had several reasons for this:
+1) Completely eliminate the possibility of NULL pointer access
+2) Significantly reduces the number of ways to encounter Segmentation Faults and Bus Errors
+3) Simplifies CPU operations and optimizes execution
+ 
+Approach:
+- As required by the assignment, we wrote a Lock and Condition class in C++
+- For the simulation class, we exclusively used integers, and arrays of integers. We did not use pointers.
+- We kept a strict naming convention for these integer variables to inform us of their purpose. Some examples:
+	“count_VariableName” described anything we used see how many there were
+	“lock_MrCr_LineToEnterRest” labeled this int as a lock, the two Agents the lock was shared with, and the lock’s purpose
+“CV_MrCr_LineToEnterRestFromCustomerID” is an array of Condition Variables shared between the Manager and the Customer for the line to enter the eat-in restaurant. Given a customer ID number, it will return the appropriate Condition Variable.
+- We kept track of the ID numbers for each Agent in the simulation, and used them as keys to reach shared data as needed.
+
+Process:
+- We started by designing the multi-threaded behavior of the Customer agent. All three of us contributed to a pseudocode diagram we wrote on a couple pages of paper. The Customer interaction was long, but linear.
+- With the Customer designed, we divided our design tasks. 
+-- Greg designed part of the Ordertaker 
+-- Justin designed the Manager
+-- Kevin designed the Waiter and Cook, and part of the Ordertaker
+- We then regrouped for critique. Then implementation began.
+-- Part 1 was implemented by Kevin and tested by Justin
+-- Part 2 was primarily typed up into actual code by Greg. The team worked closely to resolve variable name conflicts, correct design errors, and fill in incomplete design details.
+-- Part 2 Test Code was primarily written by Kevin.
+-- We all worked together to compile and debug the code
+	-- Overall: Awesome Team!!!
+	-- Seriously: we wrote the code and tests in 15hours, and it ran completely and correctly the first time it compiled.
+
+
+IV. Implementation:
+
+            + Files Modified
+threads/synch.h
+threads/synch.cc
+threads/Makefile 
+	code/Makefile.common
+
+            + Files added
+simulation.h	
+simulation.cc	
+
+            + Data Structures added, and the file they were added to.
+	Several dozen key-value
+
+            + Data Structures modified, and the file they were added to.
+
+                        -For example,
+
+                                    class Lock                -- in file threads.cc/threads.h
+
+                                    {
+
+                                                //. Modified fields.
+
+                                    }
+
+            + Functions added and in which file.
+	
+simulation.c
+		void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
+void Customer(int debug);
+void WaitInLineToEnterRest(int ID);
+void WaitInLineToOrderFood(int ID);
+void Manager(int debug);
+void callWaiter();
+void orderInventoryFood();
+void manageCook();
+void hireCook(int index);
+void checkLineToEnterRest();
+void Cook(int debug);
+void OrderTaker(int debug);
+void serviceCustomer(int ID);
+void bagOrder();
+void Waiter(int debug);
+
+            + Functions modified and in which file.
+
+=================
+V. Testing:  (For each test case, you must show)
+=================
+            + How to test
+	
+	---Test1---
+		Customers who wants to eat-in, must wait if the restaurant is full.
+			nachos -SimT1
+	
+---Test2---
+OrderTaker/Manager gives order number to the Customer when the food is not ready.
+nachos -SimT2
+
+---Test3---
+Customers who have chosen to eat-in, must leave after they have their food and Customers who have chosen to-go, must leave the restaurant after the OrderTaker/Manager has given the food.
+nachos -SimT3
+
+---Test4---
+Manager maintains the track of food inventory. Inventory is refilled when it goes below order level.
+nachos -SimT4
+
+---Test5---
+A Customer who orders only soda need not wait.
+nachos -SimT5
+
+---Test6---
+The OrderTaker and the Manager both somethimes bag the food.
+nachos -SimT6
+
+---Test7---
+Manager goes to the bank for cash when inventory is to be refilled and there is no cash in the restaurant.
+nachos -SimT7
+
+---Test8---
+Cooks goes on break when informed by manager.
+nachos -SimT8
+
+- How to run the test cases, the commands, the arguments and so on.
+
+            + Test Output
+Customers who wants to eat-in, must wait if the restaurant is full.
+OrderTaker/Manager gives order number to the Customer when the food is not ready.
+Customers who have chosent to eat-in, must leave after they have their food and Customers who have chosen to-go, must leave the restaurant after the OrderTaker/Manager has given the food.
+Manager maintains the track of food inventory. Inventory is refilled when it goes below order level.
+A Customer who orders only soda need not wait.
+The OrderTaker and the Manager both somethimes bag the food.
+Manager goes to the bank for cash when inventory is to be refilled and there is no cash in the restaurant.
+Cooks goes on break when informed by manager.
+
+
+=================
+VI. Discussion:
+=================
+            + Experiment expectation.  (What you hope will happen.)
+We expected that once we compiled the code, we would spend a day correcting runtime errors.
+            + Experiment result.  (What actually happens.)
+		The first time the simulation ran, we had no segmentation faults whatsoever.  In fact the simulation ran completely successfully.
+            + Explanation
+                        It was a miracle.
+
+=================
+VII. Miscellaneous:
+=================
+
+- Response From McDonalds
+***
+The following is a work of fiction. Characters, names, situations, events, and locations 	described in this assignment are purely the invention of the author's mind, or are used fictitiously. Any sort of resemblance to people - living or dead, names and locations is purely coincidental. 
+***
+
+Once the simulation was complete and thoroughly tested, our group presented the simulation to our employers at McDonalds. As the McDonalds managers saw the lightning speed at which the Carls Jr. staff worked, they were completely in awe. They were so impressed by our simulation, that one of them suggested replacing their entire existing workforce with robots running our simulation. We are pretty excited about this, and will have a meeting about the workforce refactoring early next week.
