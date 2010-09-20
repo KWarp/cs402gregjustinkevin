@@ -527,7 +527,6 @@ void Customer(int debug)
       {
         PrintOut("Manager", 7);
       }
-      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
       PrintOut(" gives food to Customer ", 24);
       PrintNumber(ID);
       PrintOut("\n", 1);
@@ -544,7 +543,6 @@ void Customer(int debug)
       {
         PrintOut("the Manager", 11);
       }
-      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
       PrintOut("\n", 1);
     }
     else
