@@ -25,6 +25,7 @@ extern int count_NumOrderTakers;
 extern int count_NumCustomers;
 extern int count_NumCooks;
 extern int count_NumManagers;
+extern int count_NumWaiters;
 
 /* Line To Enter Restaurant */
 extern int count_lineToEnterRestLength;

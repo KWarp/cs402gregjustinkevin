@@ -709,7 +709,7 @@ void checkLineToEnterRest()
  * COOK
  * =============================================================*/	
  
- /*-----------------------------
+  /*-----------------------------
  * Top Level Cook Routine
  * ---------------------------*/
 void Cook(int debug)
@@ -718,10 +718,6 @@ void Cook(int debug)
 	
 	int ID = index_Ck_InventoryIndex;
 	Get_CookIsHiredFromInventoryIndex[ID] = 1;
-
-    PrintOut("Cook", 4);
-    PrintNumber(ID);
-    PrintOut("::Created - Let\'s get cooking!\n", 31);
   
 	Signal(CV_HireCook, lock_HireCook); 
 	
@@ -732,34 +728,51 @@ void Cook(int debug)
 	while(TRUE)
 	{
 		Acquire(lock_MrCk_InventoryLocks[ID]);
-
+		int t = 0;
+		
 		if(Get_CookOnBreakFromInventoryIndex[ID])
-    {
-      PrintOut("Cook", 4);
-      PrintNumber(ID);
-      PrintOut("::Going on break\n", 17);
-      
+		{
+			t = 1;
+			PrintOut("Cook ", 4);
+			PrintNumber(ID);
+			PrintOut(" is going on break\n", 19);
+			  
 			Wait(CV_MrCk_InventoryLocks[ID], lock_MrCk_InventoryLocks[ID]);
-    }
+			
+			PrintOut("Cook ", 4);
+			PrintNumber(ID);
+			PrintOut(" returned from break\n", 21);
+		}
+		
+		if(t == 1)
+		{
+			PrintOut("Cook ", 4);
+			PrintNumber(ID);
+			PrintOut(" is going on break\n", 19);
+		}
 		
 		/* Cook something */
 		if(inventoryCount[ID] > 0)
 		{
-      //PrintOut("Cook", 4);
-      //PrintNumber(ID);
-      //PrintOut("::Cooking...\n", 13);
-      
+			PrintOut("Cook ", 4);
+			PrintNumber(ID);
+			PrintOut(" is going to cook ", 19);
+			switch(ID)
+			{
+			// [6-dollar burger/3-dollar burger/veggie burger/french fries]
+				case 1: PrintOut("french fries\n", 13); break;
+				case 2: PrintOut("veggie burger\n", 14); break;
+				case 3: PrintOut("3-dollar burger\n", 16); break;
+				case 4: PrintOut("6-dollar burger\n", 16); break;
+			}
+			
 			inventoryCount[ID]--;
 			Release(lock_MrCk_InventoryLocks[ID]);
 			
-      Yield(cookTime[ID]);
+			Yield(cookTime[ID]);
       
 			Acquire(lock_MrCk_InventoryLocks[ID]);
 			cookedFoodStacks[ID]++;
-		
-      PrintOut("Cook", 4);
-      PrintNumber(ID);
-      PrintOut("::Food Ready +1\n", 13);
 		}
 
 		Release(lock_MrCk_InventoryLocks[ID]);
@@ -885,10 +898,14 @@ void bagOrder(int isManager)
             cookedFoodStacks[j]--;
       
             if (isManager)
+			{
               PrintOut("Manager",7);
-            else
+            }
+			else
+			{
               PrintOut("OrderTaker",10);
-            PrintOut("::Bagging item #", 14);
+            }
+			PrintOut("::Bagging item #", 14);
             PrintNumber(j);
             PrintOut(" for order #", 12);
             PrintNumber(i);
@@ -974,7 +991,7 @@ void Waiter(int debug)
 		  PrintNumber(token);
 		  PrintOut(" for Customer ", 14);
 		  PrintNumber(Get_CustomerIDFromToken[token]);
-		  PrintOut(" from Manager\n", 14);
+		  PrintOut("\n", 1);
 		  
 		  PrintOut("Waiter ", 7);
 		  PrintNumber(ID);
