@@ -287,14 +287,14 @@ void Customer(int debug)
   else if (test_AllCustomersEatOut == TRUE)
     eatIn = 0;
   else
-    eatIn = ID%2; //randomNumber(1);
+    eatIn = randomNumber(1);
 	
 	if(eatIn)
 	{
 		PrintOutV("Customer", 8);
 		PrintNumberV(ID);
 		PrintOutV("::Waiting In Line for eating in\n", 32);
-		
+
 		WaitInLineToEnterRest(ID);
 	}
 	
@@ -317,10 +317,18 @@ void Customer(int debug)
 	
   PrintOut("Customer ", 9);
 	PrintNumber(ID);
-  PrintOut(" is giving order to OrderTaker ", 31);
-  PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-	PrintOut("\n", 1);
-  
+  PrintOut(" is giving order to ", 20);  
+  if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+  {
+    PrintOut("OrderTaker ", 11);
+    PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+  }
+  else
+  {
+    PrintOut("the Manager", 11);
+  }
+  PrintOut("\n", 1);
+
   PrintOut("Customer ", 9);
   PrintNumber(ID);
   PrintOut(" is ", 4);
@@ -415,16 +423,16 @@ void Customer(int debug)
 		Acquire(lock_CustomerSittingFromCustomerID[ID]);
 		Release(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" is waiting for the waiter to serve the food\n", 45);		
+      PrintOutV("Customer ", 9);
+      PrintNumberV(ID);
+      PrintOutV(" is waiting for the waiter to serve the food\n", 45);		
 
 		/* Wait for order to be ready.  Waiter will deliver it just to me, so I have my own condition variable. */
 	  Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
     
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" is served by waiter 0\n", 24);
+      PrintOutV("Customer ", 9);
+      PrintNumberV(ID);
+      PrintOutV(" is served by waiter 0\n", 24);
     
 		/* I received my order */
 		Release(lock_CustomerSittingFromCustomerID[ID]);
@@ -587,13 +595,33 @@ void Customer(int debug)
 void WaitInLineToEnterRest(int ID)
 {
 	Acquire(lock_MrCr_LineToEnterRest);
+  
+  PrintOut("Customer ", 9);
+  PrintNumber(ID);
+  PrintOut(" is informed by the Manager-the restaurant is ", 45);
+  if (count_NumTablesAvailable > 0)
+    PrintOut("not full\n", 9);
+  else
+    PrintOut("full\n", 5);
+  
+  if (count_NumTablesAvailable <= 0)
+  {
+    PrintOut("Customer ", 8);
+    PrintNumber(ID);
+    PrintOut(" is waiting to sit on the table\n", 32);
+  }  
+  
 	lineToEnterRest[count_lineToEnterRestLength] = ID;
-	count_lineToEnterRestLength++;
 	/* Wait in line, and pass my ID as CV */
 	Wait(CV_MrCr_LineToEnterRestFromCustomerID[ID], lock_MrCr_LineToEnterRest);
 	Yield(10);
 	if (count_lineToEnterRestLength > 0)
 	{
+    PrintOut("Customer ", 9);
+    PrintNumber(ID);
+    PrintOut(" is seated at table. ", 21);
+    PrintNumber(count_NumTablesAvailable);
+    PrintOut(" tables available\n", 18);
 		count_lineToEnterRestLength--;
 	}
 	else  /* Should never get here */
@@ -634,7 +662,7 @@ void Manager(int debug)
 	int ID = count_NumOrderTakers++;
 	count_NumManagers++;	
 	PrintOutV("Manager", 7);
-    PrintOutV("::Created - I\'m the boss.\n", 26);
+  PrintOutV("::Created - I\'m the boss.\n", 26);
 	Release(lock_Init_InitializationLock);
 
   

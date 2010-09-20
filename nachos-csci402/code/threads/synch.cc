@@ -361,13 +361,13 @@ void Yield(int time)
 	while(time > 0)
 	{
 		currentThread->Yield();
-		time -= 1;
+		time = randomNumber(time);
 	}
 }
 
 int randomNumber(int count)
 {
-	return 4;
+	return Random() % count; // rand() % count;
 }
 
 void PrintOut(const char* vaddr, int len)
