@@ -55,6 +55,7 @@
 
 #ifdef CHANGED
   #include "simulation.h"
+  #include "simulationtest.h"
 #endif
 
 // External functions used by this file
@@ -129,16 +130,22 @@ main(int argc, char **argv)
         
       RunSimulation(numOrderTakers, numWaiters, numCustomers);
     }
-		//if (!strcmp(*argv, "-SimT1"))              	// ThreadTest: Runs the simple thread test
-        //                Simulation();		
-		//if (!strcmp(*argv, "-SimT2"))              	// ThreadTest: Runs the simple thread test
-        //                Simulation();		
-		//if (!strcmp(*argv, "-SimT3"))              	// ThreadTest: Runs the simple thread test
-        //                Simulation();		
-		//if (!strcmp(*argv, "-SimT4"))              	// ThreadTest: Runs the simple thread test
-        //                Simulation();		
-		//if (!strcmp(*argv, "-SimT5"))              	// ThreadTest: Runs the simple thread test
-        //                Simulation();		
+		if (!strcmp(*argv, "-SimT1"))
+      Test1CustomerWaitsIfRestaurantFull();		
+		if (!strcmp(*argv, "-SimT2"))
+      Test2FoodNotReady();		
+		if (!strcmp(*argv, "-SimT3"))
+      Test3CustomerLeavingRestaurant();		
+		if (!strcmp(*argv, "-SimT4"))
+      Test4InventoryTracking();		
+		if (!strcmp(*argv, "-SimT5"))
+      Test5SodaWait();
+		if (!strcmp(*argv, "-SimT6"))
+      Test6ManagerBagsFood();		
+		if (!strcmp(*argv, "-SimT7"))
+      Test7BankTrip();		
+		if (!strcmp(*argv, "-SimT8"))
+      Test8CookBreak();
 #endif		
 		
 			
