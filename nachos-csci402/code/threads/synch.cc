@@ -357,6 +357,7 @@ void Broadcast(int CV, int lock)
 
 void Yield(int time)
 {
+	time = randomNumber(time);
 	while(time > 0)
 	{
 		currentThread->Yield();
