@@ -158,5 +158,7 @@ void Yield(int time);
 int randomNumber(int count);
 void PrintOut(const char* vaddr, int len);
 void PrintNumber(int i);
+void PrintOutV(const char* vaddr, int len);
+void PrintNumberV(int i);
 
 #endif // SYNCH_H
