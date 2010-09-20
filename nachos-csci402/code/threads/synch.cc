@@ -297,8 +297,6 @@ void Condition::Broadcast(Lock* conditionLock)
  * UTILITY METHODS
  * =============================================================*/	
 
-const int MaxNumLocks = 500;
-
 Lock* locks[MaxNumLocks] = {};
 int numLocks = 0;
 
