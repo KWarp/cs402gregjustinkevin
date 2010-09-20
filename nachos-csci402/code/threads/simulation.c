@@ -270,7 +270,7 @@ void Customer(int debug)
 	PrintNumber(ID);
 	PrintOut("::Ordering #",12);
   PrintNumber(orderCombo);
-  PrintOut("from OrderTaker #",17);
+  PrintOut(" from OrderTaker #",17);
 	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
 	PrintOut("\n",1);
   
@@ -305,7 +305,7 @@ void Customer(int debug)
 	int token = token_OrCr_OrderNumberFromCustomerID[ID];
 	PrintOut("Customer",8);
 	PrintNumber(ID);
-	PrintOut("::Received order #",21);
+	PrintOut("::My order is order #",21);
   PrintNumber(token);
   PrintOut("\n",1);
   
@@ -584,7 +584,11 @@ void manageCook()
 		{
 			if(Get_CookIsHiredFromInventoryIndex[i] == 0)
 			{
-				printf("hireCook\n");
+        PrintOut("Manager",7);
+        PrintOut("::Hiring cook for food item #",29);
+        PrintNumber(i);
+        PrintOut("\n",1);
+        
 				//Cook is not hired so hire new cook
 				hireCook(i);
 			}
@@ -592,7 +596,11 @@ void manageCook()
 			{
 				if(Get_CookOnBreakFromInventoryIndex[i])
 				{
-					printf("wakeUpCook\n");
+          PrintOut("Manager",7);
+          PrintOut("::Bringing cook #",14);
+          PrintNumber(i);
+          PrintOut(" off break\n",11);
+        
 					//cook is hired so Signal him to make sure he is not on break;
 					Get_CookOnBreakFromInventoryIndex[i] = FALSE;
 				}
@@ -601,10 +609,13 @@ void manageCook()
 		}
 		else if(cookedFoodStacks[i] > maxCookedFoodStacks[i])
 		{
-		
 			if(!Get_CookOnBreakFromInventoryIndex[i])
 			{
-				printf("sleepCook\n");
+        PrintOut("Manager",7);
+        PrintOut("::Sending cook #",16);
+        PrintNumber(i);
+        PrintOut(" on break\n",10);
+        
 				Get_CookOnBreakFromInventoryIndex[i] = TRUE;
 			}
 		}
@@ -642,6 +653,9 @@ void checkLineToEnterRest()
 	{
 		if (count_NumTablesAvailable > 0)
 		{
+      PrintOut("Manager",7);
+      PrintOut("::Letting a customer into the restaurant\n",41);
+    
 			count_NumTablesAvailable -= 1;
 			/* Signal to the customer to enter the restaurant */
 			Signal(CV_MrCr_LineToEnterRestFromCustomerID[lineToEnterRest[count_lineToEnterRestLength-1]],
