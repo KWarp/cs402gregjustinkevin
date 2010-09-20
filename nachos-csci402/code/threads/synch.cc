@@ -381,3 +381,13 @@ void PrintNumber(int number)
 {
 	printf("%d", number);
 }
+
+void PrintOutV(const char* vaddr, int len)
+{
+	// printf(vaddr);
+}
+
+void PrintNumberV(int number)
+{
+	// printf("%d", number);
+}
