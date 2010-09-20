@@ -534,7 +534,7 @@ void Customer(int debug)
 	}
 	Acquire(lock_Init_InitializationLock);
 	  PrintOutV("~~~ Total Customers left to be served: ", 39);
-	  PrintNumber(count_NumCustomers-(count_NumCustomersServed++));
+	  PrintNumberV(count_NumCustomers-(count_NumCustomersServed++));
       PrintOutV(" ~~~\n", 5);
 	Release(lock_Init_InitializationLock);
 }
@@ -590,8 +590,8 @@ void Manager(int debug)
 	Acquire(lock_Init_InitializationLock);
 	int ID = count_NumOrderTakers++;
 	count_NumManagers++;	
-	PrintOut("Manager", 7);
-    PrintOut("::Created - I\'m the boss.\n", 26);
+	PrintOutV("Manager", 7);
+    PrintOutV("::Created - I\'m the boss.\n", 26);
 	Release(lock_Init_InitializationLock);
 
   
@@ -652,43 +652,49 @@ void orderInventoryFood()
 		
 		if(inventoryCount[i] <= 0)
 		{
-      PrintOut("Manager",7);
-      PrintOut("::Food item #",13);
-      PrintNumber(i);
-      PrintOut(" out of stock\n",13);
+      PrintOutV("Manager",7);
+      PrintOutV("::Food item #",13);
+      PrintNumberV(i);
+      PrintOutV(" out of stock\n",13);
+			
+			PrintOut("Manager refills the inventory\n", 30);
     
 			int numBought = 5;
 			if(money_Rest < inventoryCost[i]*numBought)
 			{
-        PrintOut("Manager",7);
-        PrintOut("::Restaurant money ($",21);
-        PrintNumber(money_Rest);
-        PrintOut(") too low for food item #",25);
-        PrintNumber(i);
-        PrintOut("\n",1);
+        PrintOutV("Manager",7);
+        PrintOutV("::Restaurant money ($",21);
+        PrintNumberV(money_Rest);
+        PrintOutV(") too low for food item #",25);
+        PrintNumberV(i);
+        PrintOutV("\n",1);
+				
+				PrintOut("Manager goes to bank to withdraw the cash\n", 42);
         
 				/* Yield(cookTime[i]*(5)); */ /* Takes forever */
         Yield(5);
 				money_Rest += inventoryCost[i]*2*(numBought+5);
         
-        PrintOut("Manager",7);
-        PrintOut("::Went to bank. Restaurant now has $",36);
-        PrintNumber(money_Rest);
-        PrintOut("\n",1);
+        PrintOutV("Manager",7);
+        PrintOutV("::Went to bank. Restaurant now has $",36);
+        PrintNumberV(money_Rest);
+        PrintOutV("\n",1);
+				
 			}
 
 			money_Rest -= inventoryCost[i]*numBought;
 			inventoryCount[i] += numBought;
 
-      PrintOut("Manager",7);
-      PrintOut("::Purchasing ",13);
-      PrintNumber(numBought);
-      PrintOut(" of food item #",15);
-      PrintNumber(i);
-      PrintOut(". Restaurant now has $",22);
-      PrintNumber(money_Rest);
-      PrintOut("\n",1);
+      PrintOutV("Manager",7);
+      PrintOutV("::Purchasing ",13);
+      PrintNumberV(numBought);
+      PrintOutV(" of food item #",15);
+      PrintNumberV(i);
+      PrintOutV(". Restaurant now has $",22);
+      PrintNumberV(money_Rest);
+      PrintOutV("\n",1);
 			
+			PrintOut("Inventory is loaded in the restaurant\n", 38);
 		}
 
 		Release(lock_MrCk_InventoryLocks[i]);			
@@ -709,10 +715,10 @@ void manageCook()
 		{
 			if(Get_CookIsHiredFromInventoryIndex[i] == 0)
 			{
-        PrintOut("Manager",7);
-        PrintOut("::Hiring cook for food item #",29);
-        PrintNumber(i);
-        PrintOut("\n",1);
+        PrintOutV("Manager",7);
+        PrintOutV("::Hiring cook for food item #",29);
+        PrintNumberV(i);
+        PrintOutV("\n",1);
         
 				/* Cook is not hired so hire new cook */
 				hireCook(i);
@@ -721,10 +727,10 @@ void manageCook()
 			{
 				if(Get_CookOnBreakFromInventoryIndex[i])
 				{
-          PrintOut("Manager",7);
-          PrintOut("::Bringing cook #",14);
-          PrintNumber(i);
-          PrintOut(" off break\n",11);
+          PrintOutV("Manager",7);
+          PrintOutV("::Bringing cook #",14);
+          PrintNumberV(i);
+          PrintOutV(" off break\n",11);
         
 					/* Cook is hired so Signal him to make sure he is not on break */
 					Get_CookOnBreakFromInventoryIndex[i] = FALSE;
@@ -736,10 +742,10 @@ void manageCook()
 		{
 			if(!Get_CookOnBreakFromInventoryIndex[i])
 			{
-        PrintOut("Manager",7);
-        PrintOut("::Sending cook #",16);
-        PrintNumber(i);
-        PrintOut(" on break\n",10);
+        PrintOutV("Manager",7);
+        PrintOutV("::Sending cook #",16);
+        PrintNumberV(i);
+        PrintOutV(" on break\n",10);
         
 				Get_CookOnBreakFromInventoryIndex[i] = TRUE;
 			}
@@ -778,8 +784,6 @@ void checkLineToEnterRest()
 	{
 		if (count_NumTablesAvailable > 0)
 		{
-      PrintOut("Manager",7);
-      PrintOut("::Letting a customer into the restaurant\n",41);
     
 			count_NumTablesAvailable -= 1;
 			/* Signal to the customer to enter the restaurant */
@@ -794,7 +798,7 @@ void checkLineToEnterRest()
  * COOK
  * =============================================================*/	
  
-  /*-----------------------------
+ /*-----------------------------
  * Top Level Cook Routine
  * ---------------------------*/
 void Cook(int debug)
@@ -809,6 +813,18 @@ void Cook(int debug)
 	Release(lock_HireCook);
 
 	/* I am Alive!!! */
+	
+	PrintOut("Manager informs Cook ", 21);
+	PrintNumber(ID);
+	PrintOut(" to cook ", 9);
+	switch(ID)
+			{
+			/* [6-dollar burger/3-dollar burger/veggie burger/french fries] */
+				case 1: PrintOut("french fries\n", 13); break;
+				case 2: PrintOut("veggie burger\n", 14); break;
+				case 3: PrintOut("3-dollar burger\n", 16); break;
+				case 4: PrintOut("6-dollar burger\n", 16); break;
+			}
 
 	while(TRUE)
 	{
@@ -844,7 +860,7 @@ void Cook(int debug)
 			PrintOut(" is going to cook ", 19);
 			switch(ID)
 			{
-			// [6-dollar burger/3-dollar burger/veggie burger/french fries]
+			/* [6-dollar burger/3-dollar burger/veggie burger/french fries] */
 				case 1: PrintOut("french fries\n", 13); break;
 				case 2: PrintOut("veggie burger\n", 14); break;
 				case 3: PrintOut("3-dollar burger\n", 16); break;
@@ -911,11 +927,11 @@ void serviceCustomer(int ID)
 	Release(lock_OrCr_LineToOrderFood);
 	
 	/* Ask the customer what he would like to order */
-	PrintOut("OrderTaker", 10);
-	PrintNumber(ID);
-	PrintOut("::What would you like to order Customer ", 41);
-	PrintNumber(custID);
-	PrintOut("?\n", 2);
+	PrintOutV("OrderTaker", 10);
+	PrintNumberV(ID);
+	PrintOutV("::What would you like to order Customer ", 41);
+	PrintNumberV(custID);
+	PrintOutV("?\n", 2);
 	
 	Wait(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
 
@@ -932,11 +948,11 @@ void serviceCustomer(int ID)
 	
   if (Get_CustomerOrderFoodChoiceFromOrderTakerID[ID] != 1)
   {
-    PrintOut("OrderTaker", 10);
-    PrintNumber(ID);
-    PrintOut("::Thanks for the order. Your token number is: ", 47);
-    PrintNumber(token);
-    PrintOut("\n", 1);
+    PrintOutV("OrderTaker", 10);
+    PrintNumberV(ID);
+    PrintOutV("::Thanks for the order. Your token number is: ", 47);
+    PrintNumberV(token);
+    PrintOutV("\n", 1);
   }
 	
 	/* Tell all Waiters the token too */
@@ -984,17 +1000,17 @@ void bagOrder(int isManager)
       
             if (isManager)
 			{
-              PrintOut("Manager",7);
+              PrintOutV("Manager",7);
             }
 			else
 			{
-              PrintOut("OrderTaker",10);
+              PrintOutV("OrderTaker",10);
             }
-			PrintOut("::Bagging item #", 14);
-            PrintNumber(j);
-            PrintOut(" for order #", 12);
-            PrintNumber(i);
-            PrintOut("\n", 1);
+						PrintOutV("::Bagging item #", 14);
+            PrintNumberV(j);
+            PrintOutV(" for order #", 12);
+            PrintNumberV(i);
+            PrintOutV("\n", 1);
           }
         }
         
@@ -1010,6 +1026,10 @@ void bagOrder(int isManager)
             /* Store the token */
               baggedOrders[count_NumOrdersBaggedAndReady] = i;
               count_NumOrdersBaggedAndReady++;
+							
+							if(isManager)
+								PrintOut("Manager calls back all Waiters from break\n", 42);
+							
               Broadcast(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
               
               PrintOut("Eatin order #", 13);
@@ -1069,7 +1089,14 @@ void Waiter(int debug)
 		
 		if (token != -1)
 		{
-		
+			PrintOut("Manager gives Token number ", 27);
+		  PrintNumber(token);
+			PrintOut(" to Waiter ", 11);
+		  PrintNumber(ID);
+		  PrintOut(" for Customer ", 14);
+		  PrintNumber(Get_CustomerIDFromToken[token]);
+		  PrintOut("\n", 1);
+			
 		  PrintOut("Waiter ", 7);
 		  PrintNumber(ID);
 		  PrintOut(" got token number ", 18);
