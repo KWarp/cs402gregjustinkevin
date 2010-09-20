@@ -19,6 +19,7 @@ int count_NumOrderTakers;
 int count_NumCustomers;
 int count_NumCooks;
 int count_NumManagers;
+int count_NumWaiters;
 
 /* Line To Enter Restaurant */
 int count_lineToEnterRestLength;
@@ -933,40 +934,61 @@ void bagOrder(int isManager)
 }
  
 /* =============================================================	
- * WaitER
+ * Waiter
  * =============================================================*/	
 void Waiter(int debug)
 {
+	
+	Acquire(lock_Init_InitializationLock);
+	int ID = count_NumWaiters++;
+	Release(lock_Init_InitializationLock);
+
 	while (TRUE)
 	{
 		int token = -1;
 		Acquire(lock_OrWr_BaggedOrders);
 		/* Wait to get Signaled by the Order Taker*/
-		PrintOut("Waiter::Waiting for order to deliver\n", 37);
 		while(count_NumOrdersBaggedAndReady <= 0)
+		{
+			PrintOut("Waiter ", 7);
+			PrintNumber(ID);
+			PrintOut(" is going on break\n", 19);
 			Wait(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
-		
-		PrintOut("Waiter::Received broadcast\n", 27);
+			PrintOut("Waiter ", 7);
+			PrintNumber(ID);
+			PrintOut(" returned from break\n", 21);
+		}
 		
 		/* Grab the order that is ready */
 		token = baggedOrders[count_NumOrdersBaggedAndReady - 1];
 		count_NumOrdersBaggedAndReady--;
-    
-    PrintOut("Waiter::Grabbing order #", 24);
-		PrintNumber(token);
-		PrintOut("\n", 1);
 		
 		Release(lock_OrWr_BaggedOrders);
 		
 		if (token != -1)
 		{
-		  /* Signal to the customer that the order is ready */
-		  PrintOut("Waiter::Giving order #", 22);
+		
+		  PrintOut("Waiter ", 7);
+		  PrintNumber(ID);
+		  PrintOut(" got token number ", 18);
 		  PrintNumber(token);
-		  PrintOut(" to customer #", 13);
+		  PrintOut(" for Customer ", 14);
 		  PrintNumber(Get_CustomerIDFromToken[token]);
-      PrintOut("\n", 1);
+		  PrintOut(" from Manager\n", 14);
 		  
+		  PrintOut("Waiter ", 7);
+		  PrintNumber(ID);
+		  PrintOut(" validates the token number for Customer ", 62);
+		  PrintNumber(Get_CustomerIDFromToken[token]);
+		  PrintOut("\n", 1);
+		  
+		  PrintOut("Waiter ", 7);
+		  PrintNumber(ID);
+		  PrintOut(" serves food to Customer ", 25);
+		  PrintNumber(Get_CustomerIDFromToken[token]);
+          PrintOut("\n", 1);
+		  
+		  /* Signal to the customer that the order is ready */
 		  Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		  Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
              lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
