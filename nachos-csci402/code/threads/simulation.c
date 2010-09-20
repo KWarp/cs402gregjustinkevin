@@ -201,22 +201,18 @@ void RunSimulation(int scenario)
 	Initialize();
 	PrintOut("Initialized\n",12);
 	PrintOut("Running Simulation...\n",22);
-	
-		//todo make menu;
 		
 	Fork((int)Manager);
 	Fork((int)OrderTaker);
-	Fork((int)OrderTaker);
-	Fork((int)OrderTaker);
-	Fork((int)OrderTaker);
-	Fork((int)OrderTaker);
 	Fork((int)Waiter);
-	
+	Fork((int)Customer);
+  
+  /*
 	for(int i = 0; i < count_MaxNumCustomers ; i +=1)
 	{
 		Fork((int)Customer);
 	}
-	
+	*/
 }
 
 /* =============================================================	
@@ -526,13 +522,15 @@ void orderInventoryFood()
       PrintOut("Manager",7);
       PrintOut("::Food item #",13);
       PrintNumber(i);
-      PrintOut("out of stock\n",13);
+      PrintOut(" out of stock\n",13);
     
 			int numBought = 5;
 			if(money_Rest < inventoryCost[i]*numBought)
 			{
         PrintOut("Manager",7);
-        PrintOut("::Restaurant money for food item #",28);
+        PrintOut("::Restaurant money ($",21);
+        PrintNumber(money_Rest);
+        PrintOut(") too low for food item #",25);
         PrintNumber(i);
         PrintOut("\n",1);
         
@@ -540,13 +538,22 @@ void orderInventoryFood()
 				money_Rest += inventoryCost[i]*2*(numBought+5);
         
         PrintOut("Manager",7);
-        PrintOut("::Not enough money for food item #",34);
-        PrintNumber(i);
+        PrintOut("::Went to bank. Restaurant now has $",36);
+        PrintNumber(money_Rest);
         PrintOut("\n",1);
 			}
 
 			money_Rest -= inventoryCost[i]*numBought;
 			inventoryCount[i] += numBought;
+
+      PrintOut("Manager",7);
+      PrintOut("::Purchasing ",13);
+      PrintNumber(numBought);
+      PrintOut(" of food item #",15);
+      PrintNumber(i);
+      PrintOut(". Restaurant now has $",22);
+      PrintNumber(money_Rest);
+      PrintOut("\n",1);
 			
 		}
 
@@ -811,14 +818,18 @@ void bagOrder()
               ordersNeedingBagging[i] ^= (1 << j);
               cookedFoodStacks[j]--;
 			  
-			  PrintOut("Bagging Order #", 15);
-			  PrintNumber(i);
+              PrintOut("Bagging item #", 14);
+              PrintNumber(j);
+              PrintOut(" for order #", 12);
+              PrintNumber(i);
+              PrintOut("\n", 1);
             }
         }
         
         /* If we just completely bagged order i. */
         if (ordersNeedingBagging[i] <= 1)
         {
+          ordersNeedingBagging[i] = 0;
           /* If the customer for order i is an eatin customer (i.e. he is Waiting at a table). */
           if (Get_CustomerTogoOrEatinFromCustomerID[Get_CustomerIDFromToken[i]] == 1)
           {
@@ -828,7 +839,10 @@ void bagOrder()
               baggedOrders[count_NumOrdersBaggedAndReady] = i;
               count_NumOrdersBaggedAndReady++;
               Broadcast(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
-			  printf("EatInOrderReady\n");
+              
+              PrintOut("Eatin order #", 13);
+              PrintNumber(i);
+              PrintOut(" is ready\n", 10);
             Release(lock_OrWr_BaggedOrders);
           }
           else /* if the customer or order i is a togo customer. */
@@ -837,7 +851,10 @@ void bagOrder()
             Acquire(lock_OrCr_OrderReady);
               bool_ListOrdersReadyFromToken[i] = 1;
               Broadcast(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
-			printf("Eat Out Order Up\n");
+              
+              PrintOut("Eatout order #", 14);
+              PrintNumber(i);
+              PrintOut(" is ready\n", 10);
 			Release(lock_OrCr_OrderReady);
           }
         }
