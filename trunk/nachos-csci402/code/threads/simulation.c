@@ -88,9 +88,9 @@ int CV_OrWr_BaggedOrders;
 /* Menu -- size = 2^count_NumFoodChoices
  *         Make sure to update this if you change count_numFoodChoices!!!
  */
-#define count_NumFoodChoices = 5;
-#define count_MaxNumMenuItems = 32;
-int menu[count_numMenuItems];
+#define count_NumFoodChoices 5
+#define count_MaxNumMenuItems 32
+int menu[count_MaxNumMenuItems];
 
 /* MISC */
 int money_Rest;
@@ -168,6 +168,9 @@ void Initialize()
 	
 	count_NumOrdersBaggedAndReady= 0;
 
+  for (int i = 0; i < count_MaxNumMenuItems; ++i)
+    menu[i] = 0;
+  
   menu[0] = 1;   /* Soda */
   menu[1] = 2;   /* Fries */
   menu[2] = 3;   /* Fries, Soda */
@@ -251,27 +254,22 @@ void Customer(int debug)
 	/* at this point we are locked with the order taker */
 	
 	/* randomly pick an order and tell it to order taker */
-	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = menu[randomNumber(5)];
+  int orderCombo = randomNumber(5);
+	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = menu[orderCombo];
 	/* Tell OrderTaker whether eating in or togo */
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
 	/* Ordered, Signal Order Taker - this represents talking to ordertaker */
 	
 	PrintOut("Customer",8);
 	PrintNumber(ID);
-	PrintOut("::Giving order to OrderTaker #",30);
+	PrintOut("::Ordering #",12);
+  PrintNumber(orderCombo);
+  PrintOut("from OrderTaker #",17);
 	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
 	PrintOut("\n",1);
   
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
-	
-  /*
-	PrintOut("Customer",8);
-	PrintNumber(ID);
-	PrintOut("::Waiting for OrderTaker #",26);
-	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-	PrintOut("\n",1);
-	*/
   
 	/* Wait for order taker to respond */
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
@@ -291,14 +289,6 @@ void Customer(int debug)
 	
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]],
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
-
-  /*
-	PrintOut("Customer",8);
-	PrintNumber(ID);
-	PrintOut("::Giving order to OrderTaker #",32);
-	PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-	PrintOut("\n",1);
-	*/
   
 	/* Wait for order taker to respond */
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
@@ -309,7 +299,7 @@ void Customer(int debug)
 	int token = token_OrCr_OrderNumberFromCustomerID[ID];
 	PrintOut("Customer",8);
 	PrintNumber(ID);
-	PrintOut("::Waiting for order #",21);
+	PrintOut("::Received order #",21);
   PrintNumber(token);
   PrintOut("\n",1);
   
@@ -333,7 +323,7 @@ void Customer(int debug)
     
     PrintOut("Customer",8);
     PrintNumber(ID);
-    PrintOut("::Eatin - Got order #",21);
+    PrintOut("::Eatin - Got served order #",28);
     PrintNumber(token);
     PrintOut(" from waiter\n",13);
     
@@ -344,11 +334,13 @@ void Customer(int debug)
     PrintNumber(ID);
     PrintOut("::Eatin - Eating\n",17);
     
-		Yield(10); /* while eating for 1 second */
+		/* Yield(10); */ /* while eating for 1 second */
 
+    /*
     PrintOut("Customer",8);
     PrintNumber(ID);
     PrintOut("::Eatin - Done eating\n",22);
+    */
     
 		/* make the table available again. */
 		Acquire(lock_MrCr_LineToEnterRest);
@@ -378,22 +370,22 @@ void Customer(int debug)
 		{
       if (hasCheckedOrder > 0)
       {
-        PrintOut("Customer",8);
-        PrintNumber(ID);
-        PrintOut("::Eatout - Order called was not #",33);
-        PrintNumber(token);
-        PrintOut("\n",1);
+        PrintOutV("Customer",8);
+        PrintNumberV(ID);
+        PrintOutV("::Eatout - Order called was not #",33);
+        PrintNumberV(token);
+        PrintOutV("\n",1);
       }
 
 			/* Wait for an OrderReady Broadcast */
 			Wait(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
       hasCheckedOrder = 1;
       
-      PrintOut("Customer",8);
-      PrintNumber(ID);
-      PrintOut("::Eatout - Checking if order called is #",40);
-      PrintNumber(token);
-      PrintOut("\n",1);
+      PrintOutV("Customer",8);
+      PrintNumberV(ID);
+      PrintOutV("::Eatout - Checking if order called is #",40);
+      PrintNumberV(token);
+      PrintOutV("\n",1);
 		}
     
     PrintOut("Customer",8);
@@ -407,7 +399,7 @@ void Customer(int debug)
 		
 		PrintOut("Customer",8);
 		PrintNumber(ID);
-		PrintOut("::Eatout - Leaving Restaurant with food and happy =)\n",53);
+		PrintOut("::Eatout - Leaving Restaurant with food and a smile =)\n",53);
     
 		/* leave restaurant */
 	}
@@ -435,7 +427,7 @@ void WaitInLineToEnterRest(int ID)
 	{
       PrintOut("Customer",8);
       PrintNumber(ID);
-      PrintOut("::Something is wrong while getting out of line\n",47);
+      PrintOut("::Something is wrong while customer getting out of order line\n",47);
 	}	
 	Release(lock_MrCr_LineToEnterRest);
 }
@@ -525,18 +517,32 @@ void callWaiter()
  * ---------------------------*/
 void orderInventoryFood()
 {
-	
 	for(int i = 0; i < numInventoryItemTypes; i += 1)
 	{
 		Acquire(lock_MrCk_InventoryLocks[i]);
 		
 		if(inventoryCount[i] <= 0)
 		{
+      PrintOut("Manager",7);
+      PrintOut("::Food item #",13);
+      PrintNumber(i);
+      PrintOut("out of stock\n",13);
+    
 			int numBought = 5;
 			if(money_Rest < inventoryCost[i]*numBought)
 			{
+        PrintOut("Manager",7);
+        PrintOut("::Restaurant money for food item #",28);
+        PrintNumber(i);
+        PrintOut("\n",1);
+        
 				Yield(cookTime[i]*(5));
 				money_Rest += inventoryCost[i]*2*(numBought+5);
+        
+        PrintOut("Manager",7);
+        PrintOut("::Not enough money for food item #",34);
+        PrintNumber(i);
+        PrintOut("\n",1);
 			}
 
 			money_Rest -= inventoryCost[i]*numBought;
@@ -546,7 +552,6 @@ void orderInventoryFood()
 
 		Release(lock_MrCk_InventoryLocks[i]);			
 	}
-
 }
 
 /*-----------------------------
@@ -862,20 +867,22 @@ void Waiter(int debug)
 		
 		/* Grab the order that is ready */
 		token = baggedOrders[count_NumOrdersBaggedAndReady - 1];
-		PrintOut("Waiter::Grabbing order number: ", 31);
+		count_NumOrdersBaggedAndReady--;
+    
+    PrintOut("Waiter::Grabbing order #", 24);
 		PrintNumber(token);
 		PrintOut("\n", 1);
-		count_NumOrdersBaggedAndReady--;
 		
 		Release(lock_OrWr_BaggedOrders);
 		
 		if (token != -1)
 		{
 		  /* Signal to the customer that the order is ready */
-		  PrintOut("Waiter::Giving order number: ", 31);
+		  PrintOut("Waiter::Giving order #", 22);
 		  PrintNumber(token);
-		  PrintOut("to customer number: ", 20);
+		  PrintOut(" to customer #", 13);
 		  PrintNumber(Get_CustomerIDFromToken[token]);
+      PrintOut("\n", 1);
 		  
 		  Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		  Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
