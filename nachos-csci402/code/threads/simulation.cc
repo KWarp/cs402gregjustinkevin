@@ -971,11 +971,18 @@ void serviceCustomer(int ID)
 	Release(lock_OrCr_LineToOrderFood);
 	
 	/* Ask the customer what he would like to order */
-	PrintOutV("OrderTaker", 10);
-	PrintNumberV(ID);
-	PrintOutV("::What would you like to order Customer ", 41);
+	if(ID > 0)
+	{
+		PrintOut("OrderTaker ", 10);
+		PrintNumber(ID);
+	}
+	else
+	{
+		PrintOut("Manager", 7);
+	}
+	PrintOutV(" is taking order of Customer ", 29);
 	PrintNumberV(custID);
-	PrintOutV("?\n", 2);
+	PrintOutV("\n", 2);
 	
 	Wait(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
 
