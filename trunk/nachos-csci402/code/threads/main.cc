@@ -52,7 +52,10 @@
 
 #include "utility.h"
 #include "system.h"
-#include "simulation.c"
+
+#ifdef CHANGED
+  #include "simulation.h"
+#endif
 
 // External functions used by this file
 
@@ -63,6 +66,7 @@ extern void MailTest(int networkID);
 
 #ifdef CHANGED
   extern void TestSuite(void);
+  extern void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
 #endif
 
 //----------------------------------------------------------------------
@@ -97,11 +101,34 @@ main(int argc, char **argv)
 		
 #ifdef CHANGED		
 		if (!strcmp(*argv, "-T"))               		// Test Suite: link for this code is at the bottom of part 1 description
-                        TestSuite();		
+      TestSuite();		
 		if (!strcmp(*argv, "-TT"))              		// ThreadTest: Runs the simple thread test
-                        ThreadTest();			
-		if (!strcmp(*argv, "-Sim"))              		// ThreadTest: Runs the simple thread test
-                        RunSimulation(0);		
+      ThreadTest();			
+		if (!strcmp(*argv, "-Sim"))              		// RunSimulation: Runs the Simulation
+    {
+      int numOrderTakers = -1;
+      int numWaiters = -1;
+      int numCustomers = -1;
+      
+      // Assumes arguments are valid ints.
+      if (argc - 1 > 0)
+      {
+        numOrderTakers = atoi(*(argv + 1));
+        argCount++;
+      }
+      if (argc - 2 > 0)
+      {
+        numWaiters = atoi(*(argv + 2));
+        argCount++;
+      }
+      if (argc - 3 > 0)
+      {
+        numCustomers = atoi(*(argv + 3));
+        argCount++;
+      }
+        
+      RunSimulation(numOrderTakers, numWaiters, numCustomers);
+    }
 		//if (!strcmp(*argv, "-SimT1"))              	// ThreadTest: Runs the simple thread test
         //                Simulation();		
 		//if (!strcmp(*argv, "-SimT2"))              	// ThreadTest: Runs the simple thread test

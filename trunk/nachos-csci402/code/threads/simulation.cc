@@ -3,7 +3,7 @@
 #include "synch.h"
 
 /*
- * simulation.c
+ * simulation.cc
  * Implementation of the Restaurant Simulation
  * CSCI 402 Fall 2010
  *
@@ -15,7 +15,13 @@
  * =============================================================*/	
 
 #define count_MaxNumOrderTakers 10
-#define count_MaxNumCustomers 5
+#define count_MaxNumCustomers 50
+#define count_MaxNumWaiters 10
+
+#define count_defaultNumOrderTakers 3
+#define count_defaultNumCustomers 20
+#define count_defaultNumWaiters 3
+
 /* Number of Agents in the simulation */
 int count_NumOrderTakers;
 int count_NumCustomers;
@@ -206,23 +212,45 @@ void Initialize()
 /* =============================================================
  * Runs the simulation
  * =============================================================*/
-void RunSimulation(int scenario)
+void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 {
-	PrintOut("Starting Simulation\n",20);
+  PrintOut("Starting Simulation\n",20);
+
+  if (numCustomers < 0 || numCustomers > count_MaxNumCustomers)
+  {
+    PrintOut("Setting number of customers to default\n",39);
+    numCustomers = count_defaultNumCustomers;
+  }
+  if (numOrderTakers < 0 || numOrderTakers > count_MaxNumOrderTakers)
+  {
+    PrintOut("Setting number of order takers to default\n",42);
+    numOrderTakers = count_defaultNumOrderTakers;
+  }
+  if (numWaiters < 0 || numWaiters > count_MaxNumWaiters)
+  {
+    PrintOut("Setting number of waiters to default\n",37);
+    numWaiters = count_defaultNumWaiters;
+  }
+  
 	PrintOut("Initializing...\n",16);
 	Initialize();
 	PrintOut("Initialized\n",12);
-	PrintOut("Running Simulation...\n",22);
+  
+	PrintOut("Running Simulation with:\n",25);
+  PrintNumber(numOrderTakers);
+  PrintOut(" OrderTakers\n",13);
+  PrintNumber(numWaiters);
+  PrintOut(" Waiters\n",9);
+  PrintNumber(numCustomers);
+  PrintOut(" Customers\n",11);
+  PrintOut("===================================================\n",52);
 		
 	Fork((int)Manager);
-	Fork((int)OrderTaker);
-	Fork((int)OrderTaker);
-	Fork((int)OrderTaker);
-	Fork((int)Waiter);
-	Fork((int)Waiter);
-	Fork((int)Waiter);
-  
-	for(int i = 0; i < count_MaxNumCustomers ; i +=1)
+  for (int i = 0; i < numOrderTakers; ++i)
+    Fork((int)OrderTaker);
+  for (int i = 0; i < numWaiters; ++i)
+    Fork((int)Waiter);
+	for (int i = 0; i < numCustomers; ++i)
 		Fork((int)Customer);
 }
 

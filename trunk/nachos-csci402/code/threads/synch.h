@@ -161,4 +161,8 @@ void PrintNumber(int i);
 void PrintOutV(const char* vaddr, int len);
 void PrintNumberV(int i);
 
+void Fork(int func);
+
+#define MaxNumLocks 2100
+
 #endif // SYNCH_H

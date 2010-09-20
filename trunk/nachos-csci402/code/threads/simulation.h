@@ -8,7 +8,8 @@
  *
  */
  
-
+void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
+ 
 /* Customer */ 
 void Customer(int debug);
 void WaitInLineToEnterRest(int ID);
@@ -33,10 +34,7 @@ void bagOrder();
 /* Waiter */
 void Waiter(int debug);
 
-void RunSimulation(int scenario);
-
-void Fork(int func);
-#endif  /* SIMULATION.H */
+#endif  /* SIMULATION_H */
 
 
 
