@@ -268,6 +268,7 @@ void Test5SodaWait()
   
   // Have all customers order a soda.
   test_AllCustomersOrderThisCombo = 0;
+  test_AllCustomersEatOut = TRUE;
   
   int numOrderTakers = 1;
   int numWaiters = 1;
