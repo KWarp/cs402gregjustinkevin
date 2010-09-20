@@ -338,15 +338,19 @@ void Customer(int debug)
 	/* Wait for order taker to respond */
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
-          
-	/* Order Taker got my order, and money */
-	/* Order Taker gives me an order number in exchange */
-	int token = token_OrCr_OrderNumberFromCustomerID[ID];
-	PrintOut("Customer", 8);
-	PrintNumber(ID);
-	PrintOut("::My order is order #", 21);
+   
+  /* Order Taker got my order, and money */
+  /* Order Taker gives me an order number in exchange */
+  int token = token_OrCr_OrderNumberFromCustomerID[ID];
+   
+  if (orderCombo != 0)
+  {
+    PrintOut("Customer", 8);
+    PrintNumber(ID);
+    PrintOut("::My order is order #", 21);
     PrintNumber(token);
     PrintOut("\n", 1);
+  }
   
 	if(eatIn)
 	{
@@ -827,11 +831,14 @@ void serviceCustomer(int ID)
 	int token = orderNumCounter++;
 	token_OrCr_OrderNumberFromCustomerID[custID] = token;
 	
-	PrintOut("OrderTaker", 10);
-	PrintNumber(ID);
-	PrintOut("::Thanks for the order. Your token number is: ", 47);
-	PrintNumber(token);
-	PrintOut("\n", 1);
+  if (Get_CustomerOrderFoodChoiceFromOrderTakerID[ID] != 1)
+  {
+    PrintOut("OrderTaker", 10);
+    PrintNumber(ID);
+    PrintOut("::Thanks for the order. Your token number is: ", 47);
+    PrintNumber(token);
+    PrintOut("\n", 1);
+  }
 	
 	/* Tell all Waiters the token too */
 	Get_CustomerIDFromToken[token] = custID;
