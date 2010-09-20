@@ -1,4 +1,5 @@
 
+#ifdef CHANGED
 #include "simulation.h"
 #include "synch.h"
 
@@ -9,20 +10,11 @@
  *
  */
 
-
-/* =============================================================	
+ /* =============================================================	
  * DATA
  * =============================================================*/	
-
-#define count_MaxNumOrderTakers 10
-#define count_MaxNumCustomers 50
-#define count_MaxNumWaiters 10
-
-#define count_defaultNumOrderTakers 3
-#define count_defaultNumCustomers 20
-#define count_defaultNumWaiters 3
-
-/* Number of Agents in the simulation */
+ 
+ /* Number of Agents in the simulation */
 int count_NumOrderTakers;
 int count_NumCustomers;
 int count_NumCooks;
@@ -68,8 +60,6 @@ int CV_MrWr;
 /* Menu -- size = 2^numInventoryItemTypes
  *         Make sure to update this if you change numInventoryItemTypes!!!
  */
-#define numInventoryItemTypes 5
-#define count_MaxNumMenuItems 32
 int menu[count_MaxNumMenuItems];
 
 int inventoryCount[numInventoryItemTypes ];
@@ -98,14 +88,18 @@ int count_NumOrdersBaggedAndReady;
 int lock_OrWr_BaggedOrders;
 int CV_OrWr_BaggedOrders;
 
-
-
 /* MISC */
 int money_Rest;
 int count_NumTablesAvailable;
 int count_NumOrderTokens;
 int lock_Init_InitializationLock;
 
+/* TEST */
+int test_AllCustomersEatIn;
+int test_AllCustomersEatOut;
+int test_NoCooks;
+int test_AllCustomersOrderThisCombo;
+ 
 /* =============================================================	
  * Initialize functions
  * =============================================================*/
@@ -207,6 +201,12 @@ void Initialize()
 	money_Rest = 0;
 	count_NumOrderTokens = 0;
 	count_NumCustomersServed = 1;
+  
+  /* Initialize Test Variables as off */
+  test_AllCustomersEatIn = 0;
+  test_AllCustomersEatOut = 0;
+  test_NoCooks = 0;
+  test_AllCustomersOrderThisCombo = 0;
 }
 
 /* =============================================================
@@ -238,11 +238,11 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
   
 	PrintOut("Running Simulation with:\n",25);
   PrintNumber(numOrderTakers);
-  PrintOut(" OrderTakers\n",13);
+  PrintOut(" OrderTaker(s)\n",15);
   PrintNumber(numWaiters);
-  PrintOut(" Waiters\n",9);
+  PrintOut(" Waiter(s)\n",11);
   PrintNumber(numCustomers);
-  PrintOut(" Customers\n",11);
+  PrintOut(" Customer(s)\n",13);
   PrintOut("===================================================\n",52);
 		
 	Fork((int)Manager);
@@ -267,7 +267,13 @@ void Customer(int debug)
 	int ID = count_NumCustomers++;
 	Release(lock_Init_InitializationLock);
 
-	int eatIn = ID%2;//randomNumber(1);
+	int eatIn;
+  if (test_AllCustomersEatIn == TRUE)
+    eatIn = 1;
+  else if (test_AllCustomersEatOut == TRUE)
+    eatIn = 0;
+  else
+    eatIn = ID%2; //randomNumber(1);
 	
 	PrintOut("Customer", 8);
 	PrintNumber(ID);
@@ -288,8 +294,12 @@ void Customer(int debug)
 	WaitInLineToOrderFood(ID);
 	/* at this point we are locked with the order taker */
 	
-	/* randomly pick an order and tell it to order taker */
-    int orderCombo = randomNumber(5);
+	/* randomly pick an order and tell it to order taker if not testing */
+  int orderCombo;
+  if (test_AllCustomersOrderThisCombo != -1)
+    orderCombo = test_AllCustomersOrderThisCombo;
+  else
+    orderCombo = randomNumber(5);
 	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = menu[orderCombo];
 	/* Tell OrderTaker whether eating in or togo */
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
@@ -518,7 +528,7 @@ void Manager(int debug)
 			}
 		}
 
-		bagOrder();
+		bagOrder(TRUE);
 		
 		callWaiter(); /* Is this necessary? I think this is handled in bagOrder() */
 		orderInventoryFood();
@@ -605,7 +615,7 @@ void manageCook()
 	for(int i = 1; i < numInventoryItemTypes; i += 1)
 	{
 		Acquire(lock_MrCk_InventoryLocks[i]);
-		if(cookedFoodStacks[i] < minCookedFoodStacks[i])
+		if(cookedFoodStacks[i] < minCookedFoodStacks[i] && test_NoCooks == FALSE)
 		{
 			if(Get_CookIsHiredFromInventoryIndex[i] == 0)
 			{
@@ -771,7 +781,7 @@ void OrderTaker(int debug)
 	while(TRUE)
 	{
 		serviceCustomer(ID);
-		bagOrder();
+		bagOrder(FALSE);
 		Yield(100);
 	}
 }
@@ -849,7 +859,7 @@ void serviceCustomer(int ID)
  *   - if the customer is eat-in, Broadcast the Waiters
  *   - if the customer is togo, Broadcast the Waiting togo customers
  * ---------------------------*/
-void bagOrder()
+void bagOrder(int isManager)
 {
     Acquire(lock_OrdersNeedingBagging);
     for (int i = 0; i < count_MaxNumCustomers; i++)
@@ -866,7 +876,11 @@ void bagOrder()
             ordersNeedingBagging[i] ^= (1 << j);
             cookedFoodStacks[j]--;
       
-            PrintOut("Bagging item #", 14);
+            if (isManager)
+              PrintOut("Manager",7);
+            else
+              PrintOut("OrderTaker",10);
+            PrintOut("::Bagging item #", 14);
             PrintNumber(j);
             PrintOut(" for order #", 12);
             PrintNumber(i);
@@ -953,4 +967,4 @@ void Waiter(int debug)
 		}
 	}
 }
-
+#endif /* CHANGED */
