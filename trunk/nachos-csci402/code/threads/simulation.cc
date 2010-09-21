@@ -291,11 +291,17 @@ void Customer(int debug)
 	
 	if(eatIn)
 	{
-		PrintOutV("Customer", 8);
-		PrintNumberV(ID);
-		PrintOutV("::Waiting In Line for eating in\n", 32);
+		PrintOut("Customer ", 9);
+		PrintNumber(ID);
+		PrintOut(" wants to eat-in the food\n", 26);
 
 		WaitInLineToEnterRest(ID);
+	}
+	else
+	{
+		PrintOut("Customer ", 9);
+		PrintNumber(ID);
+		PrintOut(" wants to to-go the food\n", 25);
 	}
 	
 	PrintOutV("Customer", 8);
