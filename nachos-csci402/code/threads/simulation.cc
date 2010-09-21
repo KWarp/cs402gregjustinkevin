@@ -1074,6 +1074,16 @@ void bagOrder(int isManager)
         /* Start at 1 because FoodType 0 is Soda (which we can assume will be always immediately available). */
         for (int j = 1; j < numInventoryItemTypes; j++)
         {
+          /* // For Debugging.
+          PrintOut("order=", 6);
+          PrintNumber(ordersNeedingBagging[i]);
+          PrintOut("\norder>>", 7);
+          PrintNumber(j);
+          PrintOut("=", 1);
+          PrintNumber(ordersNeedingBagging[i] >> j);
+          PrintOut("\n", 1);
+          */
+          
           if ((((ordersNeedingBagging[i] >> j) & 1) > 0) && (cookedFoodStacks[j] > 0))
           {
             ordersNeedingBagging[i] ^= (1 << j);
