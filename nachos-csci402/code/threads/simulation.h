@@ -140,6 +140,9 @@ void bagOrder(int isManager);
 /* Waiter */
 void Waiter(int debug);
 
+/* Utility */
+int shouldExit();
+
 #endif  /* SIMULATION_H */
 
 
