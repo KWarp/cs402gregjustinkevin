@@ -49,7 +49,7 @@ int CV_OrCr_OrderReady;
 int CV_CustomerWaitingForFood[count_MaxNumCustomers ];
 int bool_ListOrdersReadyFromToken[count_MaxNumCustomers ]; /* TO DO: initialize to zero */
 int count_NumCustomersServed;
-
+int count_WhenAllCustomersServed;
 /* Used by the Waiter Routine */
 int Get_CustomerIDFromToken[count_MaxNumCustomers ];
 
@@ -220,6 +220,7 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
   {
     PrintOut("Setting number of customers to default\n",39);
     numCustomers = count_defaultNumCustomers;
+	count_WhenAllCustomersServed = numCustomers;
   }
   if (numOrderTakers < 0 || numOrderTakers > count_MaxNumOrderTakers)
   {
@@ -311,73 +312,73 @@ void Customer(int debug)
 	/* at this point we are locked with the order taker */
 	
 	/* randomly pick an order and tell it to order taker if not testing */
-  int orderCombo;
-  if (test_AllCustomersOrderThisCombo != -1)
-    orderCombo = test_AllCustomersOrderThisCombo;
-  else
-    orderCombo = 2 * (ID % numInventoryItemTypes); /*randomNumber(count_MaxNumMenuItems);*/
+	int orderCombo;
+	if (test_AllCustomersOrderThisCombo != -1)
+		orderCombo = test_AllCustomersOrderThisCombo;
+	else
+		orderCombo = 2 * (ID % numInventoryItemTypes); /*randomNumber(count_MaxNumMenuItems);*/
 	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = menu[orderCombo];
 	/* Tell OrderTaker whether eating in or togo */
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
 	/* Ordered, Signal Order Taker - this represents talking to ordertaker */
 	
-  PrintOut("Customer ", 9);
+	PrintOut("Customer ", 9);
 	PrintNumber(ID);
-  PrintOut(" is giving order to ", 20);  
-  if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
-  {
-    PrintOut("OrderTaker ", 11);
-    PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-  }
-  else
-  {
-    PrintOut("the Manager", 11);
-  }
-  PrintOut("\n", 1);
+	PrintOut(" is giving order to ", 20);  
+	if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+	{
+		PrintOut("OrderTaker ", 11);
+		PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+	}
+	else
+	{
+		PrintOut("the Manager", 11);
+	}
+	PrintOut("\n", 1);
 
-  PrintOut("Customer ", 9);
-  PrintNumber(ID);
-  PrintOut(" is ", 4);
-  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 4) & 1) == 0)
-    PrintOut("not ", 4);
-  PrintOut("ordering 6-dollar burger\n", 25);
+	PrintOut("Customer ", 9);
+	PrintNumber(ID);
+	PrintOut(" is ", 4);
+	if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 4) & 1) == 0)
+		PrintOut("not ", 4);
+	PrintOut("ordering 6-dollar burger\n", 25);
   
-  PrintOut("Customer ", 9);
-  PrintNumber(ID);
-  PrintOut(" is ", 4);
-  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 3) & 1) == 0)
-    PrintOut("not ", 4);
-  PrintOut("ordering 3-dollar burger\n", 25);
+	PrintOut("Customer ", 9);
+	PrintNumber(ID);
+	PrintOut(" is ", 4);
+	if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 3) & 1) == 0)
+		PrintOut("not ", 4);
+	PrintOut("ordering 3-dollar burger\n", 25);
   
-  PrintOut("Customer ", 9);
-  PrintNumber(ID);
-  PrintOut(" is ", 4);
-  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 2) & 1) == 0)
-    PrintOut("not ", 4);
-  PrintOut("ordering veggie burger\n", 23);
+	PrintOut("Customer ", 9);
+	PrintNumber(ID);
+	PrintOut(" is ", 4);
+	if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 2) & 1) == 0)
+		PrintOut("not ", 4);
+	PrintOut("ordering veggie burger\n", 23);
   
-  PrintOut("Customer ", 9);
-  PrintNumber(ID);
-  PrintOut(" is ", 4);
-  if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 1) & 1) == 0)
-    PrintOut("not ", 4);
-  PrintOut("ordering french fries\n", 22);
+	PrintOut("Customer ", 9);
+	PrintNumber(ID);
+	PrintOut(" is ", 4);
+	if (((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] >> 1) & 1) == 0)
+		PrintOut("not ", 4);
+	PrintOut("ordering french fries\n", 22);
   
-  PrintOut("Customer ", 9);
-  PrintNumber(ID);
-  PrintOut(" is ", 4);
-  if ((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] & 1) == 0)
-    PrintOut("not ", 4);
-  PrintOut("ordering soda\n", 14);
+	PrintOut("Customer ", 9);
+	PrintNumber(ID);
+	PrintOut(" is ", 4);
+	if ((Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] & 1) == 0)
+		PrintOut("not ", 4);
+	PrintOut("ordering soda\n", 14);
   
-  PrintOut("Customer ", 8);
+	PrintOut("Customer ", 8);
 	PrintNumber(ID);
 	PrintOut(" chooses to ", 10);
 	if(eatIn)
 		PrintOut("eat-in", 7);
 	else
 		PrintOut("to-go", 6);
-  PrintOut(" the food\n", 10);
+	PrintOut(" the food\n", 10);
   
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
@@ -405,49 +406,49 @@ void Customer(int debug)
 	Wait(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
 					lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
    
-  /* Order Taker got my order, and money */
-  /* Order Taker gives me an order number in exchange */
-  int token = token_OrCr_OrderNumberFromCustomerID[ID];
+	/* Order Taker got my order, and money */
+	/* Order Taker gives me an order number in exchange */
+	int token = token_OrCr_OrderNumberFromCustomerID[ID];
   
-  if (orderCombo != 0)
-  {
-    PrintOutV("Customer", 8);
-    PrintNumberV(ID);
-    PrintOutV("::My order is order #", 21);
-    PrintNumberV(token);
-    PrintOutV("\n", 1);
-  }
+	if (orderCombo != 0)
+	{
+		PrintOutV("Customer", 8);
+		PrintNumberV(ID);
+		PrintOutV("::My order is order #", 21);
+		PrintNumberV(token);
+		PrintOutV("\n", 1);
+	}
   
 	if(eatIn)
 	{
-    PrintOut("Customer ", 9);
-    PrintNumber(ID);
-    PrintOut(" is seated at table. ", 21);
-    PrintNumber(count_NumTablesAvailable);
-    PrintOut(" tables available\n", 18);
+		PrintOut("Customer ", 9);
+		PrintNumber(ID);
+		PrintOut(" is seated at table. ", 21);
+		PrintNumber(count_NumTablesAvailable);
+		PrintOut(" tables available\n", 18);
 
 		/* we want the customer to be ready to receive the order */
 		/* before we Release the OrderTaker to process the order */
 		Acquire(lock_CustomerSittingFromCustomerID[ID]);
 		Release(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" is waiting for the waiter to serve the food\n", 45);		
-
+		PrintOut("Customer ", 9);
+		PrintNumber(ID);
+		PrintOut(" is waiting for the waiter to serve the food\n", 45);		
+	
 		/* Wait for order to be ready.  Waiter will deliver it just to me, so I have my own condition variable. */
-	  Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
+		Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
     
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" is served by waiter 0\n", 24);
+		PrintOut("Customer ", 9);
+		PrintNumber(ID);
+		PrintOut(" is served by waiter 0\n", 24);
     
 		/* I received my order */
 		Release(lock_CustomerSittingFromCustomerID[ID]);
     
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Eatin - Eating\n",17);
+		PrintOutV("Customer", 8);
+		PrintNumberV(ID);
+		PrintOutV("::Eatin - Eating\n",17);
     
 		/* make the table available again. */
 		Acquire(lock_MrCr_LineToEnterRest);
@@ -467,9 +468,9 @@ void Customer(int debug)
 		/*let ordertaker go make food. */
 		Release(lock_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]]);
 		
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Eatout - Ready for food\n",26);
+		PrintOutV("Customer", 8);
+		PrintNumberV(ID);
+		PrintOutV("::Eatout - Ready for food\n",26);
     
 		/* check if my order is ready */
 		int hasCheckedOrder = 0; /* used for print statement */
@@ -685,8 +686,8 @@ void Manager(int debug)
 		/* Exit condition */
 		if(shouldExit())
 		{
-			PrintOutV("Manager", 7);
-			PrintOutV("::all customers served.\n", 24);
+			PrintOut("Manager", 7);
+			PrintOut("::all customers served.\n", 24);
 			return;
 		}
 		
@@ -966,8 +967,8 @@ void Cook(int debug)
 		/* Exit condition */
 		if(shouldExit())
 		{
-			PrintOutV("Cook", 4);
-			PrintOutV("::all customers served.\n", 24);
+			PrintOut("Cook", 4);
+			PrintOut("::all customers served.\n", 24);
 			return;
 		}
 	}
@@ -998,8 +999,8 @@ void OrderTaker(int debug)
 		/* Exit condition */
 		if(shouldExit())
 		{
-			PrintOutV("OrderTaker", 10);
-			PrintOutV("::all customers served.\n", 24);
+			PrintOut("OrderTaker", 10);
+			PrintOut("::all customers served.\n", 24);
 			return;
 		}
 		
@@ -1257,7 +1258,7 @@ int shouldExit()
 	bool exit;
 	
 	Acquire(lock_Init_InitializationLock);
-	  exit = (count_NumCustomers == count_NumCustomersServed);
+	  exit = (count_NumCustomersServed == count_WhenAllCustomersServed);
 	Release(lock_Init_InitializationLock);
 	
 	return exit;
