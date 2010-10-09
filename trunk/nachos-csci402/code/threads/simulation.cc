@@ -58,8 +58,7 @@ int lock_MrWr;
 int CV_MrWr;
 
 
-/* Menu -- size = 2^numInventoryItemTypes
- *         Make sure to update this if you change numInventoryItemTypes!!!
+/* Menu -- size = 2^count_MaxNumMenuItems
  */
 int menu[count_MaxNumMenuItems];
 
@@ -180,34 +179,34 @@ void Initialize()
 	
 	count_NumOrdersBaggedAndReady= 0;
 
-  for (int i = 0; i < count_MaxNumMenuItems; ++i)
-    menu[i] = 0;
+	for (int i = 0; i < count_MaxNumMenuItems; ++i)
+		menu[i] = 0;
   
-  menu[0] = 1;   /* Soda */
-  menu[1] = 2;   /* Fries */
-  menu[2] = 3;   /* Fries, Soda */
-  menu[3] = 4;   /* Veggie Burger */
-  menu[4] = 5;   /* Veggie Burger, Soda */
-  menu[5] = 6;   /* Veggie Burger, Fries */
-  menu[6] = 7;   /* Veggie Burger, Fries, Soda */
-  menu[7] = 8;   /* $3 Burger */
-  menu[8] = 9;   /* $3 Burger, Soda */
-  menu[9] = 10;  /* $3 Burger, Fries */
-  menu[10] = 11; /* $3 Burger, Fries, Soda */
-  menu[11] = 16; /* $6 Burger */
-  menu[12] = 17; /* $6 Burger, Soda */
-  menu[13] = 18; /* $6 Burger, Fries */
-  menu[14] = 19; /* $6 Burger, Fries, Soda */
+	menu[0] = 1;   /* Soda */
+	menu[1] = 2;   /* Fries */
+	menu[2] = 3;   /* Fries, Soda */
+	menu[3] = 4;   /* Veggie Burger */
+	menu[4] = 5;   /* Veggie Burger, Soda */
+	menu[5] = 6;   /* Veggie Burger, Fries */
+	menu[6] = 7;   /* Veggie Burger, Fries, Soda */
+	menu[7] = 8;   /* $3 Burger */
+	menu[8] = 9;   /* $3 Burger, Soda */
+	menu[9] = 10;  /* $3 Burger, Fries */
+	menu[10] = 11; /* $3 Burger, Fries, Soda */
+	menu[11] = 16; /* $6 Burger */
+	menu[12] = 17; /* $6 Burger, Soda */
+	menu[13] = 18; /* $6 Burger, Fries */
+	menu[14] = 19; /* $6 Burger, Fries, Soda */
   
 	money_Rest = 0;
 	count_NumOrderTokens = 0;
-	count_NumCustomersServed = 1;
+	count_NumCustomersServed = 0;
   
-  /* Initialize Test Variables as off */
-  test_AllCustomersEatIn = 0;
-  test_AllCustomersEatOut = 0;
-  test_NoCooks = 0;
-  test_AllCustomersOrderThisCombo = -1;
+	/* Initialize Test Variables as off */
+	test_AllCustomersEatIn = 0;
+	test_AllCustomersEatOut = 0;
+	test_NoCooks = 0;
+	test_AllCustomersOrderThisCombo = -1;
 }
 
 /* =============================================================
@@ -237,7 +236,7 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 	Initialize();
 	
   
-  PrintOut("\nNumber of OrderTakers = ",25);
+	PrintOut("\nNumber of OrderTakers = ",25);
 	PrintNumber(numOrderTakers);
 	PrintOut("\nNumber of Waiters = ",25);
 	PrintNumber(numWaiters);
@@ -257,15 +256,16 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 	PrintNumber(2);
 	PrintOut("\n",1);
   
-  PrintOut("===================================================\n",52);
+	PrintOut("===================================================\n",52);
 		
 	Fork((int)Manager);
-  for (int i = 0; i < numOrderTakers; ++i)
-    Fork((int)OrderTaker);
-  for (int i = 0; i < numWaiters; ++i)
-    Fork((int)Waiter);
 	for (int i = 0; i < numCustomers; ++i)
 		Fork((int)Customer);
+	for (int i = 0; i < numOrderTakers; ++i)
+		Fork((int)OrderTaker);
+	for (int i = 0; i < numWaiters; ++i)
+		Fork((int)Waiter);
+	
 }
 
 /* =============================================================	
@@ -282,12 +282,12 @@ void Customer(int debug)
 	Release(lock_Init_InitializationLock);
 
 	int eatIn;
-  if (test_AllCustomersEatIn == TRUE)
-    eatIn = 1;
-  else if (test_AllCustomersEatOut == TRUE)
-    eatIn = 0;
-  else
-    eatIn = randomNumber(2);
+	if (test_AllCustomersEatIn == TRUE)
+		eatIn = 1;
+	else if (test_AllCustomersEatOut == TRUE)
+		eatIn = 0;
+	else
+		eatIn = randomNumber(2);
 	
 	if(eatIn)
 	{
@@ -472,126 +472,127 @@ void Customer(int debug)
       PrintOutV("::Eatout - Ready for food\n",26);
     
 		/* check if my order is ready */
-    int hasCheckedOrder = 0; /* used for print statement */
+		int hasCheckedOrder = 0; /* used for print statement */
 		while(bool_ListOrdersReadyFromToken[token] == FALSE)
 		{
-      if (hasCheckedOrder > 0)
-      {
-        PrintOutV("Customer", 8);
-        PrintNumberV(ID);
-        PrintOutV("::Eatout - Order called was not #",33);
-        PrintNumberV(token);
-        PrintOutV("\n",1);
-      }
-      else
-      {
-        if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
-        {
-          PrintOut("OrderTaker ", 11);
-          PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-        }
-        else
-        {
-          PrintOut("Manager", 7);
-        }
-        PrintOut(" gives token number ", 47);
-        PrintNumber(token);
-        PrintOut(" to Customer ", 13);
-        PrintNumber(ID);
-        PrintOut("\n", 1);
-      
-        PrintOut("Customer ", 9);
-        PrintNumber(ID);
-        PrintOut(" is given token number ", 23);
-        PrintNumber(token);
-        PrintOut(" by ", 4);
-        if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
-        {
-          PrintOut("OrderTaker ", 11);
-          PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-        }
-        else
-        {
-          PrintOut("the Manager", 11);
-        }
-        PrintOut("\n", 1);
-      }
+			if (hasCheckedOrder > 0)
+			{
+				PrintOutV("Customer", 8);
+				PrintNumberV(ID);
+				PrintOutV("::Eatout - Order called was not #",33);
+				PrintNumberV(token);
+				PrintOutV("\n",1);
+			}
+			else
+			{
+				if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+				{
+					PrintOut("OrderTaker ", 11);
+					PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+				}
+				else
+				{
+					PrintOut("Manager", 7);
+				}
+				PrintOut(" gives token number ", 47);
+				PrintNumber(token);
+				PrintOut(" to Customer ", 13);
+				PrintNumber(ID);
+				PrintOut("\n", 1);
+			  
+				PrintOut("Customer ", 9);
+				PrintNumber(ID);
+				PrintOut(" is given token number ", 23);
+				PrintNumber(token);
+				PrintOut(" by ", 4);
+				if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+				{
+				  PrintOut("OrderTaker ", 11);
+				  PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+				}
+				else
+				{
+					PrintOut("the Manager", 11);
+				}
+				PrintOut("\n", 1);
+			}
       
 			/* Wait for an OrderReady Broadcast */
 			Wait(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
-      hasCheckedOrder = 1;
+			hasCheckedOrder = 1;
       
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Eatout - Checking if order called is #", 40);
-      PrintNumberV(token);
-      PrintOutV("\n", 1);
+			PrintOutV("Customer", 8);
+			PrintNumberV(ID);
+			PrintOutV("::Eatout - Checking if order called is #", 40);
+			PrintNumberV(token);
+			PrintOutV("\n", 1);
 		}
     
-    if (hasCheckedOrder == 0)
-    {
-      if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
-      {
-        PrintOut("OrderTaker ", 11);
-        PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-      }
-      else
-      {
-        PrintOut("Manager", 7);
-      }
-      PrintOut(" gives food to Customer ", 24);
-      PrintNumber(ID);
-      PrintOut("\n", 1);
+		if (hasCheckedOrder == 0)
+		{
+			if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+			{
+				PrintOut("OrderTaker ", 11);
+				PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+			}
+			else
+			{
+				PrintOut("Manager", 7);
+			}
+			PrintOut(" gives food to Customer ", 24);
+			PrintNumber(ID);
+			PrintOut("\n", 1);
     
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" receives food from ", 20);
-      if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
-      {
-        PrintOut("OrderTaker ", 11);
-        PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-      }
-      else
-      {
-        PrintOut("the Manager", 11);
-      }
-      PrintOut("\n", 1);
-    }
-    else
-    {
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" receives token number ", 23);
-      PrintNumber(token);
-      PrintOut(" from the OrderTaker ", 21);
-      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-      PrintOut("\n", 1);
-    }
+			PrintOut("Customer ", 9);
+			PrintNumber(ID);
+			PrintOut(" receives food from ", 20);
+			if(ID_Get_OrderTakerIDFromCustomerID[ID] > 0)
+			{
+				PrintOut("OrderTaker ", 11);
+				PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+			}
+			else
+			{
+				PrintOut("the Manager", 11);
+			}
+			PrintOut("\n", 1);
+		}
+		else
+		{
+			PrintOut("Customer ", 9);
+			PrintNumber(ID);
+			PrintOut(" receives token number ", 23);
+			PrintNumber(token);
+			PrintOut(" from the OrderTaker ", 21);
+			PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+			PrintOut("\n", 1);
+		}
     
-    PrintOutV("Customer", 8);
-    PrintNumberV(ID);
-    PrintOutV("::Eatout - Taking order #", 25);
-    PrintNumberV(token);
-    PrintOutV("\n",1);
+		PrintOutV("Customer", 8);
+		PrintNumberV(ID);
+		PrintOutV("::Eatout - Taking order #", 25);
+		PrintNumberV(token);
+		PrintOutV("\n",1);
     
 		bool_ListOrdersReadyFromToken[token] = FALSE;
 		Release(lock_OrCr_OrderReady);
     
-    if (hasCheckedOrder > 0)
-    {
-      PrintOut("Customer ", 9);
-      PrintNumber(ID);
-      PrintOut(" is leaving the restaurant after OrderTaker ", 44);
-      PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
-      PrintOut(" packed the food\n", 17);
-    }
+		if (hasCheckedOrder > 0)
+		{
+			PrintOut("Customer ", 9);
+			PrintNumber(ID);
+			PrintOut(" is leaving the restaurant after OrderTaker ", 44);
+			PrintNumber(ID_Get_OrderTakerIDFromCustomerID[ID]);
+			PrintOut(" packed the food\n", 17);
+		}
     
 		/* leave restaurant */
 	}
+	
 	Acquire(lock_Init_InitializationLock);
-	  PrintOutV("~~~ Total Customers left to be served: ", 39);
-	  PrintNumberV(count_NumCustomers-(count_NumCustomersServed++));
-    PrintOutV(" ~~~\n", 5);
+	  PrintOut("~~~ Total Customers left to be served: ", 39);
+	  PrintNumber(count_NumCustomers-(++count_NumCustomersServed));
+      PrintOut(" ~~~\n", 5);
 	Release(lock_Init_InitializationLock);
 }
 
@@ -645,10 +646,10 @@ void WaitInLineToOrderFood(int ID)
 void Manager(int debug)
 {
 	Acquire(lock_Init_InitializationLock);
-	int ID = count_NumOrderTakers++;
-	count_NumManagers++;	
-	PrintOutV("Manager", 7);
-  PrintOutV("::Created - I\'m the boss.\n", 26);
+	  int ID = count_NumOrderTakers++;
+	  count_NumManagers++;	
+	  PrintOutV("Manager", 7);
+	  PrintOutV("::Created - I\'m the boss.\n", 26);
 	Release(lock_Init_InitializationLock);
 
   
@@ -658,12 +659,12 @@ void Manager(int debug)
 
 		Acquire(lock_OrCr_LineToOrderFood);
 
-		if(count_lineToOrderFoodLength > 3*(count_NumOrderTakers - count_NumManagers))
-    {
-      PrintOutV("Manager", 7);
-      PrintOutV("::Helping service customers\n", 28);
-			helpOT = 1;
-    }
+			if(count_lineToOrderFoodLength > 3 * (count_NumOrderTakers - count_NumManagers))
+			{
+			  PrintOutV("Manager", 7);
+			  PrintOutV("::Helping service customers\n", 28);
+					helpOT = 1;
+			}
     
 		Release(lock_OrCr_LineToOrderFood);
 
@@ -681,7 +682,15 @@ void Manager(int debug)
 		manageCook();
 		checkLineToEnterRest();
 		
-		Yield(25);
+		/* Exit condition */
+		if(shouldExit())
+		{
+			PrintOutV("Manager", 7);
+			PrintOutV("::all customers served.\n", 24);
+			return;
+		}
+		
+		Yield(25);		
 	}
 }
 
@@ -951,8 +960,16 @@ void Cook(int debug)
 			Acquire(lock_MrCk_InventoryLocks[ID]);
 			cookedFoodStacks[ID]++;
 		}
-
+		
 		Release(lock_MrCk_InventoryLocks[ID]);
+		
+		/* Exit condition */
+		if(shouldExit())
+		{
+			PrintOutV("Cook", 4);
+			PrintOutV("::all customers served.\n", 24);
+			return;
+		}
 	}
 
 }
@@ -967,16 +984,25 @@ void Cook(int debug)
 void OrderTaker(int debug)
 {
 	Acquire(lock_Init_InitializationLock);
-	int ID = count_NumOrderTakers++;
-	PrintOutV("OrderTaker", 10);
-	PrintNumberV(ID);
-	PrintOutV("::Created - At your service.\n", 29);	
+	  int ID = count_NumOrderTakers++;
+	  PrintOutV("OrderTaker", 10);
+	  PrintNumberV(ID);
+	  PrintOutV("::Created - At your service.\n", 29);	
 	Release(lock_Init_InitializationLock);
 	
 	while(TRUE)
 	{
 		serviceCustomer(ID);
 		bagOrder(FALSE);
+		
+		/* Exit condition */
+		if(shouldExit())
+		{
+			PrintOutV("OrderTaker", 10);
+			PrintOutV("::all customers served.\n", 24);
+			return;
+		}
+		
 		Yield(50);
 	}
 }
@@ -1218,4 +1244,23 @@ void Waiter(int debug)
 		Yield(5);
 	}
 }
+
+/* =============================================================	
+ * Utility Functions
+ * =============================================================*/	
+ 
+/*
+ * Returns true if should exit
+ */
+int shouldExit()
+{
+	bool exit;
+	
+	Acquire(lock_Init_InitializationLock);
+	  exit = (count_NumCustomers == count_NumCustomersServed);
+	Release(lock_Init_InitializationLock);
+	
+	return exit;
+}
+ 
 #endif /* CHANGED */
