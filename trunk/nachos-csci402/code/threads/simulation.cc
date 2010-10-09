@@ -47,7 +47,7 @@ int CV_CustomerSittingFromCustomerID[count_MaxNumCustomers ];
 int lock_OrCr_OrderReady;
 int CV_OrCr_OrderReady;
 int CV_CustomerWaitingForFood[count_MaxNumCustomers ];
-int bool_ListOrdersReadyFromToken[count_MaxNumCustomers ]; /* TO DO: initialize to zero */
+int bool_ListOrdersReadyFromToken[count_MaxNumCustomers ];
 int count_NumCustomersServed;
 int count_WhenAllCustomersServed;
 /* Used by the Waiter Routine */
@@ -436,9 +436,14 @@ void Customer(int debug)
 		PrintNumber(ID);
 		PrintOut(" is waiting for the waiter to serve the food\n", 45);		
 	
-		/* Wait for order to be ready.  Waiter will deliver it just to me, so I have my own condition variable. */
+		/* Wait for order to be ready.  
+		 * Waiter will deliver it just to me, so I have my own condition variable. 
+		 * Signal - Wait - Signal insures correct sequencing
+		 */
+		Signal(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
 		Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
-    
+		Signal(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
+		
 		PrintOut("Customer ", 9);
 		PrintNumber(ID);
 		PrintOut(" is served by waiter 0\n", 24);
@@ -1208,39 +1213,45 @@ void Waiter(int debug)
 		if (token != -1)
 		{
 			PrintOut("Manager gives Token number ", 27);
-		  PrintNumber(token);
+			PrintNumber(token);
 			PrintOut(" to Waiter ", 11);
-		  PrintNumber(ID);
-		  PrintOut(" for Customer ", 14);
-		  PrintNumber(Get_CustomerIDFromToken[token]);
-		  PrintOut("\n", 1);
+			PrintNumber(ID);
+			PrintOut(" for Customer ", 14);
+			PrintNumber(Get_CustomerIDFromToken[token]);
+			PrintOut("\n", 1);
 			
-		  PrintOut("Waiter ", 7);
-		  PrintNumber(ID);
-		  PrintOut(" got token number ", 18);
-		  PrintNumber(token);
-		  PrintOut(" for Customer ", 14);
-		  PrintNumber(Get_CustomerIDFromToken[token]);
-		  PrintOut("\n", 1);
+			PrintOut("Waiter ", 7);
+			PrintNumber(ID);
+			PrintOut(" got token number ", 18);
+			PrintNumber(token);
+			PrintOut(" for Customer ", 14);
+			PrintNumber(Get_CustomerIDFromToken[token]);
+			PrintOut("\n", 1);
 		  
-		  PrintOut("Waiter ", 7);
-		  PrintNumber(ID);
-		  PrintOut(" validates the token number for Customer ", 62);
-		  PrintNumber(Get_CustomerIDFromToken[token]);
-		  PrintOut("\n", 1);
+			PrintOut("Waiter ", 7);
+			PrintNumber(ID);
+			PrintOut(" validates the token number for Customer ", 62);
+			PrintNumber(Get_CustomerIDFromToken[token]);
+			PrintOut("\n", 1);
 		  
-		  PrintOut("Waiter ", 7);
-		  PrintNumber(ID);
-		  PrintOut(" serves food to Customer ", 25);
-		  PrintNumber(Get_CustomerIDFromToken[token]);
-          PrintOut("\n", 1);
+			PrintOut("Waiter ", 7);
+			PrintNumber(ID);
+			PrintOut(" serves food to Customer ", 25);
+			PrintNumber(Get_CustomerIDFromToken[token]);
+			PrintOut("\n", 1);
 		  
-		  /* Signal to the customer that the order is ready */
-		  Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
-		  Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
-             lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+			/* Signal to the customer that the order is ready 
+			 * Signal - Wait - Signal insures correct sequencing
+			 */
+			Acquire(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+				Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
+						lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+				Wait(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
+						lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+				Signal(CV_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]],
+						lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 
-		  Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
+			Release(lock_CustomerSittingFromCustomerID[Get_CustomerIDFromToken[token]]);
 		}
 		Yield(5);
 	}
