@@ -157,7 +157,7 @@ void Lock::Release()
 
 		if (!isHeldByCurrentThread())
 		{
-			// printf("Lock::Error - Release called by non-owner");
+			// printf("Lock::Error - Release called by non-owner\n");
 			// Restore interrupts and return.
 			interrupt->SetLevel(old);
 			return;
