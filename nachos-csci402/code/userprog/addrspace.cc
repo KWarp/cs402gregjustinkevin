@@ -24,58 +24,69 @@
 
 extern "C" { int bzero(char *, int); };
 
-Table::Table(int s) : map(s), table(0), lock(0), size(s) {
-    table = new void *[size];
-    lock = new Lock("TableLock");
+Table::Table(int s) : map(s), table(0), lock(0), size(s)
+{
+  table = new void *[size];
+  lock = new Lock("TableLock");
 }
 
-Table::~Table() {
-    if (table) {
-	delete table;
-	table = 0;
-    }
-    if (lock) {
-	delete lock;
-	lock = 0;
-    }
+Table::~Table()
+{
+  if (table)
+  {
+    delete table;
+    table = 0;
+  }
+  if (lock)
+  {
+    delete lock;
+    lock = 0;
+  }
 }
 
-void *Table::Get(int i) {
-    // Return the element associated with the given if, or 0 if
-    // there is none.
+void* Table::Get(int i)
+{
+  // Return the element associated with the given if, or 0 if
+  // there is none.
 
-    return (i >=0 && i < size && map.Test(i)) ? table[i] : 0;
+  return (i >=0 && i < size && map.Test(i)) ? table[i] : 0;
 }
 
-int Table::Put(void *f) {
-    // Put the element in the table and return the slot it used.  Use a
-    // lock so 2 files don't get the same space.
-    int i;	// to find the next slot
+int Table::Put(void *f)
+{
+  // Put the element in the table and return the slot it used.  Use a
+  // lock so 2 files don't get the same space.
+  int i;	// to find the next slot
 
+  lock->Acquire();
+  i = map.Find();
+  lock->Release();
+  if (i != -1)
+    table[i] = f;
+    
+  return i;
+}
+
+void* Table::Remove(int i)
+{
+  // Remove the element associated with identifier i from the table,
+  // and return it.
+
+  void *f =0;
+
+  if (i >= 0 && i < size)
+  {
     lock->Acquire();
-    i = map.Find();
-    lock->Release();
-    if ( i != -1)
-	table[i] = f;
-    return i;
-}
-
-void *Table::Remove(int i) {
-    // Remove the element associated with identifier i from the table,
-    // and return it.
-
-    void *f =0;
-
-    if ( i >= 0 && i < size ) {
-	lock->Acquire();
-	if ( map.Test(i) ) {
-	    map.Clear(i);
-	    f = table[i];
-	    table[i] = 0;
-	}
-	lock->Release();
+    if (map.Test(i))
+    {
+      map.Clear(i);
+      f = table[i];
+      table[i] = 0;
     }
-    return f;
+    lock->Release();
+  }
+  
+  return f;
 }
 
 //----------------------------------------------------------------------
@@ -84,9 +95,7 @@ void *Table::Remove(int i) {
 //	object file header, in case the file was generated on a little
 //	endian machine, and we're now running on a big endian machine.
 //----------------------------------------------------------------------
-
-static void 
-SwapHeader (NoffHeader *noffH)
+static void SwapHeader (NoffHeader *noffH)
 {
 	noffH->noffMagic = WordToHost(noffH->noffMagic);
 	noffH->code.size = WordToHost(noffH->code.size);
@@ -116,8 +125,72 @@ SwapHeader (NoffHeader *noffH)
 //      Incompletely consretucted address spaces have the member
 //      constructed set to false.
 //----------------------------------------------------------------------
+AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
+{
+  #ifdef CHANGED
+    NoffHeader noffH;
+    unsigned int size;
 
-AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
+    ppnInUseLock->Acquire();
+    
+    // Don't allocate the input or output to disk files.
+    fileTable.Put(0);
+    fileTable.Put(0);
+
+    // Read header from the executable file.
+    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    if ((noffH.noffMagic != NOFFMAGIC) && (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+      SwapHeader(&noffH);
+    ASSERT(noffH.noffMagic == NOFFMAGIC);
+
+    // Calculate size and numPages.
+    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size;
+    numPages = divRoundUp(size, PageSize);
+    int numPagesWithStack = numPages + divRoundUp(UserStackSize, PageSize);
+    size = numPages * PageSize;
+    
+    DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
+
+    // Setup the pageTable.
+    pageTable = new TranslationEntry[numPagesWithStack];
+    
+    // Check we're not trying to run anything too big -- at least until we have virtual memory.
+    ASSERT(numPages <= NumPhysPages);
+    
+    unsigned int vpn = 0;
+    for (; vpn < (unsigned int)(divRoundUp(noffH.code.size, PageSize) + 
+         divRoundUp(noffH.initData.size, PageSize)); ++vpn)
+    {
+      // Read a page from the executable file into the next available chunk of main memory.
+      int ppn = ppnInUseBitMap->Find();     // Physical Page Number.
+      executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
+                         noffH.code.inFileAddr + (vpn * PageSize));
+
+      // Map the virtual page to the physical page.
+      pageTable[vpn].virtualPage  = vpn;
+      pageTable[vpn].physicalPage = ppn;
+      pageTable[vpn].valid        = TRUE;
+      pageTable[vpn].use          = FALSE;
+      pageTable[vpn].dirty        = FALSE;
+      pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+    }
+    
+    // Increase the size to leave room for the stack.
+    numPages = numPagesWithStack;
+    
+    for (; vpn < numPages; ++vpn)
+    {
+      int ppn = ppnInUseBitMap->Find();     // Physical Page Number.
+      pageTable[vpn].virtualPage  = vpn;
+      pageTable[vpn].physicalPage = ppn;
+      pageTable[vpn].valid        = TRUE;
+      pageTable[vpn].use          = FALSE;
+      pageTable[vpn].dirty        = FALSE;
+      pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+    }
+
+    ppnInUseLock->Release();
+  #else
     NoffHeader noffH;
     unsigned int i, size;
 
@@ -126,55 +199,57 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     fileTable.Put(0);
 
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
-    if ((noffH.noffMagic != NOFFMAGIC) && 
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-    	SwapHeader(&noffH);
+    if ((noffH.noffMagic != NOFFMAGIC) && (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+      SwapHeader(&noffH);
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
     numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
-						// to leave room for the stack
+            // to leave room for the stack
     size = numPages * PageSize;
 
     ASSERT(numPages <= NumPhysPages);		// check we're not trying
-						// to run anything too big --
-						// at least until we have
-						// virtual memory
+            // to run anything too big --
+            // at least until we have
+            // virtual memory
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
-					numPages, size);
-// first, set up the translation 
+          numPages, size);
+    // first, set up the translation 
     pageTable = new TranslationEntry[numPages];
-    for (i = 0; i < numPages; i++) {
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
+    for (i = 0; i < numPages; i++)
+    {
+      pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+      pageTable[i].physicalPage = i;
+      pageTable[i].valid = TRUE;
+      pageTable[i].use = FALSE;
+      pageTable[i].dirty = FALSE;
+      pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+          // a separate page, we could set its 
+          // pages to be read-only
     }
     
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment
+    // zero out the entire address space, to zero the unitialized data segment 
+    // and the stack segment
     bzero(machine->mainMemory, size);
 
-// then, copy in the code and data segments into memory
-    if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-			noffH.code.size, noffH.code.inFileAddr);
+    // then, copy in the code and data segments into memory
+    if (noffH.code.size > 0)
+    {
+      DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+            noffH.code.virtualAddr, noffH.code.size);
+      executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
+                         noffH.code.size, noffH.code.inFileAddr);
     }
-    if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-			noffH.initData.size, noffH.initData.inFileAddr);
+    if (noffH.initData.size > 0)
+    {
+      DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+            noffH.initData.virtualAddr, noffH.initData.size);
+      executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
+                         noffH.initData.size, noffH.initData.inFileAddr);
     }
-
+  #endif //ifdef CHANGED
 }
 
 //----------------------------------------------------------------------
@@ -183,7 +258,6 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 // 	Dealloate an address space.  release pages, page tables, files
 // 	and file tables
 //----------------------------------------------------------------------
-
 AddrSpace::~AddrSpace()
 {
     delete pageTable;
@@ -198,27 +272,25 @@ AddrSpace::~AddrSpace()
 //	will be saved/restored into the currentThread->userRegisters
 //	when this thread is context switched out.
 //----------------------------------------------------------------------
-
-void
-AddrSpace::InitRegisters()
+void AddrSpace::InitRegisters()
 {
-    int i;
+  int i;
 
-    for (i = 0; i < NumTotalRegs; i++)
-	machine->WriteRegister(i, 0);
+  for (i = 0; i < NumTotalRegs; i++)
+    machine->WriteRegister(i, 0);
 
-    // Initial program counter -- must be location of "Start"
-    machine->WriteRegister(PCReg, 0);	
+  // Initial program counter -- must be location of "Start"
+  machine->WriteRegister(PCReg, 0);	
 
-    // Need to also tell MIPS where next instruction is, because
-    // of branch delay possibility
-    machine->WriteRegister(NextPCReg, 4);
+  // Need to also tell MIPS where next instruction is, because
+  // of branch delay possibility
+  machine->WriteRegister(NextPCReg, 4);
 
-   // Set the stack register to the end of the address space, where we
-   // allocated the stack; but subtract off a bit, to make sure we don't
-   // accidentally reference off the end!
-    machine->WriteRegister(StackReg, numPages * PageSize - 16);
-    DEBUG('a', "Initializing stack register to %x\n", numPages * PageSize - 16);
+ // Set the stack register to the end of the address space, where we
+ // allocated the stack; but subtract off a bit, to make sure we don't
+ // accidentally reference off the end!
+  machine->WriteRegister(StackReg, numPages * PageSize - 16);
+  DEBUG('a', "Initializing stack register to %x\n", numPages * PageSize - 16);
 }
 
 //----------------------------------------------------------------------
@@ -228,7 +300,6 @@ AddrSpace::InitRegisters()
 //
 //	For now, nothing!
 //----------------------------------------------------------------------
-
 void AddrSpace::SaveState() 
 {}
 
@@ -239,9 +310,56 @@ void AddrSpace::SaveState()
 //
 //      For now, tell the machine where to find the page table.
 //----------------------------------------------------------------------
-
 void AddrSpace::RestoreState() 
 {
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
 }
+
+#ifdef CHANGED
+  //----------------------------------------------------------------------
+  // AddrSpace::AllocateStack
+  // 	When creating a new thread, call this function to allocate
+  //  memory for another stack.
+  //
+  //      Returns a pointer to the beginning of the new stack.
+  //      NOTE: Assumes "stackPtr--; memory[stackPtr] = var;" usage.
+  //----------------------------------------------------------------------
+  int AddrSpace::AllocateStack()
+  {
+    printf("Allocating a new stack\n");
+    ppnInUseLock->Acquire();
+      int numStackPages = divRoundUp(UserStackSize, PageSize);
+      TranslationEntry* newPageTable = new TranslationEntry[numPages + numStackPages];
+      
+      // Deep copy old pageTable's data to newPageTable.
+      for (unsigned int vpn = 0; vpn < numPages; ++vpn)
+      {
+        newPageTable[vpn].virtualPage  = pageTable[vpn].virtualPage;
+        newPageTable[vpn].physicalPage = pageTable[vpn].physicalPage;
+        newPageTable[vpn].valid        = pageTable[vpn].valid;
+        newPageTable[vpn].use          = pageTable[vpn].use;
+        newPageTable[vpn].dirty        = pageTable[vpn].dirty;
+        newPageTable[vpn].readOnly     = pageTable[vpn].readOnly;
+      }
+      
+      // Initialize page table for the new stack's memory.
+      for (int vpn = numPages; vpn < numStackPages; ++vpn)
+      {
+        int ppn = ppnInUseBitMap->Find(); // Physical Page Number.
+        newPageTable[vpn].virtualPage  = vpn;
+        newPageTable[vpn].physicalPage = ppn;
+        newPageTable[vpn].valid        = TRUE;
+        newPageTable[vpn].use          = FALSE;
+        newPageTable[vpn].dirty        = FALSE;
+        newPageTable[vpn].readOnly     = FALSE;
+      }
+      
+      delete pageTable;
+      pageTable = newPageTable;
+      numPages += numStackPages;
+    ppnInUseLock->Release();
+    
+    return numPages;
+  }
+#endif
