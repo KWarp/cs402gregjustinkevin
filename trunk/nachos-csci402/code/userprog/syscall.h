@@ -29,15 +29,20 @@
 #define SC_Close	8
 #define SC_Fork		9
 #define SC_Yield	10
-#define SC_GetLock     11
-#define SC_Acquire     12
-#define SC_Release     13
-#define SC_DestroyLock 14
-#define SC_GetCV       15
-#define SC_Wait        16
-#define SC_Signal      17
-#define SC_Broadcast   18
-#define SC_DestroyCV   19
+
+#ifdef CHANGED
+/* Additions for Project 2
+ */
+#define SC_Acquire	11
+#define SC_Release	12
+#define SC_Wait		13
+#define SC_Signal	14
+#define SC_Broadcast	15
+#define SC_CreateLock	16
+#define SC_DestroyLock	17
+#define SC_CreateCondition	18
+#define SC_DestroyCondition	19
+#endif
 
 #define MAXFILENAME 256
 
@@ -133,34 +138,35 @@ void Fork(void (*func)());
 /* Yield the CPU to another runnable thread, whether in this address space 
  * or not. 
  */
-void Yield();		
+void Yield();	
 
-/* Create a new lock. Returns an int as a handle to the new lock. */
-int GetLock();
+#ifdef CHANGED
+/* Additions for Project 2
+ */
 
-/* Acquire the lock referenced by the handle, lock. */
+/* System calls to Acquire and Release a Lock, 
+ * takes in kernel structure array index */
 void Acquire(int lock);
-
-/* Release the lock referenced by the handle, lock. */
 void Release(int lock);
 
-/* Destroy lock. */
-void DestroyLock(int lock);
-
-/* Create a Condition Variable. Returns an int as a handle to the new Condition Variable. */
-int GetCV();
-
-/* Wait for another thread to signal on CV. */
+/* System calls to Signal, Wait, and Broadcast on Conditions, 
+ * takes in kernel structure array index */
 void Wait(int CV, int lock);
-
-/* Signal a thread that is waiting on CV. */
 void Signal(int CV, int lock);
-
-/* Signal all threads that are waiting on CV. */
 void Broadcast(int CV, int lock);
 
-/* Destroys CV. */
-void DestroyCV(int CV);
+/* System call to Create a Lock, returns index into a kernel structure
+ * array of actual Lock objects. */
+int CreateLock();
+/* System call to Destroy a Lock, takes in the index for the Lock */
+void DestroyLock(int lock);
+/* Same deal with Conditions*/
+int CreateCondition();
+void DestroyCondition(int lock);
+
+#endif /* CHANGED */
+
+
 
 #endif /* IN_ASM */
 
