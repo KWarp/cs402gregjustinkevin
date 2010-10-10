@@ -29,6 +29,15 @@
 #define SC_Close	8
 #define SC_Fork		9
 #define SC_Yield	10
+#define SC_GetLock     11
+#define SC_Acquire     12
+#define SC_Release     13
+#define SC_DestroyLock 14
+#define SC_GetCV       15
+#define SC_Wait        16
+#define SC_Signal      17
+#define SC_Broadcast   18
+#define SC_DestroyCV   19
 
 #define MAXFILENAME 256
 
@@ -125,6 +134,33 @@ void Fork(void (*func)());
  * or not. 
  */
 void Yield();		
+
+/* Create a new lock. Returns an int as a handle to the new lock. */
+int GetLock();
+
+/* Acquire the lock referenced by the handle, lock. */
+void Acquire(int lock);
+
+/* Release the lock referenced by the handle, lock. */
+void Release(int lock);
+
+/* Destroy lock. */
+void DestroyLock(int lock);
+
+/* Create a Condition Variable. Returns an int as a handle to the new Condition Variable. */
+int GetCV();
+
+/* Wait for another thread to signal on CV. */
+void Wait(int CV, int lock);
+
+/* Signal a thread that is waiting on CV. */
+void Signal(int CV, int lock);
+
+/* Signal all threads that are waiting on CV. */
+void Broadcast(int CV, int lock);
+
+/* Destroys CV. */
+void DestroyCV(int CV);
 
 #endif /* IN_ASM */
 

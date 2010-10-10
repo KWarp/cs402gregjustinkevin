@@ -129,6 +129,79 @@ Yield:
 	syscall
 	j	$31
 	.end Yield
+  
+	.globl GetLock
+	.ent	GetLock
+GetLock:
+	addiu $2,$0,SC_GetLock
+	syscall
+	j	$31
+	.end GetLock
+
+	.globl Acquire
+	.ent	Acquire
+Acquire:
+	addiu $2,$0,SC_Acquire
+	syscall
+	j	$31
+	.end Acquire
+
+	.globl Release
+	.ent	Release
+Release:
+	addiu $2,$0,SC_Release
+	syscall
+	j	$31
+	.end Release  
+  
+	.globl DestroyLock
+	.ent	DestroyLock
+DestroyLock:
+	addiu $2,$0,SC_DestroyLock
+	syscall
+	j	$31
+	.end DestroyLock  
+  
+	.globl GetCV
+	.ent	GetCV
+GetCV:
+	addiu $2,$0,SC_GetCV
+	syscall
+	j	$31
+	.end GetCV
+  
+	.globl Wait
+	.ent	Wait
+Wait:
+	addiu $2,$0,SC_Wait
+	syscall
+	j	$31
+	.end Wait  
+  
+	.globl Signal
+	.ent	Signal
+Signal:
+	addiu $2,$0,SC_Signal
+	syscall
+	j	$31
+	.end Signal
+  
+	.globl Broadcast
+	.ent	Broadcast
+Broadcast:
+	addiu $2,$0,SC_Broadcast
+	syscall
+	j	$31
+	.end Broadcast
+  
+	.globl DestroyCV
+	.ent	DestroyCV
+DestroyCV:
+	addiu $2,$0,SC_DestroyCV
+	syscall
+	j	$31
+	.end DestroyCV
+  
 
 /* dummy function to keep gcc happy */
         .globl  __main
