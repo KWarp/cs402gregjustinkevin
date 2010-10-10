@@ -239,21 +239,27 @@ void Close_Syscall(int fd) {
 
 void Yield_Syscall()
 {
-	currentthread->Yield();
+	currentThread->Yield();
 }
 
 int CreateLock_Syscall(int vaddr)
 {
 	int len = 32;
-	char *buf = [len];
-	int r = copyin(vaddr,len,buf)
-	if( r == -1 ) 
-	{
-		printf("%s","Bad pointer passed to CreateLock\n");
-		delete[] buf;
-		return -1;
-	}
-	
+	char *buf;
+  if (!(buf = new char[len]))
+  {
+    printf("%s","Error allocating kernel buffer for CreateLock!\n");
+    return -1;
+  }
+  if (copyin(vaddr,len,buf) == -1)
+  {
+    printf("%s","Bad pointer passed to to CreateLock: data not written\n");
+    delete[] buf;
+    return -1;
+  }
+  
+  // Add stuff here.
+  return 0;
 }
 
 void DestroyLock_Syscall(int vaddr)
@@ -261,18 +267,34 @@ void DestroyLock_Syscall(int vaddr)
 
 }
 
+void Acquire_Syscall(int lock)
+{
+
+}
+
+void Release_Syscall(int lock)
+{
+
+}
+
 int CreateCondition_Syscall(int vaddr)
 {
 	int len = 32;
-	char *buf = [len];
-	int r = copyin(vaddr,len,buf)
-	if( r == -1 ) 
-	{
-		printf("%s","Bad pointer passed to CreateLock\n");
-		delete[] buf;
-		return -1;
-	}
-	
+	char *buf;
+  if (!(buf = new char[len]))
+  {
+    printf("%s","Error allocating kernel buffer for CreateCondition!\n");
+    return -1;
+  }
+  if (copyin(vaddr,len,buf) == -1)
+  {
+    printf("%s","Bad pointer passed to to CreateCondition: data not written\n");
+    delete[] buf;
+    return -1;
+  }
+  
+  // Add stuff here.
+  return 0;
 }
 
 void DestroyCondition_Syscall(int vaddr)
@@ -343,45 +365,51 @@ void ExceptionHandler(ExceptionType which) {
 		
 		#ifdef CHANGED
 		case SC_Yield:
-		DEBUG('a', "Yield syscall. \n");
-		Yield_Syscall();
-		break;
+      DEBUG('a', "Yield syscall. \n");
+      Yield_Syscall();
+      break;
 		case SC_CreateLock:
-		DEBUG('a', "CreateLock syscall. \n");
-		rv = CreateLock_Syscall(machine->ReadRegister(4));
-		break;
+      DEBUG('a', "CreateLock syscall. \n");
+      rv = CreateLock_Syscall(machine->ReadRegister(4));
+      break;
 		case SC_DestroyLock:
-		DEBUG('a', "DestroyLock syscall. \n");
-		DestroyLock_Syscall(machine->ReadRegister(4));
-		break;
+      DEBUG('a', "DestroyLock syscall. \n");
+      DestroyLock_Syscall(machine->ReadRegister(4));
+      break;
 		case SC_Acquire:
-		DEBUG('a', "Acquire syscall. \n");
-		Acquire_Syscall(machine->ReadRegister(4));
-		break;
+      DEBUG('a', "Acquire syscall. \n");
+      Acquire_Syscall(machine->ReadRegister(4));
+      break;
 		case SC_Release:
-		DEBUG('a', "Release syscall. \n");
-		Release_Syscall(machine->ReadRegister(4));
-		break;
+      DEBUG('a', "Release syscall. \n");
+      Release_Syscall(machine->ReadRegister(4));
+      break;
 		case SC_CreateCondition:
-		DEBUG('a', "CreateCondition syscall.\n");
-		rv = CreateCondition_Syscall(machine->ReadRegister(4));
-		break;
+      DEBUG('a', "CreateCondition syscall.\n");
+      rv = CreateCondition_Syscall(machine->ReadRegister(4));
+      break;
 		case SC_DestroyCondition:
-		DEBUG('a', "DestroyCondition syscall. \n");
-		DestroyCondition_Syscall(machine->ReadRegister(4));
-		break;
+      DEBUG('a', "DestroyCondition syscall. \n");
+      DestroyCondition_Syscall(machine->ReadRegister(4));
+      break;
 		case SC_Signal:
-		DEBUG('a', "Signal syscall. \n");
-		Signal_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
+      DEBUG('a', "Signal syscall. \n");
+      Signal_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+      break;
 		case SC_Wait:
-		DEBUG('a', "Wait syscall. \n");
-		Wait_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
+      DEBUG('a', "Wait syscall. \n");
+      Wait_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+      break;
 		case SC_Broadcast:
-		DEBUG('a', "Broadcast syscall. \n");
-		Broadcast_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
+      DEBUG('a', "Broadcast syscall. \n");
+      Broadcast_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+      break;
+    case SC_Fork:
+      DEBUG('a', "Fork syscall. \n");
+      break;
+    case SC_Exec:
+      DEBUG('a', "Exec syscall. \n");
+      break;
 		#endif
 	
 	}
