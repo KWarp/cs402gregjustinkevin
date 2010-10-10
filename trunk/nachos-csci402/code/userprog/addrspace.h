@@ -17,6 +17,10 @@
 #include "filesys.h"
 #include "table.h"
 
+#ifdef CHANGED
+  #include "bitmap.h"
+#endif
+
 #define UserStackSize		1024 	// increase this as necessary!
 
 #define MaxOpenFiles 256
@@ -24,23 +28,31 @@
 
 class AddrSpace {
   public:
-    AddrSpace(OpenFile *executable);	// Create an address space,
-					// initializing it with the program
-					// stored in the file "executable"
-    ~AddrSpace();			// De-allocate an address space
+    // Create an address space, initializing it with the program stored
+    //  in the file "executable".
+    AddrSpace(OpenFile *executable);
+    
+    // De-allocate an address space.
+    ~AddrSpace();
 
-    void InitRegisters();		// Initialize user-level CPU registers,
-					// before jumping to user code
+    // Initialize user-level CPU registers, before jumping to user code.
+    void InitRegisters();
 
-    void SaveState();			// Save/restore address space-specific
-    void RestoreState();		// info on a context switch
-    Table fileTable;			// Table of openfiles
+    // Save/restore address space-specific info on a context switch.
+    void SaveState();
+    void RestoreState();
+    
+    // Table of openfiles.
+    Table fileTable;
 
+    #ifdef CHANGED
+      // Allocates room for a new stack and returns a pointer to the stack beginning.
+      int AllocateStack();
+    #endif
+    
  private:
-    TranslationEntry *pageTable;	// Assume linear page table translation
-					// for now!
-    unsigned int numPages;		// Number of pages in the virtual 
-					// address space
+    TranslationEntry *pageTable;	// Assume linear page table translation for now!
+    unsigned int numPages;		    // Number of pages in the virtual address space.
 };
 
 #endif // ADDRSPACE_H
