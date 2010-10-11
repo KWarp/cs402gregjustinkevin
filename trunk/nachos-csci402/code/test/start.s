@@ -231,6 +231,14 @@ PrintNumber:
 	syscall
 	j	$31
 	.end PrintNumber
+  
+	.globl RandomNumber
+	.ent	RandomNumber
+RandomNumber:
+	addiu $2,$0,SC_RandomNumber
+	syscall
+	j	$31
+	.end RandomNumber
 			
 /* dummy function to keep gcc happy */
         .globl  __main

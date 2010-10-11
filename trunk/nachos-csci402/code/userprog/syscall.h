@@ -47,6 +47,7 @@
 #define SC_DestroyCondition	19
 #define SC_PrintOut 20
 #define SC_PrintNumber 21
+#define SC_RandomNumber 22
 #endif
 
 #define MAXFILENAME 256
@@ -171,6 +172,7 @@ void DestroyCondition(int lock);
 
 void PrintOut(const char* vaddr, int len);
 void PrintNumber(int i);
+int RandomNumber(int count);
 
 #endif /* CHANGED */
 
