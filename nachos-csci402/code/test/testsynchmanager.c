@@ -82,7 +82,7 @@ void TestCreateLock()
 		i++;
 	}
 	PrintOut("Error value: ", 13);
-	PrintNumber(i);
+	PrintNumber(i+1);
 	PrintOut("\n", 1);
 	
 	/* Clear all created locks */
@@ -154,11 +154,32 @@ void TestDestroyLock()
 }
 
 /*
- * 
+ * - Acquire bad data
+ * - Acquire a lock
+ * - Acquire it again
+ * - Delete the lock and Acquire
+ * - Release lock for actual deletion
  */
 void TestAquire()
 {
+	int lockHandle;
 	PrintOut("TestAquire\n", 11);
+	
+	PrintOut("Aquire bad data\n", 16);
+	Acquire(-1);
+	
+	PrintOut("Create lock and Aquire\n", 23);
+	lockHandle = CreateLock();
+	Acquire(lockHandle);
+	PrintOut("Acquire lock a second time\n", 27);
+	Acquire(lockHandle);
+	PrintOut("Delete the lock while still acquired\n", 37);
+	DestroyLock(lockHandle);
+	PrintOut("Acquire lock a third time\n", 26);
+	Acquire(lockHandle);
+	PrintOut("Release lock to actually be deleted, then Acquire\n", 50);
+	Release(lockHandle);
+	Acquire(lockHandle);
 	
 	PrintOut("TestAquire Completed\n\n", 22);
 }
@@ -174,7 +195,9 @@ void TestRelease()
 }
 
 /*
- * 
+ * - Create 1 CV
+ * - Create many CVs
+ * - Create maximum CVs
  */	
 void TestCreateCondition()
 {
@@ -203,7 +226,7 @@ void TestCreateCondition()
 		i++;
 	}
 	PrintOut("Error value: ", 13);
-	PrintNumber(i);
+	PrintNumber(i+1);
 	PrintOut("\n", 1);
 	
 	/* Clear all created locks */
