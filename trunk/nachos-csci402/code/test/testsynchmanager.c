@@ -32,12 +32,12 @@ void TestBroadcast();
 int main()
 {
   PrintOut("=== Test SyncManager ===\n", 25);
-/*  TestCreateLock();*/
+  TestCreateLock();
   TestDestroyLock();
   TestAquire();		
   TestRelease();
-/*  
-  TestCreateCondition();*/
+
+  TestCreateCondition();
   TestDestroyCondition();	
   TestWait();
   TestSignal();		
@@ -60,7 +60,7 @@ void TestCreateLock()
 {
 	int lockHandle;
 	int i;
-	PrintOut("Test CreateLock\n", 16);
+	PrintOut("-TestCreateLock-\n", 17);
 	lockHandle = -1;
 	PrintOut("Creating Lock...\n", 17);
 	lockHandle = CreateLock();
@@ -106,7 +106,7 @@ void TestDestroyLock()
 {
 	int lockHandles[5];
 	int i;
-	PrintOut("Test DestroyLock\n", 17);
+	PrintOut("-TestDestroyLock-\n", 18);
 	
 	PrintOut("Create and Destory 1 lock\n", 26);
 	lockHandles[0] = CreateLock();
@@ -164,7 +164,7 @@ void TestDestroyLock()
 void TestAquire()
 {
 	int lockHandle;
-	PrintOut("TestAquire\n", 11);
+	PrintOut("-TestAquire-\n", 13);
 	
 	PrintOut("Aquire bad data\n", 16);
 	Acquire(-1);
@@ -194,7 +194,7 @@ void TestAquire()
 void TestRelease()
 {
 	int lockHandle;
-	PrintOut("TestRelease\n", 12);
+	PrintOut("-TestRelease-\n", 14);
 	
 	PrintOut("Release bad data\n", 17);
 	Release(-1);
@@ -222,7 +222,7 @@ void TestCreateCondition()
 {
 	int cvHandle;
 	int i;
-	PrintOut("TestCreateCondition\n", 20);
+	PrintOut("-TestCreateCondition-\n", 22);
 	cvHandle = -1;
 	PrintOut("Creating CV...\n", 15);
 	cvHandle = CreateCondition();
@@ -267,7 +267,7 @@ void TestDestroyCondition()
 {
 	int cvHandles[5];
 	int i;
-	PrintOut("TestDestroyCondition\n", 21);
+	PrintOut("-TestDestroyCondition-\n", 23);
 	
 	PrintOut("Create and Destory 1 CV\n", 26);
 	cvHandles[0] = CreateCondition();
@@ -324,7 +324,7 @@ int globalCVHandle;
 int globalLockHandle;
 void TestWait()
 {
-	PrintOut("TestWait\n", 9);
+	PrintOut("-TestWait-\n", 11);
 	globalCVHandle = CreateCondition();
 	globalLockHandle = CreateLock();
 	
@@ -390,7 +390,7 @@ void TestSignal()
 	cvHandle = CreateCondition();
 	lockHandle = CreateLock();
 	
-	PrintOut("TestSignal\n", 11);
+	PrintOut("-TestSignal-\n", 13);
 	PrintOut("Signal Bad CV and Bad Lock\n", 27);
 	Signal(-1, -1);
 	PrintOut("Signal Good CV and Bad Lock\n", 28);
@@ -426,7 +426,7 @@ void TestBroadcast()
 	cvHandle = CreateCondition();
 	lockHandle = CreateLock();
 	
-	PrintOut("TestBroadcast\n", 14);
+	PrintOut("-TestBroadcast-\n", 16);
 	
 	PrintOut("Broadcast Bad CV and Bad Lock\n", 30);
 	Broadcast(-1, -1);
