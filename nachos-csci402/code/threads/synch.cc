@@ -297,6 +297,9 @@ void Condition::Broadcast(Lock* conditionLock)
  * UTILITY METHODS
  * =============================================================*/	
 
+ #ifdef PROJECT_2
+ 
+ 
 Lock* locks[MaxNumLocks] = {};
 int numLocks = 0;
 
@@ -394,3 +397,6 @@ void PrintNumberV(int number)
 {
 	// printf("%d", number);
 }
+
+#endif // PROJECT_2
+

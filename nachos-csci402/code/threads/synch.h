@@ -144,7 +144,9 @@ class Condition {
 	#endif
 };
 
-
+// ignore the defines, not using them
+#define PROJECT_2
+#ifdef PROJECT_2
 int GetLock();
 int GetCV();
 void Acquire(int lock);
@@ -164,5 +166,6 @@ void PrintNumberV(int i);
 void Fork(int func);
 
 #define MaxNumLocks 2100
+#endif // PROJECT_2
 
 #endif // SYNCH_H
