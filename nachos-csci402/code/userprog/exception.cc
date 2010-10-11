@@ -32,6 +32,8 @@ using namespace std;
 #ifdef CHANGED
   #include "../threads/synch.h"
   static Lock* forkLock = new Lock("Fork Lock");
+  static Lock* printNumberLock = new Lock("PrintNumber Lock");
+  static Lock* printOutLock = new Lock("PrintOut Lock");
 #endif
 
 int copyin(unsigned int vaddr, int len, char *buf)
@@ -355,7 +357,10 @@ void Exit_Syscall(int status)
   
   // if we are the last thread in this process
   //  delete currentThread->space;
-  //  currentThread->Finish();
+  //  if this process is the last process
+  //    interrupt->Halt();
+  //  else
+  //    currentThread->Finish();
   //  return;
   
   // if we are the parent thread
@@ -401,6 +406,20 @@ void Wait_Syscall(int cv, int lock)
 void Broadcast_Syscall(int cv, int lock)
 {
 
+}
+
+void PrintOut_Syscall(unsigned int vaddr, int len)
+{
+  printOutLock->Acquire();
+    Write_Syscall(vaddr, len, ConsoleOutput);
+  printOutLock->Release();
+}
+
+void PrintNumber_Syscall(int i)
+{
+  printNumberLock->Acquire();
+    printf("%d", i);
+  printNumberLock->Release();
 }
 
 #endif /* CHANGED */
@@ -497,6 +516,14 @@ void ExceptionHandler(ExceptionType which)
         case SC_Exit:
           DEBUG('a', "Exit syscall. \n");
           Exit_Syscall((unsigned int)machine->ReadRegister(4));
+          break;
+        case SC_PrintOut:
+          DEBUG('a', "PrintOut syscall. \n");
+          PrintOut_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+          break;
+        case SC_PrintNumber:
+          DEBUG('a', "PrintNumber syscall. \n");
+          PrintNumber_Syscall(machine->ReadRegister(4));
           break;
       #endif
     }

@@ -1,18 +1,26 @@
 /* testfork.cc
  *	Simple program to test the fork system call.
  */
-
+ 
 #include "syscall.h"
+
+int lock;
 
 void test1()
 {
   int i;
   
-  Write("Running test1\n", 14, ConsoleOutput);
+  Acquire(lock);
+  PrintOut("Running test1\n", 14);
   for (i = 0; i < 8; ++i)
-    Write("This will be printed 8 times\n", 29, ConsoleOutput);
-  Write("test1 complete\n", 15, ConsoleOutput);
+  {
+    PrintOut("This will be printed 8 times (", 30);
+    PrintNumber(i + 1);
+    PrintOut(")\n", 2);
+  }
+  PrintOut("test1 complete\n", 15);
   
+  Release(lock);
   /* Yield(); */
   Exit(0);
 }
@@ -21,22 +29,30 @@ void test2()
 {
   int i;
   
-  Write("Running test2\n", 14, ConsoleOutput);
+  Acquire(lock);
+  PrintOut("Running test2\n", 14);
   for (i = 0; i < 4; ++i)
-    Write("This will be printed 4 times\n", 29, ConsoleOutput);
-  Write("test2 complete\n", 15, ConsoleOutput);
+  {
+    PrintOut("This will be printed 4 times (", 30);
+    PrintNumber(i + 1);
+    PrintOut(")\n", 2);
+  }
+  PrintOut("test2 complete\n", 15);
   
+  Release(lock);
   /* Yield(); */
   Exit(0);
 }
 
 int main()
 {
-  Write("Press Ctrl-C once the threads are finished printing\n", 52, ConsoleOutput);
-  Write("Forking test1\n", 14, ConsoleOutput);
+  lock = CreateLock();
+
+  PrintOut("Press Ctrl-C once the threads are finished printing\n", 52);
+  PrintOut("Forking test1\n", 14);
   Fork(test1);
   
-  Write("Forking test2\n", 14, ConsoleOutput);
+  PrintOut("Forking test2\n", 14);
   Fork(test2);
   
   while (1)

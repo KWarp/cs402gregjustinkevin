@@ -12,7 +12,9 @@
 
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
-#define CHANGED
+#ifndef CHANGED
+  #define CHANGED
+#endif
 
 #include "copyright.h"
 
@@ -43,6 +45,8 @@
 #define SC_DestroyLock	17
 #define SC_CreateCondition	18
 #define SC_DestroyCondition	19
+#define SC_PrintOut 20
+#define SC_PrintNumber 21
 #endif
 
 #define MAXFILENAME 256
@@ -164,6 +168,9 @@ void DestroyLock(int lock);
 /* Same deal with Conditions*/
 int CreateCondition();
 void DestroyCondition(int lock);
+
+void PrintOut(const char* vaddr, int len);
+void PrintNumber(int i);
 
 #endif /* CHANGED */
 
