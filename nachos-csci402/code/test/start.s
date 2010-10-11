@@ -7,6 +7,9 @@
  */
 
 #define IN_ASM
+#ifndef CHANGED
+  #define CHANGED
+#endif
 #include "syscall.h"
 
         .text   
@@ -133,7 +136,7 @@ Yield:
 	.globl GetLock
 	.ent	GetLock
 GetLock:
-	addiu $2,$0,SC_GetLock
+	addiu $2,$0,SC_CreateLock
 	syscall
 	j	$31
 	.end GetLock
@@ -181,7 +184,6 @@ Broadcast:
 	j	$31
 	.end Broadcast	
 	
-	
 	.globl CreateLock
 	.ent	CreateLock
 CreateLock:
@@ -214,7 +216,6 @@ DestroyCondition:
 	j	$31
 	.end DestroyCondition		
 			
-	
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

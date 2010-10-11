@@ -18,7 +18,7 @@ int main()
 
 
   fd = Open("testfile", 8);
-  bytesread = Read( buf, 100, fd );
-  Write( buf, bytesread, ConsoleOutput );
+  bytesread = Read(buf, 100, fd);
+  Write(buf, bytesread, ConsoleOutput);
   Close(fd);
 }

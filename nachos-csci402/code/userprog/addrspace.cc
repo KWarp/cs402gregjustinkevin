@@ -146,25 +146,27 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     // Calculate size and numPages.
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size;
     numPages = divRoundUp(size, PageSize);
-    int numPagesWithStack = numPages + divRoundUp(UserStackSize, PageSize);
+    int numStackPages = divRoundUp(UserStackSize, PageSize);
+    // int numPagesWithStack = numPages + divRoundUp(UserStackSize, PageSize);
     size = numPages * PageSize;
     
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
+    printf("Initializing address space, num pages %d, size %d\n", numPages, size);
 
     // Setup the pageTable.
-    pageTable = new TranslationEntry[numPagesWithStack];
+    pageTable = new TranslationEntry[numPages + numStackPages];
     
     // Check we're not trying to run anything too big -- at least until we have virtual memory.
-    ASSERT(numPages <= NumPhysPages);
+    ASSERT(numPages + numStackPages <= NumPhysPages);
     
+    // Read data from just the code and initData sections.
     unsigned int vpn = 0;
-    for (; vpn < (unsigned int)(divRoundUp(noffH.code.size, PageSize) + 
-         divRoundUp(noffH.initData.size, PageSize)); ++vpn)
+    for (; vpn < (unsigned int)(divRoundUp(noffH.code.size + noffH.initData.size, PageSize)); ++vpn)
     {
       // Read a page from the executable file into the next available chunk of main memory.
       int ppn = ppnInUseBitMap->Find();     // Physical Page Number.
       executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
-                         noffH.code.inFileAddr + (vpn * PageSize));
+                         (noffH.code.inFileAddr + (vpn * PageSize)));
 
       // Map the virtual page to the physical page.
       pageTable[vpn].virtualPage  = vpn;
@@ -176,11 +178,13 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     }
     
     // Increase the size to leave room for the stack.
-    numPages = numPagesWithStack;
+    numPages += numStackPages;
     
     for (; vpn < numPages; ++vpn)
     {
       int ppn = ppnInUseBitMap->Find();     // Physical Page Number.
+      bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
+      
       pageTable[vpn].virtualPage  = vpn;
       pageTable[vpn].physicalPage = ppn;
       pageTable[vpn].valid        = TRUE;
@@ -189,6 +193,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
     }
 
+    RestoreState();
     ppnInUseLock->Release();
   #else
     NoffHeader noffH;
@@ -310,7 +315,7 @@ void AddrSpace::SaveState()
 //
 //      For now, tell the machine where to find the page table.
 //----------------------------------------------------------------------
-void AddrSpace::RestoreState() 
+void AddrSpace::RestoreState()
 {
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
@@ -327,7 +332,7 @@ void AddrSpace::RestoreState()
   //----------------------------------------------------------------------
   int AddrSpace::AllocateStack()
   {
-    printf("Allocating a new stack\n");
+    // printf("Allocating a new stack\n");
     ppnInUseLock->Acquire();
       int numStackPages = divRoundUp(UserStackSize, PageSize);
       TranslationEntry* newPageTable = new TranslationEntry[numPages + numStackPages];
@@ -344,7 +349,7 @@ void AddrSpace::RestoreState()
       }
       
       // Initialize page table for the new stack's memory.
-      for (int vpn = numPages; vpn < numStackPages; ++vpn)
+      for (unsigned int vpn = numPages; vpn < numPages + numStackPages; ++vpn)
       {
         int ppn = ppnInUseBitMap->Find(); // Physical Page Number.
         newPageTable[vpn].virtualPage  = vpn;
@@ -354,12 +359,14 @@ void AddrSpace::RestoreState()
         newPageTable[vpn].dirty        = FALSE;
         newPageTable[vpn].readOnly     = FALSE;
       }
-      
+
       delete pageTable;
       pageTable = newPageTable;
       numPages += numStackPages;
+      RestoreState();
     ppnInUseLock->Release();
     
+    // Return an index to the last Page (the start of the new stack).
     return numPages;
   }
 #endif
