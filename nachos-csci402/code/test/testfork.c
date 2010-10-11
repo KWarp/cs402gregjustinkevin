@@ -4,6 +4,7 @@
  
 #include "syscall.h"
 
+/* Assumes that the lock syscalls all work. */
 int lock;
 
 void test1()
@@ -56,7 +57,5 @@ int main()
   Fork(test2);
   
   while (1)
-  {
     Yield();
-  }
 }
