@@ -129,7 +129,6 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
 {
   #ifdef CHANGED
     NoffHeader noffH;
-    unsigned int size;
 
     ppnInUseLock->Acquire();
     
@@ -144,14 +143,12 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
     // Calculate size and numPages.
-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size;
+    int size = noffH.code.size + noffH.initData.size + noffH.uninitData.size;
     numPages = divRoundUp(size, PageSize);
     int numStackPages = divRoundUp(UserStackSize, PageSize);
-    // int numPagesWithStack = numPages + divRoundUp(UserStackSize, PageSize);
     size = numPages * PageSize;
     
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
-    printf("Initializing address space, num pages %d, size %d\n", numPages, size);
 
     // Setup the pageTable.
     pageTable = new TranslationEntry[numPages + numStackPages];
