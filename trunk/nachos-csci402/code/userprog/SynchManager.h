@@ -11,8 +11,8 @@
 #include "addrspace.h"
 #include "system.h"
 
-#define MaxNumLocks 2100
-#define MaxNumCVs 2100
+#define MaxNumLocks 10000
+#define MaxNumCVs 	40000
 
 
 // Keeps track of the state of a Lock in my entry table
