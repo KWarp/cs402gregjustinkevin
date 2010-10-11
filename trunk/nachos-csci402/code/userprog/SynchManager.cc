@@ -31,6 +31,8 @@ SynchManager::~SynchManager()
 	delete cvBitMap;
 	delete lock_ForLockTable;
 	delete lock_ForCVTable;
+	delete[] lockEntries;
+	delete[] cvEntries;
 }
 
 /* =============================================================	

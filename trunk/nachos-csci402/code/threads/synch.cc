@@ -300,10 +300,10 @@ void Condition::Broadcast(Lock* conditionLock)
  #ifdef PROJECT_2
  
  
-Lock* locks[MaxNumLocks] = {};
+Lock* locks[MaxNumLocks_sync_h] = {};
 int numLocks = 0;
 
-Condition* CVs[MaxNumLocks]= {};
+Condition* CVs[MaxNumLocks_sync_h]= {};
 int numCVs = 0;
 
 int numThreads = 0;

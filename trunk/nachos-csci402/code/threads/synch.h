@@ -165,7 +165,7 @@ void PrintNumberV(int i);
 
 void Fork(int func);
 
-#define MaxNumLocks 2100
+#define MaxNumLocks_sync_h 2100
 #endif // PROJECT_2
 
 #endif // SYNCH_H
