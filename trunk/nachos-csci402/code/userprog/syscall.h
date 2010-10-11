@@ -12,6 +12,7 @@
 
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
+#define CHANGED
 
 #include "copyright.h"
 
