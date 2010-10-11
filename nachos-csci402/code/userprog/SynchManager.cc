@@ -44,7 +44,7 @@ int SynchManager::CreateLock()
 		// check that I can create a lock
 		if(lockIndex == -1)
 		{
-			printf("ERROR: Cannot create lock");
+			printf("ERROR: Cannot create lock\n");
 			lock_ForLockTable->Release();
 			return -1;
 		}
@@ -63,7 +63,7 @@ int SynchManager::CreateCondition()
 		// check that I can create a cv
 		if(cvIndex == -1)
 		{
-			printf("ERROR: Cannot create Condition");
+			printf("ERROR: Cannot create Condition\n");
 			lock_ForCVTable->Release();
 			return -1;
 		}
@@ -85,7 +85,7 @@ void SynchManager::DestroyLock(int index)
 		// validate
 		if(index < 0 || index > MaxNumLocks || !lockBitMap->Test(index))
 		{
-			printf("ERROR: No Lock to destroy");
+			printf("ERROR: No Lock to destroy\n");
 			lock_ForLockTable->Release();
 			return;
 		}
@@ -110,7 +110,7 @@ void SynchManager::DestroyCondition(int index)
 		// validate
 		if(index < 0 || index > MaxNumCVs || !cvBitMap->Test(index))
 		{
-			printf("ERROR: No Condition to destroy");
+			printf("ERROR: No Condition to destroy\n");
 			lock_ForCVTable->Release();
 			return;
 		}
@@ -138,7 +138,7 @@ void SynchManager::Acquire(int lockIndex)
 		// validate
 		if(lockIndex < 0 || lockIndex > MaxNumCVs || !lockBitMap->Test(lockIndex))
 		{
-			printf("ERROR: No Lock available to Acquire");
+			printf("ERROR: No Lock available to Acquire\n");
 			return;
 		}
 		lockEntries[lockIndex]->toBeUsed = true;
@@ -156,7 +156,7 @@ void SynchManager::Release(int lockIndex)
 		// validate
 		if(lockIndex < 0 || lockIndex > MaxNumCVs || !lockBitMap->Test(lockIndex))
 		{
-			printf("ERROR: No Lock available to Release");
+			printf("ERROR: No Lock available to Release\n");
 			return;
 		}
 		
@@ -184,14 +184,14 @@ void SynchManager::Wait(int cvIndex, int lockIndex)
 		// validate
 		if(cvIndex < 0 || cvIndex > MaxNumCVs || !cvBitMap->Test(cvIndex))
 		{
-			printf("ERROR: No Condition to available for Wait");
+			printf("ERROR: No Condition to available for Wait\n");
 			lock_ForLockTable->Release();
 			lock_ForCVTable->Release();
 			return;
 		}
 		if(lockIndex < 0 || lockIndex > MaxNumCVs || !lockBitMap->Test(lockIndex))
 		{
-			printf("ERROR: No Lock available for Wait");
+			printf("ERROR: No Lock available for Wait\n");
 			lock_ForLockTable->Release();
 			lock_ForCVTable->Release();
 			return;
@@ -214,14 +214,14 @@ void SynchManager::Signal(int cvIndex, int lockIndex)
 		// validate
 		if(cvIndex < 0 || cvIndex > MaxNumCVs || !cvBitMap->Test(cvIndex))
 		{
-			printf("ERROR: No Condition to available for Signal");
+			printf("ERROR: No Condition to available for Signal\n");
 			lock_ForLockTable->Release();
 			lock_ForCVTable->Release();
 			return;
 		}
 		if(lockIndex < 0 || lockIndex > MaxNumCVs || !lockBitMap->Test(lockIndex))
 		{
-			printf("ERROR: No Lock available for Signal");
+			printf("ERROR: No Lock available for Signal\n");
 			lock_ForLockTable->Release();
 			lock_ForCVTable->Release();
 			return;
@@ -240,14 +240,14 @@ void SynchManager::Broadcast(int cvIndex, int lockIndex)
 		// validate
 		if(cvIndex < 0 || cvIndex > MaxNumCVs || !cvBitMap->Test(cvIndex))
 		{
-			printf("ERROR: No Condition to available for Broadcast");
+			printf("ERROR: No Condition to available for Broadcast\n");
 			lock_ForLockTable->Release();
 			lock_ForCVTable->Release();
 			return;
 		}
 		if(lockIndex < 0 || lockIndex > MaxNumCVs || !lockBitMap->Test(lockIndex))
 		{
-			printf("ERROR: No Lock available for Broadcast");
+			printf("ERROR: No Lock available for Broadcast\n");
 			lock_ForLockTable->Release();
 			lock_ForCVTable->Release();
 			return;
