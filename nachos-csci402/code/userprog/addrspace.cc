@@ -191,6 +191,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     }
 
     RestoreState();
+    InitRegisters(); // If we don't call this here, weird stuff happens. Should we just call this in the AddrSpace constructor?
     ppnInUseLock->Release();
   #else
     NoffHeader noffH;
