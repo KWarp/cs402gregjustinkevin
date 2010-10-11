@@ -12,6 +12,9 @@
  * DATA
  * =============================================================*/	
 
+#define TRUE 1
+#define FALSE 0
+ 
 #define count_MaxNumOrderTakers 10
 #define count_MaxNumCustomers 50
 #define count_MaxNumWaiters 10
@@ -116,7 +119,9 @@ extern int test_AllCustomersOrderThisCombo;
 void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
 void Initialize();
  
-/* Customer */ 
+int main();
+ 
+/* Customer */
 void Customer(int debug);
 void WaitInLineToEnterRest(int ID);
 void WaitInLineToOrderFood(int ID);
@@ -142,6 +147,7 @@ void Waiter(int debug);
 
 /* Utility */
 int shouldExit();
+int randomNumber(int count);
 
 #endif  /* SIMULATION_H */
 

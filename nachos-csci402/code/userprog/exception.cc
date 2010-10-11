@@ -382,6 +382,12 @@ void Broadcast_Syscall(int cv, int lock)
 	return synchManager->Broadcast(cv, lock);
 }
 
+int RandomNumber_Syscall(int count)
+{
+	int i = Random() % (count);
+	return i;
+}
+
 void PrintOut_Syscall(unsigned int vaddr, int len)
 {
   printOutLock->Acquire();
@@ -498,6 +504,10 @@ void ExceptionHandler(ExceptionType which)
         case SC_PrintNumber:
           DEBUG('a', "PrintNumber syscall. \n");
           PrintNumber_Syscall(machine->ReadRegister(4));
+          break;
+        case SC_RandomNumber:
+          DEBUG('a', "RandomNumber syscall. \n");
+          rv = RandomNumber_Syscall(machine->ReadRegister(4));
           break;
       #endif
     }

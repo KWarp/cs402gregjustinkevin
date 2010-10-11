@@ -1,7 +1,12 @@
 
+#ifndef CHANGED
+  #define CHANGED
+#endif
+
 #ifdef CHANGED
 #include "simulation.h"
-#include "synch.h"
+/* #include "synch.h" */
+#include "syscall.h"
 
 /*
  * simulation.cc
@@ -106,20 +111,22 @@ int test_AllCustomersOrderThisCombo;
  
 void Initialize()
 {
+  int i;
+
   /* Initialize Locks */
   lock_MrCr_LineToEnterRest = GetLock();
   lock_OrCr_LineToOrderFood = GetLock();
   
-  for (int i = 0; i < count_MaxNumOrderTakers; ++i)
+  for (i = 0; i < count_MaxNumOrderTakers; ++i)
     lock_OrderTakerBusy[i] = GetLock();
 	
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
+  for (i = 0; i < count_MaxNumCustomers; ++i)
     lock_CustomerSittingFromCustomerID[i] = GetLock();
   
   lock_OrCr_OrderReady = GetLock();
   
   lock_MrWr = GetLock();
-  for (int i = 0; i < numInventoryItemTypes; ++i)
+  for (i = 0; i < numInventoryItemTypes; ++i)
 	lock_MrCk_InventoryLocks[i] = GetLock();
 	
   lock_HireCook = GetLock();
@@ -128,26 +135,26 @@ void Initialize()
   lock_Init_InitializationLock = GetLock();
 
   /* Initialize CV's */
-  CV_OrWr_BaggedOrders = GetCV();
-  CV_HireCook = GetCV();
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
-    CV_MrCk_InventoryLocks[i] = GetCV();
-  CV_MrWr = GetCV();
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
-    CV_CustomerWaitingForFood[i] = GetCV();
-  CV_OrCr_OrderReady = GetCV();
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
-    CV_CustomerSittingFromCustomerID[i] = GetCV();
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
-    CV_OrderTakerBusy[i] = GetCV();
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
-    CV_OrCr_LineToOrderFoodFromCustomerID[i] = GetCV();
-  for (int i = 0; i < count_MaxNumCustomers; ++i)
-    CV_MrCr_LineToEnterRestFromCustomerID[i] = GetCV();
+  CV_OrWr_BaggedOrders = CreateCondition();
+  CV_HireCook = CreateCondition();
+  for (i = 0; i < count_MaxNumCustomers; ++i)
+    CV_MrCk_InventoryLocks[i] = CreateCondition();
+  CV_MrWr = CreateCondition();
+  for (i = 0; i < count_MaxNumCustomers; ++i)
+    CV_CustomerWaitingForFood[i] = CreateCondition();
+  CV_OrCr_OrderReady = CreateCondition();
+  for (i = 0; i < count_MaxNumCustomers; ++i)
+    CV_CustomerSittingFromCustomerID[i] = CreateCondition();
+  for (i = 0; i < count_MaxNumCustomers; ++i)
+    CV_OrderTakerBusy[i] = CreateCondition();
+  for (i = 0; i < count_MaxNumCustomers; ++i)
+    CV_OrCr_LineToOrderFoodFromCustomerID[i] = CreateCondition();
+  for (i = 0; i < count_MaxNumCustomers; ++i)
+    CV_MrCr_LineToEnterRestFromCustomerID[i] = CreateCondition();
     
   /* Initialize Monitor Variables and Globals */
 	count_NumTablesAvailable = 10;
-	for(int i = 0; i < numInventoryItemTypes; i += 1)
+	for(i = 0; i < numInventoryItemTypes; i += 1)
 	{
 	  inventoryCount[i] = 0;
 		minCookedFoodStacks[i] = 2;
@@ -158,7 +165,7 @@ void Initialize()
 		Get_CookOnBreakFromInventoryIndex[i ] = 0;
 	}
 	/* Declare the prices of each inventory item */
-	for(int i = 0; i < numInventoryItemTypes; i += 1)
+	for(i = 0; i < numInventoryItemTypes; i += 1)
 	{
 		inventoryCost[i] = i*5 + 5;
 	}
@@ -170,7 +177,7 @@ void Initialize()
 	count_lineToEnterRestLength = 0;
 	count_lineToOrderFoodLength = 0;
 	orderNumCounter = 0;
-	for(int i = 0; i < count_MaxNumCustomers ; i += 1)
+	for(i = 0; i < count_MaxNumCustomers ; i += 1)
 	{
 		ordersNeedingBagging[i] = 0;
 		baggedOrders[i] = 0;
@@ -179,7 +186,7 @@ void Initialize()
 	
 	count_NumOrdersBaggedAndReady= 0;
 
-	for (int i = 0; i < count_MaxNumMenuItems; ++i)
+	for (i = 0; i < count_MaxNumMenuItems; ++i)
 		menu[i] = 0;
   
 	menu[0] = 1;   /* Soda */
@@ -209,18 +216,34 @@ void Initialize()
 	test_AllCustomersOrderThisCombo = -1;
 }
 
+/* Used to print more messages (prints a lot more if you enable). */
+#undef DEBUGV
+void PrintOutV(char * input, int len)
+{
+  #ifdef DEBUGV
+    PrintOut(input, len);
+  #endif
+}
+
+void PrintNumberV(int input)
+{
+  #ifdef DEBUGV
+    PrintNumber(input);
+  #endif
+}
+
 /* =============================================================
  * Runs the simulation
  * =============================================================*/
 void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 {
-  
+  int i;
 
   if (numCustomers < 0 || numCustomers > count_MaxNumCustomers)
   {
     PrintOut("Setting number of customers to default\n",39);
     numCustomers = count_defaultNumCustomers;
-	count_WhenAllCustomersServed = numCustomers;
+    count_WhenAllCustomersServed = numCustomers;
   }
   if (numOrderTakers < 0 || numOrderTakers > count_MaxNumOrderTakers)
   {
@@ -236,7 +259,6 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 	/* Initialize Locks, CVs, and shared data */
 	Initialize();
 	
-  
 	PrintOut("\nNumber of OrderTakers = ",25);
 	PrintNumber(numOrderTakers);
 	PrintOut("\nNumber of Waiters = ",25);
@@ -259,14 +281,19 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
   
 	PrintOut("===================================================\n",52);
 		
-	Fork((int)Manager);
-	for (int i = 0; i < numCustomers; ++i)
-		Fork((int)Customer);
-	for (int i = 0; i < numOrderTakers; ++i)
-		Fork((int)OrderTaker);
-	for (int i = 0; i < numWaiters; ++i)
-		Fork((int)Waiter);
-	
+	Fork((void *)Manager);
+	for (i = 0; i < numCustomers; ++i)
+		Fork((void *)Customer);
+	for (i = 0; i < numOrderTakers; ++i)
+		Fork((void *)OrderTaker);
+	for (i = 0; i < numWaiters; ++i)
+		Fork((void *)Waiter);
+}
+
+int main()
+{
+  RunSimulation(-1, -1, -1);
+  return 0;
 }
 
 /* =============================================================	
@@ -289,7 +316,7 @@ void Customer(int debug)
 	else if (test_AllCustomersEatOut == TRUE)
 		eatIn = 0;
 	else
-		eatIn = randomNumber(2);
+		eatIn = RandomNumber(2);
 	
 	if(eatIn)
 	{
@@ -316,7 +343,7 @@ void Customer(int debug)
 	if (test_AllCustomersOrderThisCombo != -1)
 		orderCombo = test_AllCustomersOrderThisCombo;
 	else
-		orderCombo = 2 * (ID % numInventoryItemTypes); /*randomNumber(count_MaxNumMenuItems);*/
+		orderCombo = 2 * (ID % numInventoryItemTypes); /*RandomNumber(count_MaxNumMenuItems);*/
 	Get_CustomerOrderFoodChoiceFromOrderTakerID[ID_Get_OrderTakerIDFromCustomerID[ID]] = menu[orderCombo];
 	/* Tell OrderTaker whether eating in or togo */
 	Get_CustomerTogoOrEatinFromCustomerID[ID] = eatIn;
@@ -651,7 +678,7 @@ void WaitInLineToOrderFood(int ID)
  * ---------------------------*/
 void Manager(int debug)
 {
-  int ID, helpOT;
+  int i, ID, helpOT;
   
 	Acquire(lock_Init_InitializationLock);
 	  ID = count_NumOrderTakers++;
@@ -676,9 +703,9 @@ void Manager(int debug)
     
 		Release(lock_OrCr_LineToOrderFood);
 
-		if(helpOT)
+		if (helpOT)
 		{
-			for(int i = 0 ; i < 2; i++)
+			for (i = 0 ; i < 2; i++)
 			{
 				serviceCustomer(ID);
 			}
@@ -840,7 +867,7 @@ void hireCook(int index)
 	Get_CookIsHiredFromInventoryIndex[index] = -1;
 	index_Ck_InventoryIndex = index;
 
-	Fork((int)Cook);
+	Fork((void *)Cook);
 
 	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
 	
