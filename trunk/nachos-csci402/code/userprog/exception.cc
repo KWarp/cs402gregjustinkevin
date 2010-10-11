@@ -24,6 +24,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
+#include "SynchManager.h"
 #include <stdio.h>
 #include <iostream>
 
@@ -31,6 +32,7 @@ using namespace std;
 
 #ifdef CHANGED
   #include "../threads/synch.h"
+  static SynchManager* synchManager = new SynchManager();
   static Lock* forkLock = new Lock("Fork Lock");
   static Lock* printNumberLock = new Lock("PrintNumber Lock");
   static Lock* printOutLock = new Lock("PrintOut Lock");
@@ -270,37 +272,24 @@ void Yield_Syscall()
 
 int CreateLock_Syscall(int vaddr)
 {
-	int len = 32;
-	char *buf;
-  if (!(buf = new char[len]))
-  {
-    printf("%s","Error allocating kernel buffer for CreateLock!\n");
-    return -1;
-  }
-  if (copyin(vaddr,len,buf) == -1)
-  {
-    printf("%s","Bad pointer passed to to CreateLock: data not written\n");
-    delete[] buf;
-    return -1;
-  }
-  
-  // Add stuff here.
-  return 0;
+
+  return synchManager->CreateLock();
+
 }
 
-void DestroyLock_Syscall(int vaddr)
+void DestroyLock_Syscall(int index)
 {
-
+	synchManager->DestroyLock(index);
 }
 
 void Acquire_Syscall(int lock)
 {
-
+	synchManager->Acquire(lock);
 }
 
 void Release_Syscall(int lock)
 {
-
+	synchManager->Release(lock);
 }
 
 // Pass a pointer to this function when forking a  new process in kernel space.
@@ -370,42 +359,27 @@ void Exit_Syscall(int status)
 
 int CreateCondition_Syscall(int vaddr)
 {
-	int len = 32;
-	char *buf;
-  if (!(buf = new char[len]))
-  {
-    printf("%s","Error allocating kernel buffer for CreateCondition!\n");
-    return -1;
-  }
-  if (copyin(vaddr,len,buf) == -1)
-  {
-    printf("%s","Bad pointer passed to to CreateCondition: data not written\n");
-    delete[] buf;
-    return -1;
-  }
-  
-  // Add stuff here.
-  return 0;
+	return synchManager->CreateCondition();
 }
 
-void DestroyCondition_Syscall(int vaddr)
+void DestroyCondition_Syscall(int index)
 {
-
+	return synchManager->DestroyCondition(index);
 }
 
 void Signal_Syscall(int cv, int lock)
 {
-
+	return synchManager->Signal(cv, lock);
 }
 
 void Wait_Syscall(int cv, int lock)
 {
-
+	return synchManager->Wait(cv, lock);
 }
 
 void Broadcast_Syscall(int cv, int lock)
 {
-
+	return synchManager->Broadcast(cv, lock);
 }
 
 void PrintOut_Syscall(unsigned int vaddr, int len)
