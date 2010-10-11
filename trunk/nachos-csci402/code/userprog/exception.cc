@@ -31,7 +31,7 @@ using namespace std;
 
 #ifdef CHANGED
   #include "../threads/synch.h"
-  Lock* forkLock = new Lock("Fork Lock");
+  static Lock* forkLock = new Lock("Fork Lock");
 #endif
 
 int copyin(unsigned int vaddr, int len, char *buf)
@@ -304,21 +304,16 @@ void Release_Syscall(int lock)
 // Pass a pointer to this function when forking a  new process in kernel space.
 void Kernel_Thread(unsigned int functionPtr)
 {
-  printf("Creating Kernel Thread\n");
-  forkLock->Acquire();    
+  forkLock->Acquire();
+    // Setup registers.
     currentThread->space->InitRegisters();
-
-    // Set registers.
     machine->WriteRegister(PCReg, functionPtr);
     machine->WriteRegister(NextPCReg, functionPtr + 4);
     machine->WriteRegister(StackReg, currentThread->stackStartIndex * PageSize - 16);
-    printf("Registers Initialized\n");
 
     currentThread->space->RestoreState();
   forkLock->Release();
-
-  printf("Running Thread\n");
-  // Run the machine.
+  
   machine->Run();
 }
 
@@ -335,15 +330,12 @@ void Fork_Syscall(unsigned int functionPtr)
   
     // Create the new thread.
     Thread* thread = new Thread("Forked Thread");
-    printf("Thread Created\n");
     
     // Set the address space of the new thread.
     thread->space = currentThread->space;
-    printf("Address Space Initialized\n");
     
     // Allocate stack space for new thread.
     thread->stackStartIndex = currentThread->space->AllocateStack();
-    printf("Stack Initialized\n");
     
     // Add new thread to current process in processTable.
     // processTable->Add_Thread_Entry(thread, thread->space, thread->threadStartLoc);
@@ -353,6 +345,22 @@ void Fork_Syscall(unsigned int functionPtr)
   
   // Actually Fork the new thread.
   thread->Fork((VoidFunctionPtr)Kernel_Thread, (unsigned int)functionPtr);
+}
+
+void Exit_Syscall(int status)
+{
+  // if we are a child thread
+  currentThread->Finish();
+  return;
+  
+  // if we are the last thread in this process
+  //  delete currentThread->space;
+  //  currentThread->Finish();
+  //  return;
+  
+  // if we are the parent thread
+  //  delete currentThread->space;
+  //  interrupt->Halt();
 }
 
 int CreateCondition_Syscall(int vaddr)
@@ -485,6 +493,10 @@ void ExceptionHandler(ExceptionType which)
           break;
         case SC_Exec:
           DEBUG('a', "Exec syscall. \n");
+          break;
+        case SC_Exit:
+          DEBUG('a', "Exit syscall. \n");
+          Exit_Syscall((unsigned int)machine->ReadRegister(4));
           break;
       #endif
     }
