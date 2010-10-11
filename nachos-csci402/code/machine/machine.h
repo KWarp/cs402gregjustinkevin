@@ -35,7 +35,7 @@ using namespace std;
 					// simplicity
 
 #ifdef CHANGED
-  #define NumPhysPages    4096
+  #define NumPhysPages    1048576 // HUGE!!!
 #else
   #define NumPhysPages    32
 #endif
