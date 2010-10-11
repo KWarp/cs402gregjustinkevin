@@ -179,7 +179,7 @@ Signal:
 	.globl Broadcast
 	.ent	Broadcast
 Broadcast:
-	addiu $2,$0,SC_Signal
+	addiu $2,$0,SC_Broadcast
 	syscall
 	j	$31
 	.end Broadcast	

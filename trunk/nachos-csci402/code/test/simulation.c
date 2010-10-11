@@ -627,6 +627,8 @@ void Customer(int debug)
 	  PrintNumber(count_NumCustomers-(++count_NumCustomersServed));
       PrintOut(" ~~~\n", 5);
 	Release(lock_Init_InitializationLock);
+	
+	Exit(0);
 }
 
 /*-----------------------------
@@ -722,7 +724,7 @@ void Manager(int debug)
 		{
 			PrintOut("Manager", 7);
 			PrintOut("::all customers served.\n", 24);
-			return;
+			Exit(0);
 		}
 		
 		Yield(25);		
@@ -1009,7 +1011,7 @@ void Cook(int debug)
 		{
 			PrintOut("Cook", 4);
 			PrintOut("::all customers served.\n", 24);
-			return;
+			Exit(0);
 		}
 	}
 
@@ -1043,7 +1045,7 @@ void OrderTaker(int debug)
 		{
 			PrintOut("OrderTaker", 10);
 			PrintOut("::all customers served.\n", 24);
-			return;
+			Exit(0);
 		}
 		
 		Yield(50);

@@ -1,7 +1,7 @@
 /* 
  *  testsynchmanager.c
  *	Test class to test all of the methods of SyncManager
- *
+ *  by Greg Lieberman
  */
 
 #include "syscall.h"
@@ -16,10 +16,11 @@ extern const int maxCVs;
 void TestCreateLock();
 void TestDestroyLock();		
 void TestAquire();		
-void TestRelease();		
+void TestRelease();	
 void TestCreateCondition();
 void TestDestroyCondition();	
 void TestWait();
+void TestWaitHelper();
 void TestSignal();		
 void TestBroadcast();
 
@@ -31,17 +32,17 @@ void TestBroadcast();
 int main()
 {
   PrintOut("=== Test SyncManager ===\n", 25);
-  TestCreateLock();
+/*  TestCreateLock();*/
   TestDestroyLock();
   TestAquire();		
   TestRelease();
 /*  
-  TestCreateCondition();
+  TestCreateCondition();*/
   TestDestroyCondition();	
   TestWait();
   TestSignal();		
   TestBroadcast();
- */
+  
   Halt();
 }
 
@@ -185,14 +186,32 @@ void TestAquire()
 }
 
 /*
- * 
- */		
+ * - Release bad data
+ * - Acquire and Release a lock
+ * - Release it again
+ * - Delete the lock and try to release
+ */	
 void TestRelease()
 {
+	int lockHandle;
 	PrintOut("TestRelease\n", 12);
+	
+	PrintOut("Release bad data\n", 17);
+	Release(-1);
+	
+	PrintOut("Create lock, Aquire and Release\n", 32);
+	lockHandle = CreateLock();
+	Acquire(lockHandle);
+	Release(lockHandle);
+	PrintOut("Release lock a second time\n", 27);
+	Release(lockHandle);
+	PrintOut("Delete the lock and try to release\n", 35);
+	DestroyLock(lockHandle);
+	Release(lockHandle);
 	
 	PrintOut("TestRelease Completed\n\n", 23);	
 }
+
 
 /*
  * - Create 1 CV
@@ -297,42 +316,143 @@ void TestDestroyCondition()
 }
 
 /*
- * 
+ * - Wait on bad CV/lock
+ * - Fork another thread and test a Wait on a good CV/lock
+ * - Delete the lock/CV and then Wait
  */	
+int globalCVHandle;
+int globalLockHandle;
 void TestWait()
 {
 	PrintOut("TestWait\n", 9);
+	globalCVHandle = CreateCondition();
+	globalLockHandle = CreateLock();
+	
+	Acquire(globalLockHandle);
+		PrintOut("Wait on Bad CV and Bad Lock\n", 28);
+		Wait(-1, -1);
+		PrintOut("Wait on Good CV and Bad Lock\n", 29);
+		Wait(globalCVHandle, -1);
+		PrintOut("Wait on Bad CV and Good Lock\n", 29);
+		Wait(-1, globalLockHandle);
+		
+		PrintOut("Fork a helper thread\n", 21);
+		Fork(TestWaitHelper);
+		PrintOut("Wait on Good CV and Good Lock\n", 30);
+		Signal(globalCVHandle, globalLockHandle);
+		Wait(globalCVHandle, globalLockHandle);
+		PrintOut("TestWait woke up, signaling TestWaitHelper\n", 43);	
+		Signal(globalCVHandle, globalLockHandle);
+		Yield(100);
+	Release(globalLockHandle);
+	
+	PrintOut("Delete CV, then Wait\n", 22);
+	DestroyCondition(globalCVHandle);
+	Wait(globalCVHandle, globalLockHandle);
+	PrintOut("Make new CV, delete lock, then Wait\n", 37);
+	globalCVHandle = CreateCondition();
+	DestroyLock(globalLockHandle);
+	Wait(globalCVHandle, globalLockHandle);
+	PrintOut("Delete CV and Lock, then Wait\n", 31);
+	DestroyCondition(globalCVHandle);
+	Wait(globalCVHandle, globalLockHandle);
 	
 	PrintOut("TestWait Completed\n\n", 20);	
 }
 
 /*
- * 
+ * Second thread for Wait testing
+ */	
+void TestWaitHelper()
+{
+	Acquire(globalLockHandle);
+		PrintOut("TestWaitHelper starting...\n", 27);
+		PrintOut("Signaling TestWait\n", 19);
+		Signal(globalCVHandle, globalLockHandle);
+		PrintOut("TestWaitHelper waiting for Signal from TestWait\n", 48);
+		Wait(globalCVHandle, globalLockHandle);
+		Signal(globalCVHandle, globalLockHandle);
+		PrintOut("TestWaitHelper woke up\n", 23);
+		PrintOut("TestWaitHelper exiting...\n", 26);
+	Release(globalLockHandle);
+	Exit(0);
+}
+
+/*
+ * - Signal bad data, lock/CV
+ * - Signal good data lock/CV
+ * - Delete the lock/CV and then Signal
  */
 void TestSignal()
 {
+	int cvHandle;
+	int lockHandle;
+	cvHandle = CreateCondition();
+	lockHandle = CreateLock();
+	
 	PrintOut("TestSignal\n", 11);
+	PrintOut("Signal Bad CV and Bad Lock\n", 27);
+	Signal(-1, -1);
+	PrintOut("Signal Good CV and Bad Lock\n", 28);
+	Signal(cvHandle, -1);
+	PrintOut("Signal Bad CV and Good Lock\n", 28);
+	Signal(-1, lockHandle);
+	PrintOut("Signal Good CV and Good Lock\n", 29);
+	Signal(cvHandle, lockHandle);
+	
+	PrintOut("Delete CV, then Signal\n", 23);
+	DestroyCondition(cvHandle);
+	Signal(cvHandle, lockHandle);
+	PrintOut("Make new CV, delete lock, then Signal\n", 38);
+	cvHandle = CreateCondition();
+	DestroyLock(lockHandle);
+	Signal(cvHandle, lockHandle);
+	PrintOut("Delete CV and Lock, then Signal\n", 32);
+	DestroyCondition(cvHandle);
+	Signal(cvHandle, lockHandle);
 	
 	PrintOut("TestSignal Completed\n\n", 22);	
 }
 
 /*
- * 
+ * - Broadcast bad data, lock/CV
+ * - Broadcast good data lock/CV
+ * - Delete the lock/CV and then Broadcast
  */	
 void TestBroadcast()
 {
+	int cvHandle;
+	int lockHandle;
+	cvHandle = CreateCondition();
+	lockHandle = CreateLock();
+	
 	PrintOut("TestBroadcast\n", 14);
+	
+	PrintOut("Broadcast Bad CV and Bad Lock\n", 30);
+	Broadcast(-1, -1);
+	PrintOut("Broadcast Good CV and Bad Lock\n", 31);
+	Broadcast(cvHandle, -1);
+	PrintOut("Broadcast Bad CV and Good Lock\n", 31);
+	Broadcast(-1, lockHandle);
+	PrintOut("Broadcast Good CV and Good Lock\n", 32);
+	Broadcast(cvHandle, lockHandle);
+	
+	PrintOut("Delete CV, then Broadcast\n", 26);
+	DestroyCondition(cvHandle);
+	Broadcast(cvHandle, lockHandle);
+	PrintOut("Make new CV, delete lock, then Broadcast\n", 41);
+	cvHandle = CreateCondition();
+	DestroyLock(lockHandle);
+	Broadcast(cvHandle, lockHandle);
+	PrintOut("Delete CV and Lock, then Broadcast\n", 35);
+	DestroyCondition(cvHandle);
+	Broadcast(cvHandle, lockHandle);
 	
 	PrintOut("TestBroadcast Completed\n\n", 25);	
 }
 
 
 
-
-
- 
- 
- 
  
  
  
