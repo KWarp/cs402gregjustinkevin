@@ -214,7 +214,23 @@ DestroyCondition:
 	addiu $2,$0,SC_DestroyCondition
 	syscall
 	j	$31
-	.end DestroyCondition		
+	.end DestroyCondition
+  
+	.globl PrintOut
+	.ent	PrintOut
+PrintOut:
+	addiu $2,$0,SC_PrintOut
+	syscall
+	j	$31
+	.end PrintOut		
+  
+	.globl PrintNumber
+	.ent	PrintNumber
+PrintNumber:
+	addiu $2,$0,SC_PrintNumber
+	syscall
+	j	$31
+	.end PrintNumber
 			
 /* dummy function to keep gcc happy */
         .globl  __main
