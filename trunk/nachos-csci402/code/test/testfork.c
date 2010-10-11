@@ -1,4 +1,4 @@
-/* testfork.cc
+/* testfork.c
  *	Simple program to test the fork system call.
  */
  
@@ -15,9 +15,11 @@ void test1()
   PrintOut("Running test1\n", 14);
   for (i = 0; i < 8; ++i)
   {
+    Acquire(lock);
     PrintOut("This will be printed 8 times (", 30);
     PrintNumber(i + 1);
     PrintOut(")\n", 2);
+    Release(lock);
   }
   PrintOut("test1 complete\n", 15);
   
@@ -30,17 +32,17 @@ void test2()
 {
   int i;
   
-  Acquire(lock);
   PrintOut("Running test2\n", 14);
   for (i = 0; i < 4; ++i)
   {
+    Acquire(lock);
     PrintOut("This will be printed 4 times (", 30);
     PrintNumber(i + 1);
     PrintOut(")\n", 2);
+    Release(lock);
   }
   PrintOut("test2 complete\n", 15);
   
-  Release(lock);
   /* Yield(); */
   Exit(0);
 }

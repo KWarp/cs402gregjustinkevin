@@ -34,6 +34,7 @@ using namespace std;
   #include "../threads/synch.h"
   static SynchManager* synchManager = new SynchManager();
   static Lock* forkLock = new Lock("Fork Lock");
+  static Lock* execLock = new Lock("Exec Lock");
   static Lock* printNumberLock = new Lock("PrintNumber Lock");
   static Lock* printOutLock = new Lock("PrintOut Lock");
 #endif
@@ -292,17 +293,68 @@ void Release_Syscall(int lock)
 	synchManager->Release(lock);
 }
 
+void Exec_Kernel_Thread()
+{
+  execLock->Acquire();
+    currentThread->space->InitRegisters();
+    currentThread->space->RestoreState();
+  execLock->Release();
+  machine->Run();
+}
+
+void Exec_Syscall(unsigned int executableFileName)
+{
+  int len = 32; // Max length of the file name. Should we make len a parameter instead?
+  execLock->Acquire();
+    // Copy the executable file name into buf.
+    char *buf = new char[len]; // Kernel buffer to put the name in
+    if (!buf)
+    {
+      printf("%s", "Can't allocate kernel buffer in Exec\n");
+      execLock->Release();
+      return;
+    }
+    if (copyin(executableFileName,len,buf) == -1)
+    {
+      printf("%s", "Bad pointer passed to Exec\n");
+      delete buf;
+      execLock->Release();
+      return;
+    }
+    
+    // Open the executable file.
+    buf[len] = '\0';
+    OpenFile* executable = fileSystem->Open(buf);
+    if (executable == NULL)
+    {
+      printf("Failed to open file: %s\n", buf);
+      delete buf;
+      execLock->Release();
+      return;
+    }
+    
+    Thread* thread = new Thread("Exec'd Process Thread");
+    thread->space = new AddrSpace(executable);
+    
+    delete executable;
+    delete buf;
+  execLock->Release();
+
+  thread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0);
+  // currentThread->space->RestoreState();
+}
+
 // Pass a pointer to this function when forking a  new process in kernel space.
 void Kernel_Thread(unsigned int functionPtr)
 {
   forkLock->Acquire();
     // Setup registers.
-    currentThread->space->InitRegisters();
+    // currentThread->space->InitRegisters();
+    
+    // currentThread->space->RestoreState();
     machine->WriteRegister(PCReg, functionPtr);
     machine->WriteRegister(NextPCReg, functionPtr + 4);
     machine->WriteRegister(StackReg, currentThread->stackStartIndex * PageSize - 16);
-
-    currentThread->space->RestoreState();
   forkLock->Release();
   
   machine->Run();
@@ -318,22 +370,22 @@ void Fork_Syscall(unsigned int functionPtr)
       printf("Bad function pointer passed to Fork: %i\n", functionPtr);
       return;
     }
-  
+
     // Create the new thread.
     Thread* thread = new Thread("Forked Thread");
-    
+
     // Set the address space of the new thread.
     thread->space = currentThread->space;
-    
+
     // Allocate stack space for new thread.
     thread->stackStartIndex = currentThread->space->AllocateStack();
-    
+
     // Add new thread to current process in processTable.
     // processTable->Add_Thread_Entry(thread, thread->space, thread->threadStartLoc);
-    
-    thread->space->RestoreState();
+
+    // thread->space->RestoreState();
   forkLock->Release();
-  
+
   // Actually Fork the new thread.
   thread->Fork((VoidFunctionPtr)Kernel_Thread, (unsigned int)functionPtr);
 }
@@ -492,6 +544,7 @@ void ExceptionHandler(ExceptionType which)
           break;
         case SC_Exec:
           DEBUG('a', "Exec syscall. \n");
+          Exec_Syscall((unsigned int)machine->ReadRegister(4));
           break;
         case SC_Exit:
           DEBUG('a', "Exit syscall. \n");

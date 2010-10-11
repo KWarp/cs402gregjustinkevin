@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles testfork syscalltest testsynchmanager simulation
+all: halt matmult sort testfiles testfork testexec exectestprogram1 exectestprogram2 syscalltest testsynchmanager simulation
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -81,11 +81,29 @@ testfork: testfork.o start.o
 	$(LD) $(LDFLAGS) start.o testfork.o -o testfork.coff
 	../bin/coff2noff testfork.coff testfork
 
+exectestprogram1.o: exectestprogram1.c
+	$(CC) $(CFLAGS) -c exectestprogram1.c
+exectestprogram1: exectestprogram1.o start.o
+	$(LD) $(LDFLAGS) start.o exectestprogram1.o -o exectestprogram1.coff
+	../bin/coff2noff exectestprogram1.coff exectestprogram1  
+  
+exectestprogram2.o: exectestprogram2.c
+	$(CC) $(CFLAGS) -c exectestprogram2.c
+exectestprogram2: exectestprogram2.o start.o
+	$(LD) $(LDFLAGS) start.o exectestprogram2.o -o exectestprogram2.coff
+	../bin/coff2noff exectestprogram2.coff exectestprogram2 
+  
+testexec.o: testexec.c
+	$(CC) $(CFLAGS) -c testexec.c
+testexec: testexec.o exectestprogram1.o exectestprogram2.o start.o
+	$(LD) $(LDFLAGS) start.o testexec.o -o testexec.coff
+	../bin/coff2noff testexec.coff testexec
+  
 simulation.o: simulation.c simulation.h
 	$(CC) $(CFLAGS) -c simulation.c
 simulation: simulation.o start.o
 	$(LD) $(LDFLAGS) start.o simulation.o -o simulation.coff
 	../bin/coff2noff simulation.coff simulation
-  
+
 clean:
 	rm -f *.o *.coff
