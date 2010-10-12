@@ -343,8 +343,8 @@ void TestWait()
 		Wait(globalCVHandle, globalLockHandle);
 		PrintOut("TestWait woke up, signaling TestWaitHelper\n", 43);	
 		Signal(globalCVHandle, globalLockHandle);
-		Yield(100);
 	Release(globalLockHandle);
+	Yield(100);
 	
 	PrintOut("Delete CV, then Wait\n", 22);
 	DestroyCondition(globalCVHandle);
