@@ -1,6 +1,6 @@
- Title:  Writeup for Project 1, Fall 2010
- Date:  09/19/2010
- Group Number 28 : 
+Title:  Writeup for Project 2, Fall 2010
+Date:  10/10/2010
+Group Number 28 :
 
 Name            	                  Email                            Student ID
 Greg Lieberman         greglieb@usc.edu            6424286089
@@ -11,203 +11,513 @@ Kevin Greene            kgreene@usc.edu             7671772747
 Running the code:
 =================
 	
-nachos -Sim [num_order_takers] [num_waiters] [num_customers]
+In the userprog directory:
+nachos -x ../test/[executable name]
 
-For example, to run the simulation with 4 order takers, 3 waiters and 20 customers, type:
-		nachos -Sim 4 3 20
-If any parameters are invalid or not included (e.g. “nachos -Sim 2” or “nachos -Sim 1000 -3 4”), default values are assumed for the respective variables.
+Running the restaurant simulation:
+	nachos -x ../test/simulation
+By default, the simulation runs with 3 OrderTakers, 3 Waiters, and 20 Customers
 
+Executable Names for Tests in the test directory:
+testfork
+testexec
+testsynchmanager
 
 =================
 I. Requirements:
 =================
 
-Part 1 - Implement Locks/Condition Variable Functions
--- Signal, Wait, Acquire and Release functions must be written
--- This implementation will be used for the creation of Monitors for Part 2.
--- The provided test cases should properly use these functions and give the expected output.
+Part 1 - Implement System Calls and Exception Handling
+-- Implement the Syscalls Fork, Exec, Exit, Yield
+-- Turn the following into Syscalls: Acquire, Release, Signal, Broadcast, Wait
+	These take integers relative to the kernel space as arguments.
+-- Also implement CreateLock, DestroyLock, CreateCondition, and DestroyCondition. 
+These return integers relative to kernel space, not pointers.
+-- The Exit Syscall should ensure that Thread::Finish is called, except when it is the last thread.
+Then it should call Halt.
+-- The Exec and Fork Syscall requires implementation of creating address spaces and binding them to threads. A process table is recommended.
+-- Under no circumstances should the use (or misuse) of System calls crash the Operating System.
+-- Write a test suite that shows:
+	Your Syscalls function correctly
+	Your Syscalls deal with bad user input gracefully, and print informative errors
+	Your Syscalls never crash Nachos
+-- Test suite executables should be user programs
+-- Document your test suite
+-- Console output should also be synchronized
 
-Part 2 - Create a multi-threaded restaurant simulation using the created Lock/Condition variable implementation from Part 1
--- Customers can chose to eat in, or eat out. If they chose to eat in, they must wait for a table to open up. 
--- Customers wait in line to get their order taken. When they order, they can chose from several combinations of food orders.
--- Order Takers take orders from the Customers, take their money, and give them a token
--- Order Takers bag food whenever there is a pending order and there is available food to bag
--- Eat Out Customers wait for their order to be given to them by an Order Taker. Order Takers Broadcast ready orders to all waiting Eat Out Customers.
--- Eat In Customers get their food delivered to them by a Waiter
--- Waiters know the Customer’s token
--- Waiters go on break when they have nothing to do
--- Cooks are hired by the Manager, only when needed
--- Cooks cook only 1 type of food
--- Cooks keep cooking until they either run out of food in the inventory, or the Manager puts them on break
--- Sodas are not cooked, obviously
--- The Manager sometimes bags food orders. 
--- When there are a lot of Customers in line, the Manager will take the orders of two customers
--- Managers can hire new Cooks
--- Managers can wake up Waiters 
--- Managers manage food inventory, and orders several of a kind of food at a time
--- Managers pay for new inventory. If they do not have enough cash, they go to the bank.
 
-Entities:
--- Only 1 Manager in the simulation.
--- At least 4 Cooks in the simulation.
--- At least 3 Order Takers.
--- At least 3 Waiters.
--- At least 20 Customers, should run with any number of Customers.
-
+Part 2 - Implement Multiprogramming
+-- Implement allocation of physical memory frames so that multiple programs can be loaded into memory at once.
+-- Find a way to copy data to/from the kernel to the user’s address space. The addresses that the user and the kernel see must be different.
+-- Implement Exec and Fork
+-- Exec creates a new address space and starts a single thread
+-- Write a test suite that shows the Exec and Fork behave correctly
+Deal with bad input gracefully
+Never crash Nachos
+ 
+Part 3
+-- Implement part 2 of Project 1 as a set of multithreaded Nachos user programs
+-- This is to be a user C program
+-- It must use the Lock and Condition Syscalls you implemented
+-- It must also create all it’s threads with Fork
+-- Create a second Restaurant Simulation with the Exec Syscall
+-- Provide a test suite to show that the implementation is correct
 
 
 =================
 II. Assumptions:
 =================
 
-- How much inventory the restaurant has for each item. We set all these values to 0 so that the manager needs to buy them when the simulation starts.
-- How much money the restaurant starts with. We set this value to 0 by default. This way we know that the Manager can get money from the bank before any food can be bought.
-- How many different kinds of food order combinations there are. Since there are 5 types of food, there are 32 combinations of orders to chose from.
-- How much each food item costs when the manager buys it.
-- How much each food item costs when the customer buys it. We doubled the cost so that the restaurant makes a profit.
-- Minimum and maximum food that should be sitting around for the order to bag. We decided that at least 2 should be sitting around before a cook gets hired, and at most 5 should be sitting around before the cook goes on break,
-
+	- Users will never use more than 10,000 locks, or 40,000 condition variables.
+	- Redfishes are red.
+	- Users are evil and/or retarded.
+	- Pi , one and e are consistent.
+- Assumed that executables will not require more than NumPhysPages.
+- Unlimited physical memory.  
+- A tautology is a tautology
+- Assumed that stack spaces are not reallocated.
+	
 
 =================
 III. Design:
 =================
+
 Overview:
-This is a class on Operating Systems, so we expect that in future assignments that we will not get to use C++ language features. Therefore, we decided to implement all of our Simulation code in C. We had several reasons for this:
-1) Completely eliminate the possibility of NULL pointer access
-2) Significantly reduces the number of ways to encounter Segmentation Faults and Bus Errors
-3) Simplifies CPU operations and optimizes execution
- 
-Approach:
-- As required by the assignment, we wrote a Lock and Condition class in C++
-- For the simulation class, we exclusively used integers, and arrays of integers. We did not use pointers.
-- We kept a strict naming convention for these integer variables to inform us of their purpose. Some examples:
-	“count_VariableName” described anything we used see how many there were
-	“lock_MrCr_LineToEnterRest” labeled this int as a lock, the two Agents the lock was shared with, and the lock’s purpose
-“CV_MrCr_LineToEnterRestFromCustomerID” is an array of Condition Variables shared between the Manager and the Customer for the line to enter the eat-in restaurant. Given a customer ID number, it will return the appropriate Condition Variable.
-- We kept track of the ID numbers for each Agent in the simulation, and used them as keys to reach shared data as needed.
+- To implement the System Calls for Locks, and Conditions, we created a class called SynchManager to manage Creation and Destruction of Locks, and access to the kernel Lock table and Condition table. We did this to encapsulate the synchronization logic.
+- To implement System Calls for Fork, Exec, Exit, and Yield we built on top of the existing Nachos code base.
+- There is a more detailed version of the design below in the implementation part.  We put it here so that it would be better organized.
 
 Process:
-- We started by designing the multi-threaded behavior of the Customer agent. All three of us contributed to a pseudocode diagram we wrote on a couple pages of paper. The Customer interaction was long, but linear.
-- With the Customer designed, we divided our design tasks. 
--- Greg designed part of the Ordertaker 
--- Justin designed the Manager
--- Kevin designed the Waiter and Cook, and part of the Ordertaker
-- We then regrouped for critique. Then implementation began.
--- Part 1 was implemented by Kevin and tested by Justin
--- Part 2 was primarily typed up into actual code by Greg. The team worked closely to resolve variable name conflicts, correct design errors, and fill in incomplete design details.
--- Part 2 Test Code was primarily written by Kevin.
--- We all worked together to compile and debug the code
-	-- Overall: Awesome Team!!!
-	-- Seriously: we wrote the code and tests in 15hours, and it ran completely and correctly the first time it compiled.
 
+	We did shit, then we wrote about it (that's this part, right here -->).  Occasionally we took breaks to watch popular TV shows.  Most of the time we were severely distracted.  Honestly we started on Friday night, we proceeded to accomplish almost nothing before succumbing completely to Justin's impressive list of illegally downloaded movies.  Actually almost all of the code was already designed and organized for us.  When we built the first project we built it having already known what the following two projects would be, hence we only had to build memory architectures for the OS level code.  We had even made the locks, condition variables, and threads accessible as if they were system calls, so we did not have to change the simulation file at all.  Saturday and Sunday night were spent avoiding the homework in favor of more entertaining things.  We were largely frustrated over a few minor glitches for most of the time, but relaxing by playing with fridge magnets cleared our ram and our fresh minds solved the problems quickly.
+
+Since we did not have much code to add, we all sat in a room and mashed on the keyboard in a synchronized ballet of code.  The performance was beautiful.  Never before had an instance of extreme programing been so amazingly choreographed.  Furthermore each of the actors was at his prime.  They carried their characters through the stage and into the text with great vivacity and in some cases the appropriate amount of spontaneity.   It would be hard to say that any out shined the others as the glare from their pearly eyes left everyone in the audience both stunned and blinded.  Also Greg was wearing his Uni-code shirt, and thought that it would bring us great luck.
 
 IV. Implementation:
 
-            + Files Modified
-threads/synch.h
-threads/synch.cc
-threads/Makefile 
-	code/Makefile.common
+Part 1.)
+To create a lock:
+int CreateLock():
+In the OS code, create a Lock object and store it in an array that is only available in Kernel Space. Return an int index into that array of Locks for the newly created Lock.
+Example use: int lock = CreateLock();
+Equivalent to: Lock* lock = new Lock("stewardBusyLock");
 
-            + Files added
-simulation.h	
-simulation.cc	
+To acquire a lock:
+void Acquire(int lock):
+Takes an index to kernel lock array.
+Example use:
+int lock= CreateLock();
+Acquire(lock);
+Equivalent to:
+Lock* lock= new Lock("newlock");
+lock->Acquire();
+        
+To release a lock:
+void Release(int lock):
+Takes an index to kernel lock array.
+Example use:
+int lock= CreateLock();
+Acquire(lock);
+Release(lock);
+Equivalent to:
+Lock* lock= new Lock("newlock");
+lock->Acquire();
+lock->Release();
+        
+To destroy a lock:
+void DestroyLock(int lock); //Takes an index to kernel lock array. Returns error code.
+Example use:
+int lock= CreateLock();
+DestroyLock(lock);
+Equivalent to:
+Lock* lock= new Lock("newlock");
+delete lock;
 
-            + Data Structures added, and the file they were added to.
-	Several dozen key-value
+To create a CV:
+int CreateCondition():
+Similar to CreateLock(). Returns an int that is an index to the CV array handled by the kernel code.
+Example use: int cv = CreateCV();
+Equivalent to: Condition* cv = new Condition("newcv");
 
-            + Data Structures modified, and the file they were added to.
+To Signal a CV:
+void Signal(int cv, int lock):
+Takes an int that indexes into the kernel CV array and an int that indexes into the kernel lock array. Wakes up one waiting thread.
+Example use:
+int lock = CreateLock();
+Acquire(lock);
+int cv = CreateCV();
+Signal(cv, lock);
+Equivalent to:
+Lock* lock= new Lock("newlock");
+lock->Acquire();
+Condition* cv= new Condition("newcv");
+cv->Signal(lock);
 
-                        -For example,
+To Broadcast a CV:
+void Broadcast(int cv, int lock):
+Takes an int that indexes into the kernel CV array and an int that indexes into the kernel lock array. Signals in a loop until there are no more waiting threads.
+Example use:
+int lock = CreateLock();
+Acquire(lock);
+int cv = CreateCV();
+Broadcast(cv, lock);
+Equivalent to:
+Lock* lock = new Lock("newlock");
+lock->Acquire();
+Condition* cv = new Condition("newcv");
+cv->Broadcast(lock);
+        
+To Wait a CV:
+void Wait(int cv, int lock)
+Takes an int that indexes into the kernel CV array and an int that indexes into the kernel lock array. Puts the currentThread to sleep until another thread signals cv.
+Example use:
+int lock = CreateLock();
+Acquire(lock);
+int cv = CreateCV();
+Wait(cv, lock);
+Equivalent to:
+Lock* lock = new Lock("newlock");
+lock->Acquire();
+Condition* cv = new Condition("newcv");
+cv->Wait(lock);
+        
+To destroy a CV:
+void DestroyCondition(int cv):
+Takes an index to kernel CV array. Deletes the item indexed by cv in the kernel CV array.
+Example use:
+int cv = CreateCondition();
+DeleteCondition(cv);
+Equivalent to:
+		Condition* cv = new Condition(“newcv”);
+		delete cv;
 
-                                    class Lock                -- in file threads.cc/threads.h
+To Yield:
+void Yield()
+Takes nothing, returns nothing. Simply calls currentThead->Yield();.
+Example use:
+Yield();
+Equivalent to:
+		currentThread->Yield();
 
-                                    {
+To Fork a thread:
+void Fork_Syscall(VoidFunctionPtr func)
+	if (function pointer is not bad)
+		-create a new thread
+		-allocate stack for that thread in the current address space and store the virtual address of the top of the stack
+		-add entry into process table for this newly created thread in this process (process table discussion below)
+		-assign current address space to this forked thread
+		-call function Kernel_Thread(function pointer, virtual address of top of stack)
+	else
+		-error message
+Kernel_Thread(function pointer, virtual address of top of stack)
+	Write registers for the function and stack
+	Restore the address space to load these
+	Run the machine
 
-                                                //. Modified fields.
+To Exec a file:
+SpaceId Exec_Syscall(char* name)
+	Invoke fileSystem->Open() to open executable pointed to by name
+	if(file descriptor is not NULL)
+		-allocate new address space for this process
+		-create a new thread for this process
+		-set the address space just created to be the newly created thread's address space
+		-update process table accordingly
+		-delete file descriptor
+		-Internal Nachos Fork to Exec_Thread
+	else
+		-error message
+	return dummy value (spaceId used to provide each process with unique id; not needed for project 2 syscall implementations)
 
-                                    }
+Exec_Thread()
+	Initialize registers for this (the newly forked) thread
+	Restore address space
+	Run the machine
 
-            + Functions added and in which file.
-	
-simulation.c
-		void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
-void Customer(int debug);
-void WaitInLineToEnterRest(int ID);
-void WaitInLineToOrderFood(int ID);
-void Manager(int debug);
-void callWaiter();
-void orderInventoryFood();
-void manageCook();
-void hireCook(int index);
-void checkLineToEnterRest();
-void Cook(int debug);
-void OrderTaker(int debug);
-void serviceCustomer(int ID);
-void bagOrder();
-void Waiter(int debug);
+To exit a thread:
+int Exit_Syscall(int status)
+	if(thread is last userprog thread)
+		-cleanup process table 
+		-delete address space
+		-call interrupt->Halt()
+		-return 0 //0 = thread is last userprog thread
 
-            + Functions modified and in which file.
+	else if(thread is last in its process but not last userprog thread)
+		-remove thread entry from process table
+		-remove process entry from process table
+		-delete current address space
+		-call thread->finish
+		-return 1 //1 = thread is last in its process but not last userprog thread
+
+
+	else //if thread is not last in process 
+		-deallocate stack space
+		-remove thread entry from process table
+		-return 2// 2 = thread is not last in process
+
 
 =================
 V. Testing:  (For each test case, you must show)
 =================
-            + How to test
+           + How to test
 	
-	---Test1---
-		Customers who wants to eat-in, must wait if the restaurant is full.
-			nachos -SimT1
-	
----Test2---
-OrderTaker/Manager gives order number to the Customer when the food is not ready.
-nachos -SimT2
+To run a test use the following command:
+nachos -x ../test/[executable name]
 
----Test3---
-Customers who have chosen to eat-in, must leave after they have their food and Customers who have chosen to-go, must leave the restaurant after the OrderTaker/Manager has given the food.
-nachos -SimT3
+Executable Names for Tests in the test directory:
+testfork
+testexec
+testsynchmanager
+testmultisim
 
----Test4---
-Manager maintains the track of food inventory. Inventory is refilled when it goes below order level.
-nachos -SimT4
+Running the restaurant simulation multiple times:
+		nachos -x ../test/testmultisim
+By default, each simulation runs with 3 OrderTakers, 3 Waiters, and 20 Customers
 
----Test5---
-A Customer who orders only soda need not wait.
-nachos -SimT5
+           + Test Output
 
----Test6---
-The OrderTaker and the Manager both somethimes bag the food.
-nachos -SimT6
+	Output for testfork:
+		Press Ctrl-C once the threads are finished printing
+Forking test1
+Forking test2
+Running test1
+This will be printed 8 times (1)
+This will be printed 8 times (2)
+This will be printed 8 times (3)
+This will be printed 8 times (4)
+This will be printed 8 times (5)
+This will be printed 8 times (6)
+This will be printed 8 times (7)
+This will be printed 8 times (8)
+test1 complete
+Running test2
+This will be printed 4 times (1)
+This will be printed 4 times (2)
+This will be printed 4 times (3)
+This will be printed 4 times (4)
+test2 complete
 
----Test7---
-Manager goes to the bank for cash when inventory is to be refilled and there is no cash in the restaurant.
-nachos -SimT7
 
----Test8---
-Cooks goes on break when informed by manager.
-nachos -SimT8
+Output for testexec:
+	Press Ctrl-C once the threads are finished printing
+Exec'ing exectestprogram1
+hereintestexec
+Exec'ing exectestprogram2
+Running test1
+This will be printed 8 times
+This will be printed 8 times
+This will be printed 8 times
+This will be printed 8 times
+This will be printed 8 times
+This will be printed 8 times
+This will be printed 8 times
+This will be printed 8 times
+test1 complete
+Running test2
+This will be printed 4 times
+This will be printed 4 times
+This will be printed 4 times
+This will be printed 4 times
+test2 complete
 
-- How to run the test cases, the commands, the arguments and so on.
 
-            + Test Output
-Customers who wants to eat-in, must wait if the restaurant is full.
-OrderTaker/Manager gives order number to the Customer when the food is not ready.
-Customers who have chosent to eat-in, must leave after they have their food and Customers who have chosen to-go, must leave the restaurant after the OrderTaker/Manager has given the food.
-Manager maintains the track of food inventory. Inventory is refilled when it goes below order level.
-A Customer who orders only soda need not wait.
-The OrderTaker and the Manager both somethimes bag the food.
-Manager goes to the bank for cash when inventory is to be refilled and there is no cash in the restaurant.
-Cooks goes on break when informed by manager.
+
+Output for testsynchmanager:
+
+=== Test SyncManager ===
+-TestCreateLock-
+Creating Lock...
+Index result: 0
+Create 20 locks:
+Index result: 1
+Index result: 2
+Index result: 3
+Index result: 4
+Index result: 5
+Index result: 6
+Index result: 7
+Index result: 8
+Index result: 9
+Index result: 10
+Index result: 11
+Index result: 12
+Index result: 13
+Index result: 14
+Index result: 15
+Index result: 16
+Index result: 17
+Index result: 18
+Index result: 19
+Index result: 20
+Create locks until the OS runs out:
+ERROR: Cannot create lock
+Error value: 10000
+Test CreateLock Complete
+
+-TestDestroyLock-
+Create and Destory 1 lock
+Index result: 0
+Try to destory that lock a 2nd time:
+ERROR: No Lock to destroy
+DestoryLock on bad data:
+ERROR: No Lock to destroy
+Make 5 locks:
+Index result: 0
+Index result: 1
+Index result: 2
+Index result: 3
+Index result: 4
+Destroy 3 of them, then create 3 more:
+Index result: 0
+Index result: 1
+Index result: 2
+Index result: 3
+Index result: 4
+Results should be the same. Shows lock reuse:
+Test DestroyLock Complete
+
+-TestAquire-
+Aquire bad data
+ERROR: No Lock available to Acquire
+Create lock and Aquire
+Acquire lock a second time
+Delete the lock while still acquired
+Acquire lock a third time
+Release lock to actually be deleted, then Acquire
+ERROR: No Lock available to Acquire
+TestAquire Completed
+
+-TestRelease-
+Release bad data
+ERROR: No Lock available to Release
+Create lock, Aquire and Release
+Release lock a second time
+Delete the lock and try to release
+ERROR: No Lock available to Release
+TestRelease Completed
+
+-TestCreateCondition-
+Creating CV...
+Index result: 0
+Create 20 CVs:
+Index result: 1
+Index result: 2
+Index result: 3
+Index result: 4
+Index result: 5
+Index result: 6
+Index result: 7
+Index result: 8
+Index result: 9
+Index result: 10
+Index result: 11
+Index result: 12
+Index result: 13
+Index result: 14
+Index result: 15
+Index result: 16
+Index result: 17
+Index result: 18
+Index result: 19
+Index result: 20
+Create CVs until the OS runs out:
+ERROR: Cannot create Condition
+Error value: 10000
+TestCreateCondition Completed
+
+-TestDestroyCondition-
+Create and Destory 1 CV
+Index result: 0
+Try to destory that CV a 2nd time:
+DERROR: No Condition to destroy
+DestroyCondition on bad data:
+ERROR: No Condition to destroy
+Make 5 CVs:
+Index result: 0
+Index result: 1
+Index result: 2
+Index result: 3
+Index result: 4
+Destroy 3 of them, then create 3 more:
+Index result: 0
+Index result: 1
+Index result: 2
+Index result: 3
+Index result: 4
+Results should be the same. Shows CV reuse:
+TestDestroyCondition Completed
+
+-TestWait-
+Wait on Bad CV and Bad Lock
+ERROR: No Condition to available for Wait
+Wait on Good CV and Bad Lock
+ERROR: No Lock available for Wait
+Wait on Bad CV and Good Lock
+ERROR: No Condition to available for Wait
+Fork a helper thread
+TestWait Waiting on Good CV and Good Lock
+TestWaitHelper starting...
+TestWaitHelper Signaling TestWait
+TestWaitHelper waiting for Signal from TestWait
+TestWait woke up, signaling TestWaitHelper
+TestWaitHelper woke up
+TestWaitHelper exiting...
+Delete CV, then Wait
+ERROR: No Condition to available for Wait
+Make new CV, delete lock, then Wait
+ERROR: No Lock available for Wait
+Delete CV and Lock, then Wait
+ERROR: No Condition to available for Wait
+TestWait Completed
+
+-TestSignal-
+Signal Bad CV and Bad Lock
+ERROR: No Condition to available for Signal
+Signal Good CV and Bad Lock
+ERROR: No Lock available for Signal
+Signal Bad CV and Good Lock
+ERROR: No Condition to available for Signal
+Signal Good CV and Good Lock
+Delete CV, then Signal
+ERROR: No Condition to available for Signal
+Make new CV, delete lock, then Signal
+ERROR: No Lock available for Signal
+Delete CV and Lock, then Signal
+ERROR: No Condition to available for Signal
+TestSignal Completed
+
+-TestBroadcast-
+Broadcast Bad CV and Bad Lock
+ERROR: No Condition to available for Broadcast
+Broadcast Good CV and Bad Lock
+ERROR: No Lock available for Broadcast
+Broadcast Bad CV and Good Lock
+ERROR: No Condition to available for Broadcast
+Broadcast Good CV and Good Lock
+Delete CV, then Broadcast
+ERROR: No Condition to available for Broadcast
+Make new CV, delete lock, then Broadcast
+ERROR: No Lock available for Broadcast
+Delete CV and Lock, then Broadcast
+ERROR: No Condition to available for Broadcast
+TestBroadcast Completed
+
+Output for testmultisim:
+******** MULTI SIMULATION TEST ********
+
+	“It prints so much, that I actually can’t paste it all.  Also that would be obnoxious, I don’t want to paste that.  Shit I forgot to test our RS values. I forgot about that” 
+- Greg Lieberman on pasting the simulation output in our design document.
+
 
 
 =================
 VI. Discussion:
 =================
-            + Experiment expectation.  (What you hope will happen.)
-We expected that once we compiled the code, we would spend a day correcting runtime errors.
-            + Experiment result.  (What actually happens.)
-		The first time the simulation ran, we had no segmentation faults whatsoever.  In fact the simulation ran completely successfully.
-            + Explanation
-                        It was a miracle.
+           + Experiment expectation.  (What you hope will happen.)
+We expected that this assignment would be relatively straightforward, and easy to unit test.
+           + Experiment result.  (What actually happens.)
+		We ran into several inexplicable snags that took a couple days to resolve. 
+           + Explanation
+                       Most of the problems were related to a lack of Yield() statements in parts of our code. What a pain, .
 
 =================
 VII. Miscellaneous:
@@ -215,7 +525,7 @@ VII. Miscellaneous:
 
 - Response From McDonalds
 ***
-The following is a work of fiction. Characters, names, situations, events, and locations 	described in this assignment are purely the invention of the author's mind, or are used fictitiously. Any sort of resemblance to people - living or dead, names and locations is purely coincidental. 
+The following is a work of fiction. Characters, names, situations, events, and locations 	described in this assignment are purely the invention of the author's mind, or are used fictitiously. Any sort of resemblance to people - living or dead, names and locations is purely coincidental.
 ***
 
-Once the simulation was complete and thoroughly tested, our group presented the simulation to our employers at McDonalds. As the McDonalds managers saw the lightning speed at which the Carls Jr. staff worked, they were completely in awe. They were so impressed by our simulation, that one of them suggested replacing their entire existing workforce with robots running our simulation. We are pretty excited about this, and will have a meeting about the workforce refactoring early next week.
+Once the simulation was complete and thoroughly tested, our group presented the simulation to our employers at McDonalds. As the McDonalds managers saw the lightning speed at which the Carls Jr. staff worked, they were completely in awe. They were so impressed by our simulation, that one of them suggested replacing their entire existing workforce with robots running our simulation. We are pretty excited about this, and will have a meeting about the workforce refactoring early next week.  
