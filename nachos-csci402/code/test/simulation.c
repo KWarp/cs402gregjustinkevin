@@ -259,27 +259,27 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 	/* Initialize Locks, CVs, and shared data */
 	Initialize();
 	
-	PrintOut("\nNumber of OrderTakers = ",25);
+	PrintOut("\nNumber of OrderTakers = ", 25);
 	PrintNumber(numOrderTakers);
-	PrintOut("\nNumber of Waiters = ",25);
+	PrintOut("\nNumber of Waiters = ", 21);
 	PrintNumber(numWaiters);
-	PrintOut("\nNumber of Cooks = ",25);
+	PrintOut("\nNumber of Cooks = ", 19);
 	PrintNumber(0);
-	PrintOut("\nNumber of Customers = ",25);
+	PrintOut("\nNumber of Customers = ", 23);
 	PrintNumber(numCustomers);
-	PrintOut("\nTotal Number of tables in the Restaurant = ",25);
+	PrintOut("\nTotal Number of tables in the Restaurant = ", 44);
 	PrintNumber(count_NumTablesAvailable);
-	PrintOut("\nMinimum number of cooked 6-dollar burger = ",25);
+	PrintOut("\nMinimum number of cooked 6-dollar burger = ", 44);
 	PrintNumber(2);
-	PrintOut("\nMinimum number of cooked 3-dollar burger = ",25);
+	PrintOut("\nMinimum number of cooked 3-dollar burger = ", 44);
 	PrintNumber(2);
-	PrintOut("\nMinimum number of cooked veggie burger = ",25);
+	PrintOut("\nMinimum number of cooked veggie burger = ", 42);
 	PrintNumber(2);
-	PrintOut("\nMinimum number of cooked french fries burger = ",25);
+	PrintOut("\nMinimum number of cooked french fries burger = ", 48);
 	PrintNumber(2);
-	PrintOut("\n",1);
+	PrintOut("\n", 1);
   
-	PrintOut("===================================================\n",52);
+	PrintOut("===================================================\n", 52);
 		
 	Fork((void *)Manager);
 	for (i = 0; i < numCustomers; ++i)
@@ -398,13 +398,13 @@ void Customer(int debug)
 		PrintOut("not ", 4);
 	PrintOut("ordering soda\n", 14);
   
-	PrintOut("Customer ", 8);
+	PrintOut("Customer ", 9);
 	PrintNumber(ID);
-	PrintOut(" chooses to ", 10);
+	PrintOut(" chooses to ", 12);
 	if(eatIn)
 		PrintOut("eat-in", 7);
 	else
-		PrintOut("to-go", 6);
+		PrintOut(" to-go", 7);
 	PrintOut(" the food\n", 10);
   
 	Signal(CV_OrderTakerBusy[ID_Get_OrderTakerIDFromCustomerID[ID]], 
@@ -473,7 +473,7 @@ void Customer(int debug)
 		
 		PrintOut("Customer ", 9);
 		PrintNumber(ID);
-		PrintOut(" is served by waiter 0\n", 24);
+		PrintOut(" is served by waiter 0\n", 23);
     
 		/* I received my order */
 		Release(lock_CustomerSittingFromCustomerID[ID]);
@@ -527,7 +527,7 @@ void Customer(int debug)
 				{
 					PrintOut("Manager", 7);
 				}
-				PrintOut(" gives token number ", 47);
+				PrintOut(" gives token number ", 20);
 				PrintNumber(token);
 				PrintOut(" to Customer ", 13);
 				PrintNumber(ID);
@@ -693,7 +693,6 @@ void Manager(int debug)
   
 	while(TRUE)
 	{
-		PrintOut("Manager", 7);
 		helpOT = 0;
 
 		Acquire(lock_OrCr_LineToOrderFood);
@@ -724,8 +723,8 @@ void Manager(int debug)
 		/* Exit condition */
 		if(shouldExit())
 		{
-			PrintOut("Manager", 7);
-			PrintOut("::all customers served.\n", 24);
+			PrintOutV("Manager", 7);
+			PrintOutV("::all customers served.\n", 24);
 			Exit(0);
 		}
 		
@@ -900,7 +899,7 @@ void checkLineToEnterRest()
 		
 			PrintOut("Customer ", 9);
 			PrintNumber(custID);
-			PrintOut(" is informed by the Manager-the restaurant is ", 45);
+			PrintOut(" is informed by the Manager-the restaurant is ", 46);
 			if (count_NumTablesAvailable > 0)
 				PrintOut("not full\n", 9);
 			else
@@ -958,27 +957,26 @@ void Cook(int debug)
 
 	while(TRUE)
 	{
-		PrintOut("Cook ", 4);
 		Acquire(lock_MrCk_InventoryLocks[ID]);
 		t = 0;
 		
 		if(Get_CookOnBreakFromInventoryIndex[ID])
 		{
 			t = 1;
-			PrintOut("Cook ", 4);
+			PrintOut("Cook ", 5);
 			PrintNumber(ID);
 			PrintOut(" is going on break\n", 19);
 			  
 			Wait(CV_MrCk_InventoryLocks[ID], lock_MrCk_InventoryLocks[ID]);
 			
-			PrintOut("Cook ", 4);
+			PrintOut("Cook ", 5);
 			PrintNumber(ID);
 			PrintOut(" returned from break\n", 21);
 		}
 		
 		if(t == 1)
 		{
-			PrintOut("Cook ", 4);
+			PrintOut("Cook ", 5);
 			PrintNumber(ID);
 			PrintOut(" is going on break\n", 19);
 		}
@@ -986,9 +984,9 @@ void Cook(int debug)
 		/* Cook something */
 		if(inventoryCount[ID] > 0)
 		{
-			PrintOut("Cook ", 4);
+			PrintOut("Cook ", 5);
 			PrintNumber(ID);
-			PrintOut(" is going to cook ", 19);
+			PrintOut(" is going to cook ", 18);
 			switch(ID)
 			{
 			/* [6-dollar burger/3-dollar burger/veggie burger/french fries] */
@@ -1012,8 +1010,8 @@ void Cook(int debug)
 		/* Exit condition */
 		if(shouldExit())
 		{
-			PrintOut("Cook", 4);
-			PrintOut("::all customers served.\n", 24);
+			PrintOutV("Cook", 5);
+			PrintOutV("::all customers served.\n", 24);
 			Exit(0);
 		}
 		Yield(5);
@@ -1047,8 +1045,8 @@ void OrderTaker(int debug)
 		/* Exit condition */
 		if(shouldExit())
 		{
-			PrintOut("OrderTaker", 10);
-			PrintOut("::all customers served.\n", 24);
+			PrintOutV("OrderTaker", 10);
+			PrintOutV("::all customers served.\n", 24);
 			Exit(0);
 		}
 		
@@ -1082,7 +1080,7 @@ void serviceCustomer(int ID)
 	/* Ask the customer what he would like to order */
 	if(ID > 0)
 	{
-		PrintOut("OrderTaker ", 10);
+		PrintOut("OrderTaker ", 11);
 		PrintNumber(ID);
 	}
 	else
@@ -1091,7 +1089,7 @@ void serviceCustomer(int ID)
 	}
 	PrintOut(" is taking order of Customer ", 29);
 	PrintNumber(custID);
-	PrintOut("\n", 2);
+	PrintOut("\n", 1);
 	
 	Wait(CV_OrderTakerBusy[ID], lock_OrderTakerBusy[ID]);
 	/* Customer has placed order by the time we get here. */
@@ -1278,7 +1276,7 @@ void Waiter(int debug)
 		  
 			PrintOut("Waiter ", 7);
 			PrintNumber(ID);
-			PrintOut(" validates the token number for Customer ", 62);
+			PrintOut(" validates the token number for Customer ", 41);
 			PrintNumber(Get_CustomerIDFromToken[token]);
 			PrintOut("\n", 1);
 		  
