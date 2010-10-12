@@ -338,7 +338,7 @@ void TestWait()
 		
 		PrintOut("Fork a helper thread\n", 21);
 		Fork(TestWaitHelper);
-		PrintOut("Wait on Good CV and Good Lock\n", 30);
+		PrintOut("TestWait Waiting on Good CV and Good Lock\n", 42);
 		Signal(globalCVHandle, globalLockHandle);
 		Wait(globalCVHandle, globalLockHandle);
 		PrintOut("TestWait woke up, signaling TestWaitHelper\n", 43);	
@@ -356,7 +356,7 @@ void TestWait()
 	PrintOut("Delete CV and Lock, then Wait\n", 31);
 	DestroyCondition(globalCVHandle);
 	Wait(globalCVHandle, globalLockHandle);
-	
+
 	PrintOut("TestWait Completed\n\n", 20);	
 }
 
@@ -367,7 +367,7 @@ void TestWaitHelper()
 {
 	Acquire(globalLockHandle);
 		PrintOut("TestWaitHelper starting...\n", 27);
-		PrintOut("Signaling TestWait\n", 19);
+		PrintOut("TestWaitHelper Signaling TestWait\n", 34);
 		Signal(globalCVHandle, globalLockHandle);
 		PrintOut("TestWaitHelper waiting for Signal from TestWait\n", 48);
 		Wait(globalCVHandle, globalLockHandle);

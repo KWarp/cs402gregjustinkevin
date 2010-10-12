@@ -204,6 +204,7 @@ void SynchManager::Wait(int cvIndex, int lockIndex)
 	
 	// ok to Wait
 	cvEntries[cvIndex]->ownerProcess = currentThread->space;
+	//printf("Kernel: Waiting on index %d\n", cvIndex);
 	cvEntries[cvIndex]->cv->Wait(lockEntries[lockIndex]->lock);
 	cvEntries[cvIndex]->ownerProcess = NULL;
 	cvEntries[cvIndex]->toBeUsed = false; // possible race condition
@@ -229,6 +230,7 @@ void SynchManager::Signal(int cvIndex, int lockIndex)
 			return;
 		}
 		// ok to Signal
+		//printf("Kernel: Signaling from index %d\n", cvIndex);
 		cvEntries[cvIndex]->cv->Signal(lockEntries[lockIndex]->lock);
 	lock_ForLockTable->Release();
 	lock_ForCVTable->Release();
