@@ -628,6 +628,7 @@ void Customer(int debug)
       PrintOut(" ~~~\n", 5);
 	Release(lock_Init_InitializationLock);
 	
+	
 	Exit(0);
 }
 
@@ -692,6 +693,7 @@ void Manager(int debug)
   
 	while(TRUE)
 	{
+		PrintOut("Manager", 7);
 		helpOT = 0;
 
 		Acquire(lock_OrCr_LineToOrderFood);
@@ -956,6 +958,7 @@ void Cook(int debug)
 
 	while(TRUE)
 	{
+		PrintOut("Cook ", 4);
 		Acquire(lock_MrCk_InventoryLocks[ID]);
 		t = 0;
 		
@@ -1013,6 +1016,7 @@ void Cook(int debug)
 			PrintOut("::all customers served.\n", 24);
 			Exit(0);
 		}
+		Yield(5);
 	}
 
 }
