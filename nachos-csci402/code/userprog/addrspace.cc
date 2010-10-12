@@ -146,8 +146,8 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     int size = noffH.code.size + noffH.initData.size + noffH.uninitData.size;
     numPages = divRoundUp(size, PageSize);
     int numStackPages = divRoundUp(UserStackSize, PageSize);
-    size = numPages * PageSize;
     
+    size = numPages * PageSize;
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
 
     // Setup the pageTable.
@@ -190,8 +190,6 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
     }
 
-    RestoreState();
-    InitRegisters(); // If we don't call this here, weird stuff happens. Should we just call this in the AddrSpace constructor?
     ppnInUseLock->Release();
   #else
     NoffHeader noffH;

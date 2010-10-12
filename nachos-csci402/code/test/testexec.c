@@ -15,8 +15,7 @@ int main()
   PrintOut("Exec'ing exectestprogram2\n", 26);
   Exec("../test/exectestprogram2");
   
-  while (1)
-    Yield();
+  Exit(0);
     
   return 0;
 }

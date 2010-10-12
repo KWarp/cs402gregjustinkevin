@@ -58,8 +58,7 @@ int main()
   PrintOut("Forking test2\n", 14);
   Fork(test2);
   
-  while (1)
-    Yield();
+  Exit(0);
     
   return 0;
 }
