@@ -8,17 +8,10 @@ void main()
 {
   int i;
   
-  /* Acquire(lock); */
   PrintOut("Running test2\n", 14);
   for (i = 0; i < 4; ++i)
-  {
-    PrintOut("This will be printed 4 times (", 30);
-    PrintNumber(i + 1);
-    PrintOut(")\n", 2);
-  }
+    PrintOut("This will be printed 4 times\n", 29);
   PrintOut("test2 complete\n", 15);
   
-  /* Release(lock); */
-  /* Yield(); */
   Exit(0);
 }
