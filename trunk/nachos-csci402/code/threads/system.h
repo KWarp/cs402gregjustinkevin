@@ -34,11 +34,11 @@ extern Timer *timer;				        // the hardware alarm clock
   #ifdef CHANGED
     #include "../userprog/bitmap.h"
     #include "../threads/synch.h"
+    #include "../userprog/processtable.h"
     
-    // #include "../userprog/process.h"
     extern BitMap* ppnInUseBitMap;
     extern Lock* ppnInUseLock;
-    // extern ProcessTable* processTable;
+    extern ProcessTable* processTable;
   #endif
 #endif
 

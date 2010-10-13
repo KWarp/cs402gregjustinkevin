@@ -335,6 +335,7 @@ void Exec_Syscall(unsigned int executableFileName)
     
     Thread* thread = new Thread("Exec'd Process Thread");
     thread->space = new AddrSpace(executable);
+    processTable->addProcess(thread->space);
     
     delete executable;
     delete buf;
@@ -345,7 +346,7 @@ void Exec_Syscall(unsigned int executableFileName)
 }
 
 // Pass a pointer to this function when forking a  new process in kernel space.
-void Kernel_Thread(unsigned int functionPtr)
+void Fork_Kernel_Thread(unsigned int functionPtr)
 {
   forkLock->Acquire();
     // Setup registers.
@@ -381,20 +382,36 @@ void Fork_Syscall(unsigned int functionPtr)
     thread->stackStartIndex = currentThread->space->AllocateStack();
 
     // Add new thread to current process in processTable.
-    // processTable->Add_Thread_Entry(thread, thread->space, thread->threadStartLoc);
+    processTable->addThread(thread->space);
 
     // thread->space->RestoreState();
   forkLock->Release();
 
   // Actually Fork the new thread.
-  thread->Fork((VoidFunctionPtr)Kernel_Thread, (unsigned int)functionPtr);
+  thread->Fork((VoidFunctionPtr)Fork_Kernel_Thread, (unsigned int)functionPtr);
 }
 
 void Exit_Syscall(int status)
 {
+  printf("numThreads: %d\n", processTable->getNumThreads());
+  if (processTable->getNumThreads() > 1)
+  {
+    processTable->killThread(currentThread->space);
+    if (processTable->getNumThreadsForProcess(currentThread->space) == 0)
+      delete currentThread->space;
+    currentThread->Finish();
+    return;
+  }
+  else
+  {
+    currentThread->Finish();  // Do this for now. Make Halt work later.
+    // delete currentThread->space;
+    // interrupt->Halt();
+  }
+  
   // if we are a child thread
-  currentThread->Finish();
-  return;
+  //  currentThread->Finish();
+  //  return;
   
   // if we are the last thread in this process
   //  delete currentThread->space;

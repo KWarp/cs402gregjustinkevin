@@ -77,6 +77,7 @@ THREAD_O =main.o list.o scheduler.o synch.o synchlist.o system.o thread.o \
 USERPROG_H = ../userprog/addrspace.h\
 	../userprog/bitmap.h\
 	../userprog/SynchManager.h\
+  ../userprog/processtable.h\
 	../filesys/filesys.h\
 	../filesys/openfile.h\
 	../machine/console.h\
@@ -90,13 +91,14 @@ USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/exception.cc\
 	../userprog/progtest.cc\
 	../userprog/SynchManager.cc\
+  ../userprog/processtable.cc\
 	../machine/console.cc\
 	../machine/machine.cc\
 	../machine/mipssim.cc\
 	../machine/translate.cc
 
 USERPROG_O = addrspace.o bitmap.o exception.o progtest.o console.o machine.o \
-	mipssim.o translate.o SynchManager.o
+	mipssim.o translate.o SynchManager.o processtable.o
 
 
 VM_H = 
