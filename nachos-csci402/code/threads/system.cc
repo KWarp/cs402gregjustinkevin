@@ -32,7 +32,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
   #ifdef CHANGED
     BitMap* ppnInUseBitMap;
     Lock* ppnInUseLock;
-    // ProcessTable* processTable;
+    ProcessTable* processTable;
   #endif
 #endif
 
@@ -161,7 +161,7 @@ void Initialize(int argc, char **argv)
     #ifdef CHANGED
       ppnInUseBitMap = new BitMap(NumPhysPages);
       ppnInUseLock = new Lock("ppnInUseLock");
-      // processTable = new ProcessTable();
+      processTable = new ProcessTable();
     #endif
   #endif
 

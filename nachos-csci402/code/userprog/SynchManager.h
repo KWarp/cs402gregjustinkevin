@@ -5,6 +5,8 @@
 	by Greg Lieberman
 	
 */
+#ifndef SYNCHMANAGER_H
+#define SYNCHMANAGER_H
 
 #include "synch.h"
 #include "bitmap.h"
@@ -87,5 +89,5 @@ class SynchManager
     
 };
 
-
+#endif
 

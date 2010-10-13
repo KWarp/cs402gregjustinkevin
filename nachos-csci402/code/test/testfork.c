@@ -43,7 +43,6 @@ void test2()
   }
   PrintOut("test2 complete\n", 15);
   
-  /* Yield(); */
   Exit(0);
 }
 
@@ -51,7 +50,6 @@ int main()
 {
   lock = CreateLock();
 
-  PrintOut("Press Ctrl-C once the threads are finished printing\n", 52);
   PrintOut("Forking test1\n", 14);
   Fork(test1);
   
@@ -59,6 +57,5 @@ int main()
   Fork(test2);
   
   Exit(0);
-    
   return 0;
 }
