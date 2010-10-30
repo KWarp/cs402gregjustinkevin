@@ -480,6 +480,26 @@ void PrintNumber_Syscall(int i)
   printNumberLock->Release();
 }
 
+void HandlePageFault()
+{
+  #ifdef USE_TLB
+	// For now, read the value from the PageTable straight into the TLB.
+	int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
+
+	// Disable interrupts while messing with tlb.
+	IntStatus old = interrupt->SetLevel(IntOff);  
+	machine->tlb[currentTLBIndex].virtualPage  = currentThread->space->pageTable[vpn].virtualPage;
+	machine->tlb[currentTLBIndex].physicalPage = currentThread->space->pageTable[vpn].physicalPage;
+	machine->tlb[currentTLBIndex].valid        = currentThread->space->pageTable[vpn].valid;
+	machine->tlb[currentTLBIndex].readOnly     = currentThread->space->pageTable[vpn].readOnly;
+	machine->tlb[currentTLBIndex].use          = currentThread->space->pageTable[vpn].use;
+	machine->tlb[currentTLBIndex].dirty        = currentThread->space->pageTable[vpn].dirty;
+	interrupt->SetLevel(old);
+
+	currentTLBIndex = ++currentTLBIndex % TLBSize;
+  #endif
+}
+
 #endif /* CHANGED */
 
 void ExceptionHandler(ExceptionType which)
@@ -602,20 +622,7 @@ void ExceptionHandler(ExceptionType which)
   #ifdef CHANGED
     else if (which == PageFaultException)
     {
-      // For now, read the value from the PageTable straight into the TLB.
-      int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
-      
-      // Disable interrupts while messing with tlb.
-      IntStatus old = interrupt->SetLevel(IntOff);  
-        machine->tlb[currentTLBIndex].virtualPage  = currentThread->space->pageTable[vpn].virtualPage;
-        machine->tlb[currentTLBIndex].physicalPage = currentThread->space->pageTable[vpn].physicalPage;
-        machine->tlb[currentTLBIndex].valid        = currentThread->space->pageTable[vpn].valid;
-        machine->tlb[currentTLBIndex].readOnly     = currentThread->space->pageTable[vpn].readOnly;
-        machine->tlb[currentTLBIndex].use          = currentThread->space->pageTable[vpn].use;
-        machine->tlb[currentTLBIndex].dirty        = currentThread->space->pageTable[vpn].dirty;
-      interrupt->SetLevel(old);
-      
-      currentTLBIndex = ++currentTLBIndex % TLBSize;
+		HandlePageFault();
     }
   #endif
   else

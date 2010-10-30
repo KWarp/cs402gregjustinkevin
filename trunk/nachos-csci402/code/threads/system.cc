@@ -168,7 +168,9 @@ void Initialize(int argc, char **argv)
       ppnInUseBitMap = new BitMap(NumPhysPages);
       ppnInUseLock = new Lock("ppnInUseLock");
       processTable = new ProcessTable();
+	  #ifdef USE_TLB
       currentTLBIndex = 0;
+	  #endif
     #endif
   #endif
 
