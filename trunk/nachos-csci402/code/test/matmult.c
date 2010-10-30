@@ -21,6 +21,7 @@ int
 main()
 {
     int i, j, k;
+	PrintOut("=== Starting Matmult ===\n", 25); 
 
     for (i = 0; i < Dim; i++)		/* first initialize the matrices */
 	for (j = 0; j < Dim; j++) {
@@ -34,5 +35,8 @@ main()
             for (k = 0; k < Dim; k++)
 		 C[i][j] += A[i][k] * B[k][j];
 
+	PrintOut("~~~ Result: ", 12);
+	PrintNumber(C[Dim-1][Dim-1]);
+	PrintOut(" ~~~\n", 5);
     Exit(C[Dim-1][Dim-1]);		/* and then we're done */
 }
