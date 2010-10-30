@@ -125,13 +125,23 @@ Scheduler::Run (Thread *nextThread)
         delete threadToBeDestroyed;
 	threadToBeDestroyed = NULL;
     }
+
+  #ifdef CHANGED
+    #ifdef USE_TLB
+      // Invalidate all entries in the TLB.
+      IntStatus old = interrupt->SetLevel(IntOff);
+        for (int i = 0; i < TLBSize; ++i)
+          machine->tlb[i].valid = false;
+      interrupt->SetLevel(old);
+    #endif
+  #endif
     
-#ifdef USER_PROGRAM
+  #ifdef USER_PROGRAM
     if (currentThread->space != NULL) {		// if there is an address space
         currentThread->RestoreUserState();     // to restore, do it.
-	currentThread->space->RestoreState();
+      currentThread->space->RestoreState();
     }
-#endif
+  #endif
 }
 
 //----------------------------------------------------------------------

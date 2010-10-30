@@ -337,6 +337,14 @@ void Exec_Syscall(unsigned int executableFileName)
     thread->space = new AddrSpace(executable);
     processTable->addProcess(thread->space);
     
+    #ifdef USC_TLB
+      // Invalidate all entries in the TLB.
+      IntStatus old = interrupt->SetLevel(IntOff);
+        for (int i = 0; i < TLBSize; ++i)
+          machine->tlb[i].valid = false;
+      interrupt->SetLevel(old);
+    #endif
+    
     delete executable;
     delete buf;
   execLock->Release();
@@ -394,6 +402,7 @@ void Fork_Syscall(unsigned int functionPtr)
 void Exit_Syscall(int status)
 {
   printf("numThreads: %d\n", processTable->getNumThreads());
+  printf("Exiting with status: %d\n", status);
   if (processTable->getNumThreads() > 1)
   {
     processTable->killThread(currentThread->space);
@@ -590,6 +599,25 @@ void ExceptionHandler(ExceptionType which)
     
     return;
   }
+  #ifdef CHANGED
+    else if (which == PageFaultException)
+    {
+      // For now, read the value from the PageTable straight into the TLB.
+      int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
+      
+      // Disable interrupts while messing with tlb.
+      IntStatus old = interrupt->SetLevel(IntOff);  
+        machine->tlb[currentTLBIndex].virtualPage  = currentThread->space->pageTable[vpn].virtualPage;
+        machine->tlb[currentTLBIndex].physicalPage = currentThread->space->pageTable[vpn].physicalPage;
+        machine->tlb[currentTLBIndex].valid        = currentThread->space->pageTable[vpn].valid;
+        machine->tlb[currentTLBIndex].readOnly     = currentThread->space->pageTable[vpn].readOnly;
+        machine->tlb[currentTLBIndex].use          = currentThread->space->pageTable[vpn].use;
+        machine->tlb[currentTLBIndex].dirty        = currentThread->space->pageTable[vpn].dirty;
+      interrupt->SetLevel(old);
+      
+      currentTLBIndex = ++currentTLBIndex % TLBSize;
+    }
+  #endif
   else
   {
     cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<<endl;
