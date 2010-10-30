@@ -36,6 +36,12 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
   #endif
 #endif
 
+#ifdef CHANGED
+  #ifdef USE_TLB
+    int currentTLBIndex;
+  #endif
+#endif
+
 #ifdef NETWORK
   PostOffice *postOffice;
 #endif
@@ -162,6 +168,7 @@ void Initialize(int argc, char **argv)
       ppnInUseBitMap = new BitMap(NumPhysPages);
       ppnInUseLock = new Lock("ppnInUseLock");
       processTable = new ProcessTable();
+      currentTLBIndex = 0;
     #endif
   #endif
 

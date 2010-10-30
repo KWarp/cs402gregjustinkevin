@@ -31,7 +31,7 @@ extern Timer *timer;				        // the hardware alarm clock
   #include "machine.h"
   extern Machine* machine;	// user program memory and registers
   
-  #ifdef CHANGED
+  #ifdef CHANGED  
     #include "../userprog/bitmap.h"
     #include "../threads/synch.h"
     #include "../userprog/processtable.h"
@@ -39,6 +39,12 @@ extern Timer *timer;				        // the hardware alarm clock
     extern BitMap* ppnInUseBitMap;
     extern Lock* ppnInUseLock;
     extern ProcessTable* processTable;
+  #endif
+#endif
+
+#ifdef CHANGED
+  #ifdef USE_TLB
+    extern int currentTLBIndex;
   #endif
 #endif
 

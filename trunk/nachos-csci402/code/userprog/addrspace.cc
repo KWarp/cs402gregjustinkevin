@@ -301,7 +301,7 @@ void AddrSpace::InitRegisters()
 //
 //	For now, nothing!
 //----------------------------------------------------------------------
-void AddrSpace::SaveState() 
+void AddrSpace::SaveState()
 {}
 
 //----------------------------------------------------------------------
@@ -313,8 +313,10 @@ void AddrSpace::SaveState()
 //----------------------------------------------------------------------
 void AddrSpace::RestoreState()
 {
+  #if 0 // No longer do this for project 3.
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
+  #endif
 }
 
 #ifdef CHANGED
