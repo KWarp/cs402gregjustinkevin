@@ -172,6 +172,15 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].use          = FALSE;
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      
+      // Populate ipt.
+      ipt[ppn].virtualPage  = vpn;
+      ipt[ppn].physicalPage = ppn;
+      ipt[ppn].valid        = TRUE;
+      ipt[ppn].use          = FALSE;
+      ipt[ppn].dirty        = FALSE;
+      ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      ipt[ppn].processID    = this;
     }
     
     // Increase the size to leave room for the stack.
@@ -188,8 +197,17 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].use          = FALSE;
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      
+      // Populate ipt.
+      ipt[ppn].virtualPage  = vpn;
+      ipt[ppn].physicalPage = ppn;
+      ipt[ppn].valid        = TRUE;
+      ipt[ppn].use          = FALSE;
+      ipt[ppn].dirty        = FALSE;
+      ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      ipt[ppn].processID    = this;
     }
-
+    
     ppnInUseLock->Release();
   #else
     NoffHeader noffH;
@@ -356,6 +374,15 @@ void AddrSpace::RestoreState()
         newPageTable[vpn].use          = FALSE;
         newPageTable[vpn].dirty        = FALSE;
         newPageTable[vpn].readOnly     = FALSE;
+        
+        // Populate ipt.
+        ipt[ppn].virtualPage  = vpn;
+        ipt[ppn].physicalPage = ppn;
+        ipt[ppn].valid        = TRUE;
+        ipt[ppn].use          = FALSE;
+        ipt[ppn].dirty        = FALSE;
+        ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+        ipt[ppn].processID    = this;
       }
 
       delete pageTable;
