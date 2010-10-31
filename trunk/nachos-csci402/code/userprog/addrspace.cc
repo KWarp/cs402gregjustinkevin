@@ -174,6 +174,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
       
+      
       // Populate ipt.
       ipt[ppn].virtualPage  = vpn;
       ipt[ppn].physicalPage = ppn;

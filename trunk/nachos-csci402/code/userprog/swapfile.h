@@ -38,7 +38,8 @@ class SwapFile
     
     int Load(int vpn, int ppn); 
     int Store(int vpn, int ppn);
-    int Free();
+    int Evict(int ppn);
+    void Free();
   
   private:
     Lock* swapAccessLock;
