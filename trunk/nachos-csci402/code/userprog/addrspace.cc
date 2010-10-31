@@ -148,10 +148,11 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     int numStackPages = divRoundUp(UserStackSize, PageSize);
     
     size = numPages * PageSize;
+    maxPagesInMemory = numPages + (MaxNumExpectedThreads - 1) * numStackPages;
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
 
     // Setup the pageTable.
-    pageTable = new TranslationEntry[numPages + numStackPages];
+    pageTable = new TranslationEntry[numPages + numStackPages]; // KEVIN: do you need maxPagesInMemory?
     
     // Check we're not trying to run anything too big -- at least until we have virtual memory.
     ASSERT(numPages + numStackPages <= NumPhysPages);
