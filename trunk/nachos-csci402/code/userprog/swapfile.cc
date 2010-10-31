@@ -21,30 +21,35 @@ SwapFile::SwapFile(int pMaxPagesInMemory)
   
   indexFromVPN = new int[maxPagesInMemory];
   for(int i=0; i < maxPagesInMemory; i++)
+  {
     indexFromVPN[i] = -1;
-    
+  }
+  
 }
 
 SwapFile::~SwapFile()
 {
-  
-  
+  delete[] indexFromVPN;
+  delete pageMap;
+  delete swap;
+  delete swapAccessLock;
 }
 
 
 int SwapFile::Load(int vpn, int ppn)
 {
-  if(indexFromVPN[vpn] == -1)
+  if( !isValidVPN(vpn) )
     printf("ERROR: Invalid SwapFile VPN %d", vpn);
+    
   // int ReadAt(char *into, int numBytes, int position);
-  swap->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, indexFromVPN[vpn] * PageSize);
-  return 0;
+  int success = swap->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, indexFromVPN[vpn] * PageSize);
+  return success;
 }
 
 
 int SwapFile::Store(int vpn, int ppn)
 {
-  int swapFilePageIndex;
+  int swapFilePageIndex, success;
   
   swapAccessLock->Acquire();
     // find a free page in swap file
@@ -56,28 +61,62 @@ int SwapFile::Store(int vpn, int ppn)
     }
     // write entry into swap
     // int WriteAt(char *from, int numBytes, int position);
-    swap->WriteAt(&(machine->mainMemory[ppn*PageSize]), PageSize, swapFilePageIndex*PageSize); 
+    success = swap->WriteAt(&(machine->mainMemory[ppn*PageSize]), PageSize, swapFilePageIndex*PageSize); 
   swapAccessLock->Release();
   
-  indexFromVPN[vpn] = swapFilePageIndex;
-  
-  return 0;
+  if(success)
+  {
+    indexFromVPN[vpn] = swapFilePageIndex;
+    return success;
+  }
+  else
+  {
+    // failed
+    return 0;
+  }
 }
 
-int SwapFile::Evict(int ppn)
+int SwapFile::Evict(int vpn)
 {
-  pageMap->Clear(ppn);
+  if( !isValidVPN(vpn) )
+    return 0; // can't evict
+  
+  pageMap->Clear(indexFromVPN[vpn]);
+  indexFromVPN[vpn] = -1;
+  
   return 1;
 }
 
 
-void SwapFile::Free()
+void SwapFile::EvictAll()
 {
+  for (int i = 0; i < MAX_SWAP_PAGES; i++)
+	{
+    pageMap->Clear(i);
+  }
+
   for (int i = 0; i < maxPagesInMemory; i++)
 	{
-		Evict(i);
+    indexFromVPN[i] = -1;
 	}
   
+}
+
+// ========================
+// PRIVATE
+// ========================
+
+int SwapFile::isValidVPN(int vpn)
+{
+  // out of range
+  if(vpn < 0 || vpn >= maxPagesInMemory)
+    return 0;
+  // empty
+  if(indexFromVPN[vpn] == -1)
+    return 0;
+  
+  // valid
+  return 1;
 }
 
 

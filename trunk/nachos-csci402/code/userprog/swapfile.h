@@ -4,7 +4,8 @@ Swapfile class for 402 Project 3
 Encapsutes everything needed for a swap file for the IPT
 
 This is just a plain old file that Nachos reads and writes to.
-It has a slot for every page
+
+Access to contents of the swap file is indexed by VPN
 
 Requirements:
 Create and open the swap file when nachos starts
@@ -12,7 +13,7 @@ Close it when Nachos finishes
 Exactly one instance
 Global kernel data 
 
-On a page fault
+
 
 */
 
@@ -36,10 +37,12 @@ class SwapFile
     SwapFile(int pMaxPagesInMemory);
     ~SwapFile();
     
+    // vpn to load from, ppn in main memory to load into
     int Load(int vpn, int ppn); 
-    int Store(int vpn, int ppn);
-    int Evict(int ppn);
-    void Free();
+    int Store(int vpn, int ppn); 
+    
+    int Evict(int vpn);
+    void EvictAll();
   
   private:
     Lock* swapAccessLock;
@@ -47,6 +50,8 @@ class SwapFile
     BitMap* pageMap;
     int maxPagesInMemory;
     int* indexFromVPN; // dynamic array
+    
+    int isValidVPN(int vpn);
 };
 
 #endif // SWAP_FILE_H
