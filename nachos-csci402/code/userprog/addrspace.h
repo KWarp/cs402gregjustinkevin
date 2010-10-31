@@ -20,6 +20,7 @@
 #ifdef CHANGED
   #include "bitmap.h"
   #include "translate.h"
+  #define MaxNumExpectedThreads 50
 #endif
 
 #define UserStackSize		1024 	// increase this as necessary!
@@ -49,6 +50,7 @@ class AddrSpace {
     #ifdef CHANGED
       // Allocates room for a new stack and returns a pointer to the stack beginning.
       int AllocateStack();
+      int maxPagesInMemory; 
     #endif
     
     TranslationEntry *pageTable;	// Assume linear page table translation for now!
