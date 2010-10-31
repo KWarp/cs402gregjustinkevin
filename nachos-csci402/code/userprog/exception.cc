@@ -337,7 +337,7 @@ void Exec_Syscall(unsigned int executableFileName)
     thread->space = new AddrSpace(executable);
     processTable->addProcess(thread->space);
     
-    #ifdef USC_TLB
+    #ifdef USE_TLB
       // Invalidate all entries in the TLB.
       IntStatus old = interrupt->SetLevel(IntOff);
         for (int i = 0; i < TLBSize; ++i)
@@ -483,20 +483,49 @@ void PrintNumber_Syscall(int i)
 void HandlePageFault()
 {
   #ifdef USE_TLB
-	// For now, read the value from the PageTable straight into the TLB.
-	int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
+    // For now, read the value from the PageTable straight into the TLB.
+    int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
 
-	// Disable interrupts while messing with tlb.
-	IntStatus old = interrupt->SetLevel(IntOff);  
-	machine->tlb[currentTLBIndex].virtualPage  = currentThread->space->pageTable[vpn].virtualPage;
-	machine->tlb[currentTLBIndex].physicalPage = currentThread->space->pageTable[vpn].physicalPage;
-	machine->tlb[currentTLBIndex].valid        = currentThread->space->pageTable[vpn].valid;
-	machine->tlb[currentTLBIndex].readOnly     = currentThread->space->pageTable[vpn].readOnly;
-	machine->tlb[currentTLBIndex].use          = currentThread->space->pageTable[vpn].use;
-	machine->tlb[currentTLBIndex].dirty        = currentThread->space->pageTable[vpn].dirty;
-	interrupt->SetLevel(old);
+    // Disable interrupts while messing with tlb.
+    IntStatus old = interrupt->SetLevel(IntOff);
+    #if 0 // Step 1.
+      machine->tlb[currentTLBIndex].virtualPage  = currentThread->space->pageTable[vpn].virtualPage;
+      machine->tlb[currentTLBIndex].physicalPage = currentThread->space->pageTable[vpn].physicalPage;
+      machine->tlb[currentTLBIndex].valid        = currentThread->space->pageTable[vpn].valid;
+      machine->tlb[currentTLBIndex].readOnly     = currentThread->space->pageTable[vpn].readOnly;
+      machine->tlb[currentTLBIndex].use          = currentThread->space->pageTable[vpn].use;
+      machine->tlb[currentTLBIndex].dirty        = currentThread->space->pageTable[vpn].dirty;
+    #else // Step 2.
+      // Look in the ipt if the vpn for the currentProcess is already in memory.
+      int ppn = -1;
+      for (int i = 0; i < NumPhysPages; ++i)
+      {
+        if (ipt[i].valid &&
+            ipt[i].virtualPage == vpn &&
+            ipt[i].processID == currentThread->space)
+        {
+          ppn = i;
+          break;
+        }
+      }
+      
+      // If the vpn was not found in the ipt.
+      if (ppn == -1)
+      {
+        // Do stuff.
+      }
+      
+      // Update the tlb from the ipt.
+      machine->tlb[currentTLBIndex].virtualPage  = ipt[ppn].virtualPage;
+      machine->tlb[currentTLBIndex].physicalPage = ipt[ppn].physicalPage;
+      machine->tlb[currentTLBIndex].valid        = ipt[ppn].valid;
+      machine->tlb[currentTLBIndex].readOnly     = ipt[ppn].readOnly;
+      machine->tlb[currentTLBIndex].use          = ipt[ppn].use;
+      machine->tlb[currentTLBIndex].dirty        = ipt[ppn].dirty;
+    #endif
+    interrupt->SetLevel(old);
 
-	currentTLBIndex = ++currentTLBIndex % TLBSize;
+    currentTLBIndex = ++currentTLBIndex % TLBSize;
   #endif
 }
 
@@ -622,7 +651,7 @@ void ExceptionHandler(ExceptionType which)
   #ifdef CHANGED
     else if (which == PageFaultException)
     {
-		HandlePageFault();
+      HandlePageFault();
     }
   #endif
   else

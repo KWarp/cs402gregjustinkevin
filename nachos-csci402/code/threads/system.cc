@@ -39,6 +39,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
 #ifdef CHANGED
   #ifdef USE_TLB
     int currentTLBIndex;
+    IPTEntry* ipt;
   #endif
 #endif
 
@@ -168,12 +169,16 @@ void Initialize(int argc, char **argv)
       ppnInUseBitMap = new BitMap(NumPhysPages);
       ppnInUseLock = new Lock("ppnInUseLock");
       processTable = new ProcessTable();
-	  #ifdef USE_TLB
-      currentTLBIndex = 0;
-	  #endif
     #endif
   #endif
 
+  #ifdef CHANGED
+    #ifdef USE_TLB
+      currentTLBIndex = 0;
+      ipt = new IPTEntry[NumPhysPages];
+    #endif
+  #endif
+  
   #ifdef FILESYS
     synchDisk = new SynchDisk("DISK");
   #endif

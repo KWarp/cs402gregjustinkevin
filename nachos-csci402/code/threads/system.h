@@ -44,7 +44,10 @@ extern Timer *timer;				        // the hardware alarm clock
 
 #ifdef CHANGED
   #ifdef USE_TLB
+    #include "../userprog/IPT.h"
+  
     extern int currentTLBIndex;
+    extern IPTEntry* ipt;
   #endif
 #endif
 
