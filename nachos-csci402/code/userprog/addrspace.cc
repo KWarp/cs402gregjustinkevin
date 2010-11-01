@@ -186,7 +186,11 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     }
     
     ppnInUseLock->Release();
+    
+    
   #else
+  
+  
     NoffHeader noffH;
     unsigned int i, size;
 
