@@ -146,43 +146,25 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     int size = noffH.code.size + noffH.initData.size + noffH.uninitData.size;
     numPages = divRoundUp(size, PageSize);
     int numStackPages = divRoundUp(UserStackSize, PageSize);
-    
+
     size = numPages * PageSize;
-    maxPagesInMemory = numPages + (MaxNumExpectedThreads - 1) * numStackPages;
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
 
     // Setup the pageTable.
-    pageTable = new TranslationEntry[numPages + numStackPages]; // KEVIN: do you need maxPagesInMemory?
-    
-    // Check we're not trying to run anything too big -- at least until we have virtual memory.
-    ASSERT(numPages + numStackPages <= NumPhysPages);
-    
-    // Read data from just the code and initData sections.
+    pageTable = new PageTableEntry[numPages + numStackPages];
+
     unsigned int vpn = 0;
     for (; vpn < (unsigned int)(divRoundUp(noffH.code.size + noffH.initData.size, PageSize)); ++vpn)
     {
-      // Read a page from the executable file into the next available chunk of main memory.
-      int ppn = ppnInUseBitMap->Find();     // Physical Page Number.
-      executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
-                         (noffH.code.inFileAddr + (vpn * PageSize)));
-
-      // Map the virtual page to the physical page.
       pageTable[vpn].virtualPage  = vpn;
-      pageTable[vpn].physicalPage = ppn;
-      pageTable[vpn].valid        = TRUE;
+      pageTable[vpn].physicalPage = -1;
+      pageTable[vpn].valid        = FALSE;
       pageTable[vpn].use          = FALSE;
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
-      
-      
-      // Populate ipt.
-      ipt[ppn].virtualPage  = vpn;
-      ipt[ppn].physicalPage = ppn;
-      ipt[ppn].valid        = TRUE;
-      ipt[ppn].use          = FALSE;
-      ipt[ppn].dirty        = FALSE;
-      ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
-      ipt[ppn].processID    = this;
+      pageTable[vpn].location     = IN_EXECUTABLE;
+      pageTable[vpn].executable   = executable;
+      pageTable[vpn].byteOffset   = noffH.code.inFileAddr + (vpn * PageSize);
     }
     
     // Increase the size to leave room for the stack.
@@ -190,24 +172,13 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     
     for (; vpn < numPages; ++vpn)
     {
-      int ppn = ppnInUseBitMap->Find();     // Physical Page Number.
-      bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
-      
       pageTable[vpn].virtualPage  = vpn;
-      pageTable[vpn].physicalPage = ppn;
-      pageTable[vpn].valid        = TRUE;
+      pageTable[vpn].physicalPage = -1;
+      pageTable[vpn].valid        = FALSE;
       pageTable[vpn].use          = FALSE;
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
-      
-      // Populate ipt.
-      ipt[ppn].virtualPage  = vpn;
-      ipt[ppn].physicalPage = ppn;
-      ipt[ppn].valid        = TRUE;
-      ipt[ppn].use          = FALSE;
-      ipt[ppn].dirty        = FALSE;
-      ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
-      ipt[ppn].processID    = this;
+      pageTable[vpn].location     = NEITHER;
     }
     
     ppnInUseLock->Release();
@@ -353,7 +324,7 @@ void AddrSpace::RestoreState()
     // printf("Allocating a new stack\n");
     ppnInUseLock->Acquire();
       int numStackPages = divRoundUp(UserStackSize, PageSize);
-      TranslationEntry* newPageTable = new TranslationEntry[numPages + numStackPages];
+      PageTableEntry* newPageTable = new PageTableEntry[numPages + numStackPages];
       
       // Deep copy old pageTable's data to newPageTable.
       for (unsigned int vpn = 0; vpn < numPages; ++vpn)
@@ -364,27 +335,25 @@ void AddrSpace::RestoreState()
         newPageTable[vpn].use          = pageTable[vpn].use;
         newPageTable[vpn].dirty        = pageTable[vpn].dirty;
         newPageTable[vpn].readOnly     = pageTable[vpn].readOnly;
+        
+        newPageTable[vpn].location     = pageTable[vpn].location;
+        newPageTable[vpn].executable   = pageTable[vpn].executable;
+        newPageTable[vpn].byteOffset   = pageTable[vpn].byteOffset;
       }
       
       // Initialize page table for the new stack's memory.
       for (unsigned int vpn = numPages; vpn < numPages + numStackPages; ++vpn)
       {
-        int ppn = ppnInUseBitMap->Find(); // Physical Page Number.
         newPageTable[vpn].virtualPage  = vpn;
-        newPageTable[vpn].physicalPage = ppn;
-        newPageTable[vpn].valid        = TRUE;
+        newPageTable[vpn].physicalPage = -1;
+        newPageTable[vpn].valid        = FALSE;
         newPageTable[vpn].use          = FALSE;
         newPageTable[vpn].dirty        = FALSE;
-        newPageTable[vpn].readOnly     = FALSE;
+        newPageTable[vpn].readOnly     = FALSE; // If the code segment was entirely on a separate page, we could set its pages to be read-only.
         
-        // Populate ipt.
-        ipt[ppn].virtualPage  = vpn;
-        ipt[ppn].physicalPage = ppn;
-        ipt[ppn].valid        = TRUE;
-        ipt[ppn].use          = FALSE;
-        ipt[ppn].dirty        = FALSE;
-        ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
-        ipt[ppn].processID    = this;
+        newPageTable[vpn].location     = NEITHER;
+        newPageTable[vpn].executable   = NULL;  // Invalid value.
+        newPageTable[vpn].byteOffset   = -1;    // Invalid value.
       }
 
       delete pageTable;

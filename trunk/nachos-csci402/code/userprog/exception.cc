@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <iostream>
 
+extern "C" { int bzero(char *, int); };
+
 using namespace std;
 
 #ifdef CHANGED
@@ -324,6 +326,7 @@ void Exec_Syscall(unsigned int executableFileName)
     
     // Open the executable file.
     buf[len] = '\0';
+    printf("%s\n", buf);
     OpenFile* executable = fileSystem->Open(buf);
     if (executable == NULL)
     {
@@ -331,7 +334,7 @@ void Exec_Syscall(unsigned int executableFileName)
       delete buf;
       execLock->Release();
       return;
-    }
+    }   
     
     Thread* thread = new Thread("Exec'd Process Thread");
     thread->space = new AddrSpace(executable);
@@ -345,12 +348,11 @@ void Exec_Syscall(unsigned int executableFileName)
       interrupt->SetLevel(old);
     #endif
     
-    delete executable;
+    // delete executable;
     delete buf;
   execLock->Release();
 
   thread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0);  
-  // currentThread->space->RestoreState();
 }
 
 // Pass a pointer to this function when forking a  new process in kernel space.
@@ -391,6 +393,14 @@ void Fork_Syscall(unsigned int functionPtr)
 
     // Add new thread to current process in processTable.
     processTable->addThread(thread->space);
+
+    #ifdef USE_TLB
+      // Invalidate all entries in the TLB.
+      IntStatus old = interrupt->SetLevel(IntOff);
+        for (int i = 0; i < TLBSize; ++i)
+          machine->tlb[i].valid = false;
+      interrupt->SetLevel(old);
+    #endif
 
     // thread->space->RestoreState();
   forkLock->Release();
@@ -480,52 +490,91 @@ void PrintNumber_Syscall(int i)
   printNumberLock->Release();
 }
 
+// Returns -1 if not found.
+int findIPTIndex(int vpn)
+{
+  int ppn = -1;
+  for (int i = 0; i < NumPhysPages; ++i)
+  {
+    if (ipt[i].valid &&
+        ipt[i].virtualPage == vpn &&
+        ipt[i].processID == currentThread->space)
+    {
+      ppn = i;
+      break;
+    }
+  }
+  return ppn;
+}
+
+int loadPageIntoIPT(int vpn)
+{
+  // Load the page into memory from the correct location.
+  int ppn = ppnInUseBitMap->Find();
+  if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
+  {
+    printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
+    currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
+                                                            currentThread->space->pageTable[vpn].byteOffset);
+  }
+  else if (currentThread->space->pageTable[vpn].location == IN_SWAP_FILE)
+  {
+    printf("here\n");
+    // swapFile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
+    //                  currentThread->space->pageTable[vpn].pageOffset);
+  }
+  else
+  {
+    bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
+  }
+  
+  // Populate ipt.
+  ipt[ppn].virtualPage  = vpn;
+  ipt[ppn].physicalPage = ppn;
+  ipt[ppn].valid        = TRUE;
+  ipt[ppn].use          = FALSE;
+  ipt[ppn].dirty        = FALSE;
+  ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+  ipt[ppn].processID    = currentThread->space;
+  
+  return ppn;
+}
+
+void udpateTLBFromIPT(int ppn)
+{
+  // Disable interrupts while messing with tlb.
+  IntStatus old = interrupt->SetLevel(IntOff);
+
+  // Load the proper ipt values into the tlb.
+  machine->tlb[currentTLBIndex].virtualPage  = ipt[ppn].virtualPage;
+  machine->tlb[currentTLBIndex].physicalPage = ipt[ppn].physicalPage;
+  machine->tlb[currentTLBIndex].valid        = ipt[ppn].valid;
+  machine->tlb[currentTLBIndex].readOnly     = ipt[ppn].readOnly;
+  machine->tlb[currentTLBIndex].use          = ipt[ppn].use;
+  machine->tlb[currentTLBIndex].dirty        = ipt[ppn].dirty;
+  
+  // Update currentTLBIndex for next time.
+  currentTLBIndex = ++currentTLBIndex % TLBSize;
+  
+  // Re-enable interrupts.
+  interrupt->SetLevel(old);
+}
+
 void HandlePageFault()
 {
   #ifdef USE_TLB
     // For now, read the value from the PageTable straight into the TLB.
     int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
 
-    // Disable interrupts while messing with tlb.
-    IntStatus old = interrupt->SetLevel(IntOff);
-    #if 0 // Step 1.
-      machine->tlb[currentTLBIndex].virtualPage  = currentThread->space->pageTable[vpn].virtualPage;
-      machine->tlb[currentTLBIndex].physicalPage = currentThread->space->pageTable[vpn].physicalPage;
-      machine->tlb[currentTLBIndex].valid        = currentThread->space->pageTable[vpn].valid;
-      machine->tlb[currentTLBIndex].readOnly     = currentThread->space->pageTable[vpn].readOnly;
-      machine->tlb[currentTLBIndex].use          = currentThread->space->pageTable[vpn].use;
-      machine->tlb[currentTLBIndex].dirty        = currentThread->space->pageTable[vpn].dirty;
-    #else // Step 2.
-      // Look in the ipt if the vpn for the currentProcess is already in memory.
-      int ppn = -1;
-      for (int i = 0; i < NumPhysPages; ++i)
-      {
-        if (ipt[i].valid &&
-            ipt[i].virtualPage == vpn &&
-            ipt[i].processID == currentThread->space)
-        {
-          ppn = i;
-          break;
-        }
-      }
-      
-      // If the vpn was not found in the ipt.
-      if (ppn == -1)
-      {
-        // Do stuff.
-      }
-      
-      // Update the tlb from the ipt.
-      machine->tlb[currentTLBIndex].virtualPage  = ipt[ppn].virtualPage;
-      machine->tlb[currentTLBIndex].physicalPage = ipt[ppn].physicalPage;
-      machine->tlb[currentTLBIndex].valid        = ipt[ppn].valid;
-      machine->tlb[currentTLBIndex].readOnly     = ipt[ppn].readOnly;
-      machine->tlb[currentTLBIndex].use          = ipt[ppn].use;
-      machine->tlb[currentTLBIndex].dirty        = ipt[ppn].dirty;
-    #endif
-    interrupt->SetLevel(old);
-
-    currentTLBIndex = ++currentTLBIndex % TLBSize;
+    // Look in the ipt if the vpn for the currentProcess is already in memory.
+    int ppn = findIPTIndex(vpn);
+    
+    // If the vpn was not found in the ipt, load it into the ipt, overwriting an old value.
+    if (ppn < 0)
+      ppn = loadPageIntoIPT(vpn);
+    
+    // Update the tlb from the ipt.
+    udpateTLBFromIPT(ppn);
   #endif
 }
 
