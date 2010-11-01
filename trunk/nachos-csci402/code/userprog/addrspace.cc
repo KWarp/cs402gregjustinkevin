@@ -162,6 +162,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].use          = FALSE;
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      
       pageTable[vpn].location     = IN_EXECUTABLE;
       pageTable[vpn].executable   = executable;
       pageTable[vpn].byteOffset   = noffH.code.inFileAddr + (vpn * PageSize);
@@ -178,7 +179,10 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].use          = FALSE;
       pageTable[vpn].dirty        = FALSE;
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      
       pageTable[vpn].location     = NEITHER;
+      newPageTable[vpn].executable   = NULL;  // Invalid value.
+      newPageTable[vpn].byteOffset   = -1;    // Invalid value.
     }
     
     ppnInUseLock->Release();
