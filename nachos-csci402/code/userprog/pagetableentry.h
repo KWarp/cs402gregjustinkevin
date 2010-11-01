@@ -25,6 +25,7 @@ class PageTableEntry
   OpenFile* executable; // Used to store the executable so we can read from 
                         // it later.
   int byteOffset;     // The offset of the page on disk in the executable.
+  int swapPageIndex;  // the index of the page in the swap file
 };
 
 #endif

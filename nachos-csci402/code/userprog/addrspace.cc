@@ -181,8 +181,8 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
       
       pageTable[vpn].location     = NEITHER;
-      newPageTable[vpn].executable   = NULL;  // Invalid value.
-      newPageTable[vpn].byteOffset   = -1;    // Invalid value.
+      //newPageTable[vpn].executable   = NULL;  // Invalid value.
+      //newPageTable[vpn].byteOffset   = -1;    // Invalid value.
     }
     
     ppnInUseLock->Release();
