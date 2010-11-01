@@ -2657,7 +2657,7 @@ swapfile.o: ../userprog/swapfile.cc \
   ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
   ../threads/list.h ../machine/stats.h ../machine/timer.h \
   ../filesys/filesys.h ../userprog/addrspace.h ../bin/noff.h \
-  ../threads/synch.h  
+  ../threads/synch.h  ../threads/system.h 
   
 # DEPENDENCIES MUST END AT END OF FILE
 # IF YOU PUT STUFF HERE IT WILL GO AWAY

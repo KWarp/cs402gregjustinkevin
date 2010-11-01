@@ -3,12 +3,8 @@
 #include "swapfile.h"
 
 
-
-
-SwapFile::SwapFile(int pMaxPagesInMemory)
+SwapFile::SwapFile()
 {
-  maxPagesInMemory = pMaxPagesInMemory;
-  
   swapAccessLock = new Lock("SwapAccessLock");
   
   // create a file in our directory named "swap"
@@ -19,70 +15,69 @@ SwapFile::SwapFile(int pMaxPagesInMemory)
   
   pageMap = new BitMap(MAX_SWAP_PAGES);
   
-  indexFromVPN = new int[maxPagesInMemory];
-  for(int i=0; i < maxPagesInMemory; i++)
-  {
-    indexFromVPN[i] = -1;
-  }
-  
 }
 
 SwapFile::~SwapFile()
 {
-  delete[] indexFromVPN;
   delete pageMap;
   delete swap;
   delete swapAccessLock;
 }
 
 
-int SwapFile::Load(int vpn, int ppn)
+int SwapFile::GetSwapPageIndex()
 {
-  if( !isValidVPN(vpn) )
-    printf("ERROR: Invalid SwapFile VPN %d", vpn);
-    
-  // int ReadAt(char *into, int numBytes, int position);
-  int success = swap->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, indexFromVPN[vpn] * PageSize);
-  return success;
-}
-
-
-int SwapFile::Store(int vpn, int ppn)
-{
-  int swapFilePageIndex, success;
+  int swapPageIndex;
   
   swapAccessLock->Acquire();
     // find a free page in swap file
-    swapFilePageIndex = pageMap->Find(); 
-    if (swapFilePageIndex == -1)
+    swapPageIndex = pageMap->Find(); 
+    if (swapPageIndex == -1)
     {
       printf("Swap file ran out of space! Aborting Nachos...\n\n");
       interrupt->Halt();
     }
-    // write entry into swap
-    // int WriteAt(char *from, int numBytes, int position);
-    success = swap->WriteAt(&(machine->mainMemory[ppn*PageSize]), PageSize, swapFilePageIndex*PageSize); 
   swapAccessLock->Release();
   
-  if(success)
-  {
-    indexFromVPN[vpn] = swapFilePageIndex;
-    return success;
-  }
-  else
-  {
-    // failed
-    return 0;
-  }
+  return swapPageIndex;
 }
 
-int SwapFile::Evict(int vpn)
+
+int SwapFile::Load(int index, int ppn)
 {
-  if( !isValidVPN(vpn) )
+  if( !isValidIndex(index) )
+    printf("ERROR: Invalid SwapFile index %d", index);
+    
+  // int ReadAt(char *into, int numBytes, int position);
+  int success = swap->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, index * PageSize);
+  return success;
+}
+
+
+int SwapFile::Store(int index, int ppn)
+{
+  int success;
+  
+  swapAccessLock->Acquire();
+  
+    if( !isValidIndex(index) )
+      printf("ERROR: Invalid SwapFile index %d", index);
+    
+    // write entry into swap
+    // int WriteAt(char *from, int numBytes, int position);
+    success = swap->WriteAt(&(machine->mainMemory[ppn*PageSize]), PageSize, index*PageSize); 
+  swapAccessLock->Release();
+  
+  return success;
+}
+
+
+int SwapFile::Evict(int index)
+{
+  if( !isValidIndex(index) )
     return 0; // can't evict
   
-  pageMap->Clear(indexFromVPN[vpn]);
-  indexFromVPN[vpn] = -1;
+  pageMap->Clear(index);
   
   return 1;
 }
@@ -94,26 +89,21 @@ void SwapFile::EvictAll()
 	{
     pageMap->Clear(i);
   }
-
-  for (int i = 0; i < maxPagesInMemory; i++)
-	{
-    indexFromVPN[i] = -1;
-	}
   
 }
 
-// ========================
-// PRIVATE
-// ========================
 
-int SwapFile::isValidVPN(int vpn)
+int SwapFile::isValidIndex(int index)
 {
   // out of range
-  if(vpn < 0 || vpn >= maxPagesInMemory)
+  if(index < 0 || index >= MAX_SWAP_PAGES)
     return 0;
-  // empty
-  if(indexFromVPN[vpn] == -1)
+  
+  // unregistered = fail
+  if( !pageMap->Test(index) )
+  {
     return 0;
+  }
   
   // valid
   return 1;
