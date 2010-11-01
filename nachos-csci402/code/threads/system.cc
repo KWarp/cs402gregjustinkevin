@@ -176,6 +176,18 @@ void Initialize(int argc, char **argv)
     #ifdef USE_TLB
       currentTLBIndex = 0;
       ipt = new IPTEntry[NumPhysPages];
+      
+      for (int i = 0; i < NumPhysPages; ++i)
+      {
+        // Initialize the ipt so every entry is invalid.
+        ipt[i].virtualPage  = -1;
+        ipt[i].physicalPage = i;
+        ipt[i].valid        = FALSE;
+        ipt[i].use          = FALSE;
+        ipt[i].dirty        = FALSE;
+        ipt[i].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+        ipt[i].processID    = NULL;
+      }
     #endif
   #endif
   

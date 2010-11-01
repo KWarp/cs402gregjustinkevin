@@ -20,6 +20,7 @@
 #ifdef CHANGED
   #include "bitmap.h"
   #include "translate.h"
+  #include "pagetableentry.h"
   #define MaxNumExpectedThreads 50
 #endif
 
@@ -53,7 +54,7 @@ class AddrSpace {
       int maxPagesInMemory; 
     #endif
     
-    TranslationEntry *pageTable;	// Assume linear page table translation for now!
+    PageTableEntry *pageTable;	// Assume linear page table translation for now!
     unsigned int numPages;		    // Number of pages in the virtual address space.
 };
 
