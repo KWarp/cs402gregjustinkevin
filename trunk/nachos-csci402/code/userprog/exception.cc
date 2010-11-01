@@ -507,10 +507,63 @@ int findIPTIndex(int vpn)
   return ppn;
 }
 
+
+int evictAPage() 
+{
+  int ppn = -1;
+  if(useRandomPageEviction)
+  {
+    // do RANDOM policy
+    ppn = Random() % NumPhysPages;
+  }
+  else
+  {
+    // do FIFO policy
+    
+    // evict first entry from the queue
+    int* element = (int*)ppnQueue->Remove();
+    ppn = element[0];
+    delete[] element;
+    printf("ppn after: %d\n", ppn);
+  } 
+  // needed???
+  //ppnInUseBitMap->Clear(ppn);
+  
+  if(ipt[ppn].dirty == TRUE)
+  {
+    // write to swap file
+    
+    // get a swap page if this entry doesn't have one
+    if(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
+      ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex = swapFile->GetSwapPageIndex();
+    
+    swapFile->Store(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, ppn);
+    
+    // update page location
+    ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].location = IN_SWAP_FILE;
+  }
+    
+  return ppn;
+}
+
 int loadPageIntoIPT(int vpn)
 {
   // Load the page into memory from the correct location.
   int ppn = ppnInUseBitMap->Find();
+  
+  // failed to find a page in memory
+  if(ppn < 0)
+    return ppn = evictAPage();
+  
+  if(!useRandomPageEviction) // if use FIFO
+  {
+    // add ppn to back of queue
+    printf("ppn before: %d\n", ppn);
+    int* element = new int[1];
+    element[0] = ppn;
+    ppnQueue->Append((void*)element);
+  }
+  
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
     printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
@@ -540,7 +593,8 @@ int loadPageIntoIPT(int vpn)
   return ppn;
 }
 
-void udpateTLBFromIPT(int ppn)
+
+void updateTLBFromIPT(int ppn)
 {
   // Disable interrupts while messing with tlb.
   IntStatus old = interrupt->SetLevel(IntOff);
@@ -560,6 +614,7 @@ void udpateTLBFromIPT(int ppn)
   interrupt->SetLevel(old);
 }
 
+
 void HandlePageFault()
 {
   #ifdef USE_TLB
@@ -574,7 +629,7 @@ void HandlePageFault()
       ppn = loadPageIntoIPT(vpn);
     
     // Update the tlb from the ipt.
-    udpateTLBFromIPT(ppn);
+    updateTLBFromIPT(ppn);
   #endif
 }
 

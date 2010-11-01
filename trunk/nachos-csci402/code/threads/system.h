@@ -46,10 +46,13 @@ extern Timer *timer;				        // the hardware alarm clock
   #ifdef USE_TLB
     #include "../userprog/IPT.h"
     #include "../userprog/swapfile.h"
-  
+    #include "synchlist.h"
+    
     extern int currentTLBIndex;
     extern IPTEntry* ipt;
     extern SwapFile* swapFile;
+    extern bool useRandomPageEviction;
+    extern SynchList* ppnQueue;
   #endif
 #endif
 

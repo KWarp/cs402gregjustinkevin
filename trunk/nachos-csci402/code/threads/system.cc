@@ -41,6 +41,8 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     int currentTLBIndex;
     IPTEntry* ipt;
     SwapFile* swapFile;
+    bool useRandomPageEviction;
+    SynchList* ppnQueue;
   #endif
 #endif
 
@@ -129,6 +131,20 @@ void Initialize(int argc, char **argv)
       if (!strcmp(*argv, "-f"))
         format = TRUE;
     #endif
+    #ifdef CHANGED
+      #ifdef USE_TLB
+        useRandomPageEviction = false; // default is FIFO
+        if (!strcmp(*argv, "-P"))
+        {
+          //printf("Here is the argv: %s \n", *(argv+1));
+          if(!strcmp(*(argv + 1), "RAND"))
+          {
+            //printf("USING RANDOM PAGE EVICTION\n");
+            useRandomPageEviction = true;
+          }
+        }
+      #endif
+    #endif
     #ifdef NETWORK
       if (!strcmp(*argv, "-l"))
       {
@@ -178,6 +194,7 @@ void Initialize(int argc, char **argv)
       currentTLBIndex = 0;
       ipt = new IPTEntry[NumPhysPages];
       swapFile = new SwapFile();
+      ppnQueue = new SynchList();
       
       for (int i = 0; i < NumPhysPages; ++i)
       {

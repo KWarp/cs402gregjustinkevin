@@ -166,6 +166,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable[vpn].location     = IN_EXECUTABLE;
       pageTable[vpn].executable   = executable;
       pageTable[vpn].byteOffset   = noffH.code.inFileAddr + (vpn * PageSize);
+      pageTable[vpn].swapPageIndex = -1; // invalid value
     }
     
     // Increase the size to leave room for the stack.
