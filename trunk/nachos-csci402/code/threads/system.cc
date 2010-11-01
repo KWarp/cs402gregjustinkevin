@@ -40,7 +40,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
   #ifdef USE_TLB
     int currentTLBIndex;
     IPTEntry* ipt;
-    //SwapFile* swapFile;
+    SwapFile* swapFile;
   #endif
 #endif
 
@@ -177,7 +177,7 @@ void Initialize(int argc, char **argv)
     #ifdef USE_TLB
       currentTLBIndex = 0;
       ipt = new IPTEntry[NumPhysPages];
-      //swapFile = new SwapFile();
+      swapFile = new SwapFile();
       
       for (int i = 0; i < NumPhysPages; ++i)
       {
