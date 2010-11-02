@@ -558,7 +558,7 @@ int loadPageIntoIPT(int vpn)
   if(!useRandomPageEviction) // if use FIFO
   {
     // add ppn to back of queue
-    printf("ppn before: %d\n", ppn);
+    // printf("ppn before: %d\n", ppn);
     int* element = new int[1];
     element[0] = ppn;
     ppnQueue->Append((void*)element);
@@ -566,7 +566,7 @@ int loadPageIntoIPT(int vpn)
   
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
-    printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
+    // printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
     currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
                                                             currentThread->space->pageTable[vpn].byteOffset);
   }
