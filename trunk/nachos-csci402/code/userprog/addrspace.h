@@ -21,7 +21,6 @@
   #include "bitmap.h"
   #include "translate.h"
   #include "pagetableentry.h"
-  #define MaxNumExpectedThreads 50
 #endif
 
 #define UserStackSize		1024 	// increase this as necessary!
