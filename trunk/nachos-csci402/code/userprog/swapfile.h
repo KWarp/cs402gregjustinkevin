@@ -20,13 +20,18 @@ Global kernel data
 #ifndef SWAP_FILE_H
 #define SWAP_FILE_H
 
-#include "system.h"
-#include "addrspace.h"
-//#include "noff.h"
-#include "table.h"
-#include "synch.h"
-#include "filesys.h"
-#include "openfile.h"
+///
+// GREG: Don't include things you don't need!!!
+//       Sometimes it helps to comment on specifically why you decided you need to include something.
+///
+
+// #include "../threads/system.h" // Don't need this.
+// #include "addrspace.h"         // Don't need this.
+// #include "noff.h"              // Don't need this.
+// #include "table.h"             // Don't need this.
+#include "../threads/synch.h"     // For Lock.
+// #include "filesys.h"           // Don't need this.
+#include "../filesys/openfile.h"  // For OpenFile.
 
 
 
