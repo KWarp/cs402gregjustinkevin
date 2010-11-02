@@ -524,7 +524,7 @@ int evictAPage()
     int* element = (int*)ppnQueue->Remove();
     ppn = element[0];
     delete[] element;
-    printf("ppn after: %d\n", ppn);
+    //printf("FIFO ppn after: %d\n", ppn);
   } 
   // needed???
   //ppnInUseBitMap->Clear(ppn);
@@ -532,7 +532,7 @@ int evictAPage()
   if(ipt[ppn].dirty == TRUE)
   {
     // write to swap file
-    
+    printf("Writing ppn %d to swap file", ppn);
     // get a swap page if this entry doesn't have one
     if(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
       ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex = swapFile->GetSwapPageIndex();
@@ -553,12 +553,13 @@ int loadPageIntoIPT(int vpn)
   
   // failed to find a page in memory
   if(ppn < 0)
-    return ppn = evictAPage();
+     ppn = evictAPage();
   
-  if(!useRandomPageEviction) // if use FIFO
+  if(!useRandomPageEviction) 
   {
+    // using FIFO Policy
     // add ppn to back of queue
-    // printf("ppn before: %d\n", ppn);
+    //printf("FIFO ppn before: %d\n", ppn);
     int* element = new int[1];
     element[0] = ppn;
     ppnQueue->Append((void*)element);
@@ -566,15 +567,16 @@ int loadPageIntoIPT(int vpn)
   
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
-    // printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
+    printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
     currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
                                                             currentThread->space->pageTable[vpn].byteOffset);
   }
   else if (currentThread->space->pageTable[vpn].location == IN_SWAP_FILE)
   {
-    printf("here\n");
-    // swapFile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
-    //                  currentThread->space->pageTable[vpn].pageOffset);
+    ASSERT(currentThread->space->pageTable[vpn].swapPageIndex >= 0);
+    
+    printf("Loading from Swap File vpn: %d, ppn: %d\n", vpn, ppn);
+    swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
   }
   else
   {
