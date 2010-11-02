@@ -34,11 +34,11 @@ using namespace std;
 					// the disk sector size, for
 					// simplicity
 
-//#ifdef CHANGED
-//  #define NumPhysPages    1048576 // HUGE!!!
-//#else
+#if 0 // def CHANGED
+  #define NumPhysPages    1048576 // HUGE!!!
+#else
   #define NumPhysPages    32
-//#endif
+#endif
   
 #define MemorySize 	(NumPhysPages * PageSize)
 #define TLBSize		4		// if there is a TLB, make it small

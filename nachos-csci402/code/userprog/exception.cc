@@ -511,7 +511,7 @@ int findIPTIndex(int vpn)
 int evictAPage() 
 {
   int ppn = -1;
-  if(useRandomPageEviction)
+  if (useRandomPageEviction)
   {
     // do RANDOM policy
     ppn = Random() % NumPhysPages;
@@ -527,29 +527,33 @@ int evictAPage()
     //printf("FIFO ppn after: %d\n", ppn);
   } 
   // needed???
-  //ppnInUseBitMap->Clear(ppn);
+  // ppnInUseBitMap->Clear(ppn);
   
-  if(ipt[ppn].dirty == TRUE)
+  if (ipt[ppn].dirty)
   {
     // write to swap file
-    printf("Writing ppn %d to swap file", ppn);
+    printf("Writing (vpn %d, ppn %d) to swap file for process %d\n", ipt[ppn].virtualPage, ppn, (int)ipt[ppn].processID);
     // get a swap page if this entry doesn't have one
-    if(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
+    if (ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
       ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex = swapFile->GetSwapPageIndex();
     
     swapFile->Store(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, ppn);
-    
+
     // update page location
     ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].location = IN_SWAP_FILE;
   }
-    
+  
   return ppn;
 }
 
 int loadPageIntoIPT(int vpn)
 {
+  printf("Entering loadPageIntoIPT()\n");
+
   // Load the page into memory from the correct location.
   int ppn = ppnInUseBitMap->Find();
+  
+  printf("ppn = %d\n", ppn);
   
   // failed to find a page in memory
   if(ppn < 0)
@@ -559,15 +563,17 @@ int loadPageIntoIPT(int vpn)
   {
     // using FIFO Policy
     // add ppn to back of queue
-    //printf("FIFO ppn before: %d\n", ppn);
+    printf("FIFO ppn before: %d\n", ppn);
     int* element = new int[1];
     element[0] = ppn;
     ppnQueue->Append((void*)element);
   }
   
+  printf("here, vpn = %d\n", vpn);
+  
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
-    printf("vpn: %d, ppn: %d, byteOffset: %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset);
+    printf("Reading from executable (vpn %d, ppn %d, byteOffset %d) for process %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset, (int)currentThread->space);
     currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
                                                             currentThread->space->pageTable[vpn].byteOffset);
   }
@@ -575,11 +581,12 @@ int loadPageIntoIPT(int vpn)
   {
     ASSERT(currentThread->space->pageTable[vpn].swapPageIndex >= 0);
     
-    printf("Loading from Swap File vpn: %d, ppn: %d\n", vpn, ppn);
+    printf("Loading from Swap File (vpn %d, ppn %d) for process %d\n", vpn, ppn, (int)currentThread->space);
     swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
   }
   else
   {
+    printf("Loading from NEITHER (vpn %d, ppn %d)\n", vpn, ppn);
     bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
   }
   
@@ -592,6 +599,8 @@ int loadPageIntoIPT(int vpn)
   ipt[ppn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
   ipt[ppn].processID    = currentThread->space;
   
+  printf("Leaving loadPageIntoIPT()\n");
+  
   return ppn;
 }
 
@@ -601,6 +610,10 @@ void updateTLBFromIPT(int ppn)
   // Disable interrupts while messing with tlb.
   IntStatus old = interrupt->SetLevel(IntOff);
 
+  // Propagate the tlb's dirty bit to the ipt.
+  if (machine->tlb[currentTLBIndex].valid)
+    ipt[machine->tlb[currentTLBIndex].physicalPage].dirty = machine->tlb[currentTLBIndex].dirty;
+  
   // Load the proper ipt values into the tlb.
   machine->tlb[currentTLBIndex].virtualPage  = ipt[ppn].virtualPage;
   machine->tlb[currentTLBIndex].physicalPage = ipt[ppn].physicalPage;
@@ -611,7 +624,7 @@ void updateTLBFromIPT(int ppn)
   
   // Update currentTLBIndex for next time.
   currentTLBIndex = ++currentTLBIndex % TLBSize;
-  
+
   // Re-enable interrupts.
   interrupt->SetLevel(old);
 }
@@ -619,7 +632,7 @@ void updateTLBFromIPT(int ppn)
 
 void HandlePageFault()
 {
-  #ifdef USE_TLB
+  #ifdef USE_TLB  
     // For now, read the value from the PageTable straight into the TLB.
     int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
 

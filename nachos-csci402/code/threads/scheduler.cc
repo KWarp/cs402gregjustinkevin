@@ -99,6 +99,20 @@ Scheduler::Run (Thread *nextThread)
     }
 #endif
     
+  #ifdef CHANGED
+    #ifdef USE_TLB    
+      // Invalidate all entries in the TLB and propogate the dirty bit to the ipt.
+      IntStatus old = interrupt->SetLevel(IntOff);
+        for (int i = 0; i < TLBSize; ++i)
+        {
+          if (machine->tlb[i].valid)
+            ipt[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
+          machine->tlb[i].valid = false;
+        }
+      interrupt->SetLevel(old);
+    #endif
+  #endif
+    
     oldThread->CheckOverflow();		    // check if the old thread
 					    // had an undetected stack overflow
 
@@ -125,16 +139,6 @@ Scheduler::Run (Thread *nextThread)
         delete threadToBeDestroyed;
 	threadToBeDestroyed = NULL;
     }
-
-  #ifdef CHANGED
-    #ifdef USE_TLB
-      // Invalidate all entries in the TLB.
-      IntStatus old = interrupt->SetLevel(IntOff);
-        for (int i = 0; i < TLBSize; ++i)
-          machine->tlb[i].valid = false;
-      interrupt->SetLevel(old);
-    #endif
-  #endif
     
   #ifdef USER_PROGRAM
     if (currentThread->space != NULL) {		// if there is an address space
