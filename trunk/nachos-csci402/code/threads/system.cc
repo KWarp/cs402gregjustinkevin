@@ -41,7 +41,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     int currentTLBIndex;
     IPTEntry* ipt;
     SwapFile* swapFile;
-    bool useRandomPageEviction;
+    int useRandomPageEviction;
     SynchList* ppnQueue;
   #endif
 #endif
@@ -98,6 +98,11 @@ void Initialize(int argc, char **argv)
   #ifdef FILESYS_NEEDED
     bool format = FALSE;	// format disk
   #endif
+  #ifdef CHANGED
+    #ifdef USE_TLB
+      useRandomPageEviction = FALSE; // default is FIFO
+    #endif
+  #endif
   #ifdef NETWORK
     double rely = 1;		// network reliability
     int netname = 0;		// UNIX socket name
@@ -133,14 +138,13 @@ void Initialize(int argc, char **argv)
     #endif
     #ifdef CHANGED
       #ifdef USE_TLB
-        useRandomPageEviction = false; // default is FIFO
         if (!strcmp(*argv, "-P"))
         {
           //printf("Here is the argv: %s \n", *(argv+1));
-          if(!strcmp(*(argv + 1), "RAND"))
+          if(!strcmp(*(argv + 1), "RAND") || !strcmp(*(argv + 1), "rand"))
           {
             //printf("USING RANDOM PAGE EVICTION\n");
-            useRandomPageEviction = true;
+            useRandomPageEviction = TRUE;
           }
         }
       #endif
