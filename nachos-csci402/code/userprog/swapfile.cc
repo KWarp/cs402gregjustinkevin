@@ -46,7 +46,7 @@ int SwapFile::GetSwapPageIndex()
 int SwapFile::Load(int index, int ppn)
 {
   if( !isValidIndex(index) )
-    printf("ERROR: Invalid SwapFile index %d", index);
+    printf("ERROR: Invalid SwapFile index %d \n", index);
     
   // int ReadAt(char *into, int numBytes, int position);
   int success = swap->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, index * PageSize);
@@ -61,7 +61,7 @@ int SwapFile::Store(int index, int ppn)
   swapAccessLock->Acquire();
   
     if( !isValidIndex(index) )
-      printf("ERROR: Invalid SwapFile index %d", index);
+      printf("ERROR: Invalid SwapFile index %d \n", index);
     
     // write entry into swap
     // int WriteAt(char *from, int numBytes, int position);

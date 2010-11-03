@@ -516,6 +516,7 @@ int evictAPage()
   if (useRandomPageEviction)
   {
     // do RANDOM policy
+    //printf("USING RANDOM POLICY \n");
     ppn = Random() % NumPhysPages;
   }
   else
@@ -571,7 +572,7 @@ int loadPageIntoIPT(int vpn)
     ppnQueue->Append((void*)element);
   }
   
-  //printf("here, vpn = %d\n", vpn);
+  printf("Locating vpn = %d\n", vpn);
   
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
@@ -583,7 +584,7 @@ int loadPageIntoIPT(int vpn)
   {
     ASSERT(currentThread->space->pageTable[vpn].swapPageIndex >= 0);
     
-    //printf("Loading from Swap File (vpn %d, ppn %d) for process %d\n", vpn, ppn, (int)currentThread->space);
+    printf("Loading from Swap File (vpn %d, ppn %d) for process %d\n", vpn, ppn, (int)currentThread->space);
     swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
   }
   else

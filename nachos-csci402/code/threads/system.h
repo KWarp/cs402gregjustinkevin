@@ -51,7 +51,7 @@ extern Timer *timer;				        // the hardware alarm clock
     extern int currentTLBIndex;
     extern IPTEntry* ipt;
     extern SwapFile* swapFile;
-    extern bool useRandomPageEviction;
+    extern int useRandomPageEviction;
     extern SynchList* ppnQueue;
   #endif
 #endif
