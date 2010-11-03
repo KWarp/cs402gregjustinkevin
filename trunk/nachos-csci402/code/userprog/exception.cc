@@ -490,6 +490,8 @@ void PrintNumber_Syscall(int i)
   printNumberLock->Release();
 }
 
+#ifdef USE_TLB
+
 // Returns -1 if not found.
 int findIPTIndex(int vpn)
 {
@@ -632,7 +634,6 @@ void updateTLBFromIPT(int ppn)
 
 void HandlePageFault()
 {
-  #ifdef USE_TLB  
     // For now, read the value from the PageTable straight into the TLB.
     int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
 
@@ -645,9 +646,10 @@ void HandlePageFault()
     
     // Update the tlb from the ipt.
     updateTLBFromIPT(ppn);
-  #endif
+  
 }
 
+#endif // USE_TLB
 #endif /* CHANGED */
 
 void ExceptionHandler(ExceptionType which)
@@ -768,10 +770,31 @@ void ExceptionHandler(ExceptionType which)
     return;
   }
   #ifdef CHANGED
+  #ifdef USE_TLB
     else if (which == PageFaultException)
     {
       HandlePageFault();
     }
+    else if (which == BusErrorException)
+    {
+      printf("BusErrorException of type %d \n", type);
+      interrupt->Halt();
+    }
+    else if (which == AddressErrorException)
+    {
+      printf("AddressErrorException of type %d \n", type);
+      interrupt->Halt();
+    }
+    else if( which == IllegalInstrException)
+    {
+      printf("IllegalInstrException of type %d \n", type);
+      //machine->DumpState();
+      printf("Starting up NachOS Debugger...\n");
+      machine->Debugger();
+      printf("Dividing by zero to stop program for debugging...\n");
+      int fail = 1 / 0;
+    }
+  #endif
   #endif
   else
   {
