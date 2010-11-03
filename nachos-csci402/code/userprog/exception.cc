@@ -576,9 +576,10 @@ int loadPageIntoIPT(int vpn)
   
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
-    //printf("Reading from executable (vpn %d, ppn %d, byteOffset %d) for process %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset, (int)currentThread->space);
+    printf("Loading from executable (vpn %d, ppn %d, byteOffset %d) for process %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset, (int)currentThread->space);
     currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
                                                             currentThread->space->pageTable[vpn].byteOffset);
+    
   }
   else if (currentThread->space->pageTable[vpn].location == IN_SWAP_FILE)
   {
@@ -586,10 +587,11 @@ int loadPageIntoIPT(int vpn)
     
     printf("Loading from Swap File (vpn %d, ppn %d) for process %d\n", vpn, ppn, (int)currentThread->space);
     swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
+    
   }
   else
   {
-    //printf("Loading from NEITHER (vpn %d, ppn %d)\n", vpn, ppn);
+    printf("Loading from NEITHER (vpn %d, ppn %d)\n", vpn, ppn);
     bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
   }
   
