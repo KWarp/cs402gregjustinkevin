@@ -535,11 +535,13 @@ int evictAPage()
   if (ipt[ppn].dirty)
   {
     // write to swap file
-    printf("Writing (vpn %d, ppn %d) to swap file for process %d\n", ipt[ppn].virtualPage, ppn, (int)ipt[ppn].processID);
     // get a swap page if this entry doesn't have one
     if (ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
       ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex = swapFile->GetSwapPageIndex();
     
+    printf("Writing (vpn %d, ppn %d, swapPageIndex %d) to swap file for process %d\n", 
+          ipt[ppn].virtualPage, ppn, ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, 
+          (int)ipt[ppn].processID);
     swapFile->Store(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, ppn);
 
     // update page location
@@ -585,7 +587,8 @@ int loadPageIntoIPT(int vpn)
   {
     ASSERT(currentThread->space->pageTable[vpn].swapPageIndex >= 0);
     
-    printf("Loading from Swap File (vpn %d, ppn %d) for process %d\n", vpn, ppn, (int)currentThread->space);
+    printf("Loading from Swap File (vpn %d, ppn %d, swapPageIndex %d) for process %d\n", 
+        vpn, ppn, currentThread->space->pageTable[vpn].swapPageIndex, (int)currentThread->space);
     swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
     
   }
