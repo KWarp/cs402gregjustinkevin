@@ -598,6 +598,8 @@ int evictAPage()
     delete[] element;
     //printf("FIFO ppn after: %d\n", ppn);
   } 
+  
+  printf("Evicting page ppn = %d\n", ppn);
   // needed???
   // ppnInUseBitMap->Clear(ppn);
   
@@ -608,7 +610,7 @@ int evictAPage()
     if (ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
       ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex = swapFile->GetSwapPageIndex();
     
-    printf("Writing (vpn %d, ppn %d, swapPageIndex %d) to swap file for process %d\n", 
+    printf("- Writing (vpn %d, ppn %d, swapPageIndex %d) to swap file for process %d\n", 
           ipt[ppn].virtualPage, ppn, ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, 
           (int)ipt[ppn].processID);
     swapFile->Store(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, ppn);
@@ -656,7 +658,7 @@ int loadPageIntoIPT(int vpn)
   {
     ASSERT(currentThread->space->pageTable[vpn].swapPageIndex >= 0);
     
-    printf("Loading from Swap File (vpn %d, ppn %d, swapPageIndex %d) for process %d\n", 
+    printf("- Loading from Swap File (vpn %d, ppn %d, swapPageIndex %d) for process %d\n", 
         vpn, ppn, currentThread->space->pageTable[vpn].swapPageIndex, (int)currentThread->space);
     swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
     
@@ -664,7 +666,7 @@ int loadPageIntoIPT(int vpn)
   else
   {
     printf("Loading from NEITHER (vpn %d, ppn %d)\n", vpn, ppn);
-    bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
+    //bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
   }
   
   // Populate ipt.
@@ -725,6 +727,8 @@ void HandlePageFault()
 }
 
 #endif // USE_TLB
+
+#ifdef NETWORK
 void assignMailID(AddrSpace* spaceIdentifier)
 {
 	if(procIDIndex > 9)
@@ -758,7 +762,7 @@ int getMailID()
 	printf("Failed to find mailID %d\n",i);
 	return -1;
 }
-
+#endif /* NETWORK */
 
 #endif /* CHANGED */
 
