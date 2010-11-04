@@ -4,7 +4,7 @@
 
 void SwapFile::printMemoryPage(int ppn)
 {
-  printf("Main memory: \n");
+  printf("Main memory: (ppn = %d) \n", ppn);
   for(int i= ppn * PageSize; i < (ppn * PageSize) + PageSize; i++)
     printf("%c", &(machine->mainMemory[i]));
   printf("\n");
@@ -13,11 +13,11 @@ void SwapFile::printMemoryPage(int ppn)
 void SwapFile::printFilePage(int index)
 {
   char* array = new char[PageSize];
-  printf("File Page: \n");
+  printf("File Page: (index = %d) \n", index);
   swap->ReadAt(array, PageSize, index * PageSize);
 
   for(int i= 0; i < PageSize; i++)
-    printf("%c", array[i]);
+    printf("%c", &array[i]);
   printf("\n");
   delete[] array;
 }
@@ -43,9 +43,9 @@ SwapFile::SwapFile()
   for(int i=0; i< PageSize; i++)
     data[i] = 'i';
   
-  for(int i=0; i< 1; i++)
+  for(int i=0; i< NumPhysPages; i++)
   {
-    swap->WriteAt(data, PageSize, i * PageSize);
+    //swap->WriteAt(data, PageSize, i * PageSize);
     printFilePage(i);
   }
   */
@@ -80,14 +80,15 @@ int SwapFile::GetSwapPageIndex()
 int SwapFile::Load(int index, int ppn)
 {
   swapAccessLock->Acquire();
-    
-    printf("index in Load: %d\n", index);
-    
+        
     if (!isValidIndex(index))
       printf("ERROR: Invalid SwapFile index %d \n", index);
-      
+    
+    //printf("Before - ");
+    //printMemoryPage(ppn);  
     // int ReadAt(char *into, int numBytes, int position);
     int success = swap->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, index * PageSize);
+    //printf("After - ");
     //printMemoryPage(ppn);
     //printFilePage(index);
   swapAccessLock->Release();
@@ -106,9 +107,11 @@ int SwapFile::Store(int index, int ppn)
     
     // write entry into swap
     //printMemoryPage(ppn); 
+    //printf("Before - ");
     //printFilePage(index);    
     // int WriteAt(char *from, int numBytes, int position);
     success = swap->WriteAt(&(machine->mainMemory[ppn * PageSize]), PageSize, index * PageSize);
+    //printf("After - ");
     //printFilePage(index);
   swapAccessLock->Release();
   

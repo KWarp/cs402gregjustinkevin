@@ -599,9 +599,27 @@ int evictAPage()
     //printf("FIFO ppn after: %d\n", ppn);
   } 
   
-  printf("Evicting page ppn = %d\n", ppn);
+  //printf("Evicting page ppn = %d\n", ppn);
   // needed???
   // ppnInUseBitMap->Clear(ppn);
+  
+  // CHECK TO SEE IF PAGE BELONGS IN CURRENT PROCESS
+  // IF SO, INVALIDATE TLB ENTRY
+  if (ipt[ppn].processID == currentThread->space)
+  {
+    IntStatus old = interrupt->SetLevel(IntOff);
+      //printf("ipt[ppn].processID EQUALS currentThread->space \n");
+      for (int i = 0; i < TLBSize; ++i)
+      {
+        if (machine->tlb[i].valid &&
+            machine->tlb[i].physicalPage == ppn)
+        {
+          machine->tlb[i].valid = false;
+          break;
+        }
+      }
+    interrupt->SetLevel(old);
+  }
   
   if (ipt[ppn].dirty)
   {
@@ -645,11 +663,11 @@ int loadPageIntoIPT(int vpn)
     ppnQueue->Append((void*)element);
   }
   
-  printf("Locating vpn = %d\n", vpn);
+  //printf("Locating vpn = %d\n", vpn);
   
   if (currentThread->space->pageTable[vpn].location == IN_EXECUTABLE)
   {
-    printf("Loading from executable (vpn %d, ppn %d, byteOffset %d) for process %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset, (int)currentThread->space);
+    //printf("Loading from executable (vpn %d, ppn %d, byteOffset %d) for process %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset, (int)currentThread->space);
     currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
                                                             currentThread->space->pageTable[vpn].byteOffset);
     
@@ -658,15 +676,15 @@ int loadPageIntoIPT(int vpn)
   {
     ASSERT(currentThread->space->pageTable[vpn].swapPageIndex >= 0);
     
-    printf("- Loading from Swap File (vpn %d, ppn %d, swapPageIndex %d) for process %d\n", 
-        vpn, ppn, currentThread->space->pageTable[vpn].swapPageIndex, (int)currentThread->space);
+    //printf("- Loading from Swap File (vpn %d, ppn %d, swapPageIndex %d) for process %d\n", 
+    //    vpn, ppn, currentThread->space->pageTable[vpn].swapPageIndex, (int)currentThread->space);
     swapFile->Load(currentThread->space->pageTable[vpn].swapPageIndex, ppn);
     
   }
   else
   {
-    printf("Loading from NEITHER (vpn %d, ppn %d)\n", vpn, ppn);
-    //bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
+    //printf("Loading from NEITHER (vpn %d, ppn %d)\n", vpn, ppn);
+    bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
   }
   
   // Populate ipt.
@@ -902,11 +920,11 @@ void ExceptionHandler(ExceptionType which)
     else if( which == IllegalInstrException)
     {
       printf("IllegalInstrException of type %d \n", type);
-      //machine->DumpState();
-      printf("Starting up NachOS Debugger...\n");
-      machine->Debugger();
-      printf("Dividing by zero to stop program for debugging...\n");
-      int fail = 1 / 0;
+      interrupt->Halt();
+      //printf("Starting up NachOS Debugger...\n");
+      //machine->Debugger();
+      //printf("Dividing by zero to stop program for debugging...\n");
+      //int fail = 1 / 0;
     }
   #endif
   #endif
