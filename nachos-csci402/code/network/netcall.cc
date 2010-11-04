@@ -1,32 +1,12 @@
-// netcall.cc 
 #include "netcall.h"
 
-
-
-void itoa(char arr[], int size, int val);
-bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
-bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data);
-bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
-bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-void CreateVerify(char* data, int, int);
-int CreateMVVerify(char* data);
-
-//---------Message Class -------------//
 Message::Message(PacketHeader pHdr, MailHeader mHdr, char *d)
 {
 	pktHdr = pHdr;
     mailHdr = mHdr;
     data = d;
 }
-//---------End Message Class -------------//
 
-//---------DistributedLock Class -------------//
 DistributedLock::DistributedLock(const char* debugName) 
 {
 	name = debugName;	
@@ -67,9 +47,7 @@ DistributedLock::~DistributedLock()
 {
 	delete waitQueue;
 }
-//---------End DistributedLock Class -------------//
 
-//---------DistributedMV Class -------------//
 DistributedMV::DistributedMV(const char* debugName) 
 {
 	name = debugName;
@@ -80,9 +58,7 @@ DistributedMV::~DistributedMV()
 {
 	//delete name;
 }
-//---------End DistributedMV Class -------------//
 
-//---------DistributedCV Class -------------//
 DistributedCV::DistributedCV(const char* debugName) 
 {
 	name=debugName;
@@ -123,9 +99,7 @@ DistributedCV::~DistributedCV()
 {
 	delete waitQueue;
 }
-//---------End DistributedCV Class -------------//
 
-//---------Global Variables----------//
 DistributedLock* locks[MAX_DLOCK]; //array of locks
 DistributedMV* mvs[MAX_DMV]; //array of MVs
 DistributedCV* cvs[MAX_DCV]; //array of CVs
@@ -148,48 +122,30 @@ int waitingForSignalCvs[MAX_CLIENTS];
 int waitingForBroadcastCvs[MAX_CLIENTS];
 int waitingForWaitLocks[MAX_CLIENTS];
 
-//---------End Global Variables----------//
-
-//Network abstraction layer functions//
-
 //Request - For use by clients
 int Request(int requestType, char* data, int mailID)
 {
-	printf("Requesting!!!\n");
 	char* request = new char [MaxMailSize];
     sprintf(request,"%d_%s",requestType, data);
-	printf("Request: %s\n", request);
-	for(int i=0;i<MaxMailSize;buffer[i++]='\0');
+	
+	for(int i=0;i<MaxMailSize;i++)
+		buffer[i]='\0';
+		
 	PacketHeader outPktHdr, inPktHdr;
     MailHeader outMailHdr, inMailHdr;
-	char *ack = "Got it!";
-	//char buffer[MaxMailSize];
 
-    // construct packet, mail header for original message
-    // To: destination machine, mailbox 0
-    // From: our machine, reply to: mailbox 1q
-	printf ("servercount: %i\n", serverCount);
     outPktHdr.to = ((int)Random())%serverCount;		
     outMailHdr.to = outPktHdr.to;
-    outMailHdr.from = postOffice->GetID(); 
+    outMailHdr.from = mailID; //postOffice->GetID(); 
     outMailHdr.length = strlen(request) + 1;
 
-    // Send the first message
-    bool success = postOffice->Send(outPktHdr, outMailHdr, request); 
-
-    if ( !success ) {
-      printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+    if ( !postOffice->Send(outPktHdr, outMailHdr, request)) 
+	{
       interrupt->Halt();
     }
 
-    // Wait for reply from server
-	//printf("Before Recv\n");
-    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer); //I am making assumption that mailbox number matches machine id...
-	//printf("After Recv\n");
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
-    fflush(stdout);
-
-	printf("Client: Finished Request!!!\n");
+    postOffice->Receive(mailID, &inPktHdr, &inMailHdr, buffer); //I am making assumption that mailbox number matches machine id...
+	
 	return atoi(buffer); //buffer should contain the index lock/mv created/destroyed at or value of mv getted
 }
 
@@ -233,15 +189,10 @@ bool HandleRequest()
 
 	// Wait for a request from client
 	postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
-	printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
-	fflush(stdout);
 
 	char c = '?';
-	int i = 0;
-	int a = 0;
-	int m = 0;
-	int j = 0;
-	int x = 0;
+	int i,a ,m ,j,x;
+	
 	while(c!='_') //Until find underscore, search string. Want to extract request type. Format: 'requestType_data'
 	{
 		c = buffer[i];
@@ -261,7 +212,6 @@ bool HandleRequest()
 			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
 			if((createDLockIndex >= 0)&&(createDLockIndex < (MAX_DLOCK-1)))
 			{
-				printf("inPktHdr.from: %i  inMailHdr.from: %i\n", inPktHdr.from, inMailHdr.from);
 				j = 0;
 				while(c!='\0') //Continue to search data string Until reach end. Want to extract lock name.
 				{
@@ -277,7 +227,6 @@ bool HandleRequest()
 				{
 					if(!strcmp(locks[k]->getName(), lockName[clientNum]))
 					{
-						printf("%s == %s, k = %d\n", locks[k]->getName(), lockName[clientNum], k);
 						lockIndex = k;
 					}
 				}
@@ -289,8 +238,6 @@ bool HandleRequest()
 			
 					if(localLockIndex[clientNum] == -1) //If not found here or elsewhere
 					{
-					//Create distributed lock
-						printf("First time create lock: %s\n", lockName[clientNum]);
 						for(int i=0;lockName[clientNum][i]!='\0';i++)
 						{
 							localLockName[i]=lockName[clientNum][i];
@@ -332,8 +279,8 @@ bool HandleRequest()
 					printf("Server replying to client with ID: %s\n", ack);
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-					if ( !success ) {
-					  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+					if ( !success ) 
+					{
 					  interrupt->Halt();
 					}
 					verifyResponses[clientNum]=0;
@@ -343,7 +290,6 @@ bool HandleRequest()
 			}
 			else
 			{
-				printf("Lock cannot be created! Maximum number of locks [%d] exceeded!\n", MAX_DLOCK);
 				errorOutPktHdr = outPktHdr;
 				errorInPktHdr = inPktHdr;
 				errorOutMailHdr = outMailHdr;
@@ -390,8 +336,6 @@ bool HandleRequest()
 				}
 				if(localLockIndex[clientNum] == -1 && otherServerLockIndex ==-1) //If not found here or elsewhere
 				{
-					//Create distributed lock
-					printf("First time create lock: %s\n", lockName[clientNum]);
 					for(int i=0;lockName[clientNum][i]!='\0';i++){
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
@@ -414,13 +358,10 @@ bool HandleRequest()
 				}
 				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex !=-1) //exists on other server and not here
 				{
-					printf("Exists on other server with index: %i\n", otherServerLockIndex);
 					lockIndex=otherServerLockIndex; //set lock
 				}
 				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex==-1) //exists here
 				{
-					printf("Exists here: %i\n", locks[localLockIndex[clientNum]]->GetGlobalId());
-					
 					lockIndex=locks[localLockIndex[clientNum]]->GetGlobalId();
 				}
 				else //exists multiple places; should never happen
@@ -438,11 +379,10 @@ bool HandleRequest()
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 
-				printf("Server replying to client with ID: %s\n", ack);
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-				if ( !success ) {
-				  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+				if ( !success ) 
+				{
 				  interrupt->Halt();
 				}
 				verifyResponses[clientNum]=0;
@@ -482,8 +422,8 @@ bool HandleRequest()
 			{
 				if(!strcmp(locks[k]->getName(), localLockName))
 				{
-					printf("%s == %s, k = %d\n", locks[k]->getName(), localLockName, k);
 					lockIndex = k;
+					break;
 				}
 			}
 			// Send reply (using "reply to" mailbox
@@ -497,14 +437,12 @@ bool HandleRequest()
 				sprintf(request,"%d_%d_%d",CREATELOCKANSWER, clientNum, -1);
 				outMailHdr.length = strlen(request) + 1;
 
-				printf("Server Sending: Lock not found on this server.  Sending: %s: \n", request);
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
 			else //found
 			{
 				sprintf(request,"%d_%d_%d",CREATELOCKANSWER, clientNum, locks[lockIndex]->GetGlobalId());
 				outMailHdr.length = strlen(request) + 1;
-				printf("Server Sending: Lock found on another server!!!\n");
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
 			break;
@@ -528,7 +466,6 @@ bool HandleRequest()
 				{
 					if(!strcmp(cvs[k]->getName(), lockName[clientNum]))
 					{
-						printf("%s == %s, k = %d\n", cvs[k]->getName(), lockName[clientNum], k);
 						cvIndex = k;
 					}
 				}
@@ -540,8 +477,8 @@ bool HandleRequest()
 					if(localLockIndex[clientNum] == -1) //If not found here or elsewhere
 					{
 						//Create distributed lock
-						printf("First time create cv: %s\n", lockName[clientNum]);
-						for(int i=0;lockName[clientNum][i]!='\0';i++){
+						for(int i=0;lockName[clientNum][i]!='\0';i++)
+						{
 							localLockName[i]=lockName[clientNum][i];
 							localLockName[i+1]= '\0';
 						}
@@ -550,7 +487,6 @@ bool HandleRequest()
 						if(cvs[createDCVIndex] == NULL)
 						{
 							//Handle error...
-							printf("Error in creation of %s!\n", lockName[clientNum]);
 							errorOutPktHdr.to = clientNum/10+serverCount;
 							errorInPktHdr = inPktHdr;
 							errorOutMailHdr.to = (clientNum+10)%10;
@@ -580,8 +516,8 @@ bool HandleRequest()
 					//printf("Server replying to client with ID: %s\n", ack);
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-					if ( !success ) {
-					  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+					if ( !success ) 
+					{
 					  interrupt->Halt();
 					}
 					verifyResponses[clientNum]=0;
@@ -591,7 +527,6 @@ bool HandleRequest()
 			}
 			else
 			{
-				printf("cv cannot be created! Maximum number of locks [%d] exceeded!\n", MAX_DCV);
 				errorOutPktHdr = outPktHdr;
 				errorInPktHdr = inPktHdr;
 				errorOutMailHdr = outMailHdr;
@@ -638,7 +573,6 @@ bool HandleRequest()
 				if(localLockIndex[clientNum] == -1 && otherServerLockIndex ==-1) //If not found here or elsewhere
 				{
 					//Create distributed lock
-					printf("First time create cv: %s\n", lockName[clientNum]);
 					for(int i=0;lockName[clientNum][i]!='\0';i++){
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
@@ -648,7 +582,6 @@ bool HandleRequest()
 					if(cvs[createDCVIndex] == NULL)
 					{
 						//Handle error...
-						printf("Error in creation of %s!\n", lockName[clientNum]);
 						errorOutPktHdr.to = clientNum/10+serverCount;
 						errorInPktHdr = inPktHdr;
 						errorOutMailHdr.to = (clientNum+10)%10;
@@ -661,18 +594,14 @@ bool HandleRequest()
 				}
 				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex !=-1) //exists on other server and not here
 				{
-					//printf("Exists on other server with index: %i\n", otherServerLockIndex);
 					cvIndex=otherServerLockIndex; //set lock
 				}
 				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex==-1) //exists here
 				{
-					//printf("Exists here: %i\n", locks[localLockIndex[clientNum]]->GetGlobalId());
-					
 					cvIndex=cvs[localLockIndex[clientNum]]->GetGlobalId();
 				}
 				else //exists multiple places; should never happen
 				{
-					printf("problem: localLockIndex[clientNum] %i otherServerLockIndex %i\n", localLockIndex[clientNum],otherServerLockIndex);
 						
 				}
 				//Include index of lock in reply message 
@@ -690,8 +619,8 @@ bool HandleRequest()
 				//printf("Server replying to client with ID: %s\n", ack);
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-				if ( !success ) {
-				  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+				if ( !success ) 
+				{
 				  interrupt->Halt();
 				}
 				verifyResponses[clientNum]=0;
@@ -700,7 +629,6 @@ bool HandleRequest()
 			}
 			break;
 		case CREATECVVERIFY:
-			printf("Verifying Lock\n");
 			lockIndex=-1;
 			
 			request = new char [MaxMailSize];
@@ -729,7 +657,6 @@ bool HandleRequest()
 			{
 				if(!strcmp(cvs[j]->getName(), localLockName))
 				{
-					printf("%s == %s, k = %d\n", cvs[j]->getName(), localLockName, j);
 					cvIndex = j;
 				}
 			}
@@ -742,14 +669,12 @@ bool HandleRequest()
 			{
 				sprintf(request,"%d_%d_%d",CREATECVANSWER, clientNum, -1);
 				outMailHdr.length = strlen(request) + 1;
-				printf("Server Sending: CV not found on this server.  Sending: %s\n", request);
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
 			else //found
 			{
 				sprintf(request,"%d_%d_%d",CREATECVANSWER, clientNum, cvs[cvIndex]->GetGlobalId());
 				outMailHdr.length = strlen(request) + 1;
-				printf("Server Sending: CV found on another server!!!\n");
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
 
@@ -774,8 +699,8 @@ bool HandleRequest()
 				{
 					if(!strcmp(mvs[k]->getName(), lockName[clientNum]))
 					{
-						printf("%s == %s, k = %d\n", mvs[k]->getName(), lockName[clientNum], k);
 						mvIndex = k;
+						break;
 					}
 				}
 				localLockIndex[clientNum]=mvIndex;
@@ -786,8 +711,8 @@ bool HandleRequest()
 					if(localLockIndex[clientNum] == -1) //If not found here or elsewhere
 					{
 						//Create distributed lock
-						printf("First time create mv: %s\n", lockName[clientNum]);
-						for(int i=0;lockName[clientNum][i]!='\0';i++){
+						for(int i=0;lockName[clientNum][i]!='\0';i++)
+						{
 							localLockName[i]=lockName[clientNum][i];
 							localLockName[i+1]= '\0';
 						}
@@ -795,8 +720,6 @@ bool HandleRequest()
 						mvs[createDMVIndex]->SetGlobalId((postOffice->GetID()*MAX_DMV)+createDMVIndex);
 						if(mvs[createDMVIndex] == NULL)
 						{
-							//Handle error...
-							printf("Error in creation of %s!\n", lockName[clientNum]);
 							errorOutPktHdr.to = clientNum/10+serverCount;
 							errorInPktHdr = inPktHdr;
 							errorOutMailHdr.to = (clientNum+10)%10;
@@ -809,8 +732,6 @@ bool HandleRequest()
 					}
 					else
 					{
-						//printf("Exists here: %i\n", locks[localLockIndex[clientNum]]->GetGlobalId());
-						
 						mvIndex=mvs[localLockIndex[clientNum]]->GetGlobalId();
 					}
 					//Include index of lock in reply message 
@@ -823,12 +744,11 @@ bool HandleRequest()
 					outMailHdr.to = (clientNum+10)%10;
 					outMailHdr.from = postOffice->GetID();
 					outMailHdr.length = strlen(ack) + 1;
-
-					printf("Server replying to client with ID: %s\n", ack);
+					
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-					if ( !success ) {
-					  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+					if ( !success ) 
+					{
 					  interrupt->Halt();
 					}
 					verifyResponses[clientNum]=0;
@@ -838,7 +758,6 @@ bool HandleRequest()
 			}
 			else
 			{
-				printf("MV cannot be created! Maximum number of mvs [%d] exceeded!\n", MAX_DMV);
 				errorOutPktHdr = outPktHdr;
 				errorInPktHdr = inPktHdr;
 				errorOutMailHdr = outMailHdr;
@@ -857,7 +776,7 @@ bool HandleRequest()
 			}while(c!='_'); //Until find underscore, search string. Want to extract request type. Format: 'requestType_data'
 			client[x]='\0';
 			clientNum = atoi(client);
-			//printf("client: %s\n", client);
+			
 			while(c!='\0') //Continue to search data string Until reach end. Want to extract lock name.
 			{
 				c = buffer[++i];
@@ -885,7 +804,6 @@ bool HandleRequest()
 				if(localLockIndex[clientNum] == -1 && otherServerLockIndex ==-1) //If not found here or elsewhere
 				{
 					//Create distributed lock
-					printf("First time create mv: %s\n", lockName[clientNum]);
 					for(int i=0;lockName[clientNum][i]!='\0';i++){
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
@@ -895,7 +813,6 @@ bool HandleRequest()
 					if(mvs[createDMVIndex] == NULL)
 					{
 						//Handle error...
-						printf("Error in creation of %s!\n", lockName[clientNum]);
 						errorOutPktHdr.to = clientNum/10+serverCount;
 						errorInPktHdr = inPktHdr;
 						errorOutMailHdr.to = (clientNum+10)%10;
@@ -919,8 +836,6 @@ bool HandleRequest()
 				}
 				else //exists multiple places; should never happen
 				{
-					printf("problem: localLockIndex[clientNum] %i otherServerLockIndex %i\n", localLockIndex[clientNum],otherServerLockIndex);
-						
 				}
 				//Include index of lock in reply message 
 				char* ack = new char [5];
@@ -937,8 +852,8 @@ bool HandleRequest()
 				//printf("Server replying to client with ID: %s\n", ack);
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-				if ( !success ) {
-				  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+				if ( !success ) 
+				{
 				  interrupt->Halt();
 				}
 				verifyResponses[clientNum]=0;
@@ -949,7 +864,6 @@ bool HandleRequest()
 			break;
 		case CREATEMVVERIFY:
 			//handle incomming requests to other servers to verify mv
-			printf("Verifying MV\n");
 			mvIndex=-1;
 			request = new char [MaxMailSize];
 			x=0;
@@ -977,8 +891,8 @@ bool HandleRequest()
 			{
 				if(!strcmp(mvs[j]->getName(), localLockName))
 				{
-					printf("%s == %s, k = %d\n", mvs[j]->getName(), localLockName, j);
 					mvIndex = j;
+					break;
 				}
 			}
 			// Send reply (using "reply to" mailbox
@@ -990,14 +904,12 @@ bool HandleRequest()
 			{
 				sprintf(request,"%d_%d_%d",CREATEMVANSWER, clientNum, -1);
 				outMailHdr.length = strlen(request) + 1;
-				printf("Server Sending: MV not found on this server.  Sending: %s\n", request);
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
 			else //found
 			{
 				sprintf(request,"%d_%d_%d",CREATEMVANSWER, clientNum, mvs[mvIndex]->GetGlobalId());
 				outMailHdr.length = strlen(request) + 1;
-				printf("Server Sending: MV found on another server!!!\n");
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
 			
@@ -1275,7 +1187,6 @@ bool HandleRequest()
 			lockIndex = atoi(lockNum); //Convert request type to integer for indexing array
 			lockNumIndex = 0;
 			cvNumIndex = 0;
-			printf("Server: Wait received with CV # %d and Lock # %d\n",cvIndex, lockIndex);
 			//printf("lockNum: %s; cvNum: %s\n", lockNum, cvNum);
 			if(lockIndex/MAX_DLOCK != postOffice->GetID())//forward to server holding lock
 			{
@@ -1326,12 +1237,9 @@ bool HandleRequest()
 			lockNumIndex = 0;
 			cvNumIndex = 0;
 			if(cvs[cvIndex%MAX_DCV] == NULL)
-			{//If cv not found
-				printf("Wait Failed: CV does not exist at index %d.\n", cvIndex);
+			{
 				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, client, -1);
-	
-				// Send reply (using "reply to" mailbox
-				// in the message that just arrived
+				
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
 				outMailHdr.from = postOffice->GetID();
@@ -1350,7 +1258,7 @@ bool HandleRequest()
 				outMailHdr.to = (clientNum+10)%10;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
-				//printf("Wait outPktHdr.to = %d and outMailHdr.to  = %d\n",outPktHdr.to , outMailHdr.to  ); 
+				
 				Message* reply = new Message(outPktHdr, outMailHdr, ack);
 				cvs[cvIndex%MAX_DCV]->QueueReply(reply);
 
@@ -1360,7 +1268,6 @@ bool HandleRequest()
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
-
 			}
 
 			break;
@@ -1411,11 +1318,10 @@ bool HandleRequest()
 					locks[lockIndex]->setLockState(false); //Set distributed lock to busy.
 					success = postOffice->Send(reply->pktHdr, reply->mailHdr, reply->data); //Let new owner know they have acquired the lock
 
-					if ( !success ) {
-					  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+					if ( !success ) 
+					{
 					  interrupt->Halt();
 					}
-					fflush(stdout);
 				}
 			}
 			break;
@@ -1455,7 +1361,7 @@ bool HandleRequest()
 			lockIndex = atoi(lockNum); //Convert request type to integer for indexing array
 			lockNumIndex = 0;
 			cvNumIndex = 0;
-			printf("Server: Signal received with CV # %d and Lock # %d\n",cvIndex, lockIndex);
+			
 			if(cvIndex/MAX_DCV != postOffice->GetID())//forward to server holdign cv
 			{
 				sprintf(buffer,"%d__%d_%s_%s",SIGNAL, clientNum, cvNum,lockNum);
@@ -1497,15 +1403,12 @@ bool HandleRequest()
 			if(locks[lockIndex%MAX_DLOCK] == NULL)//If cv not found
 			{
 				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, client, -1);
-	
-				// Send reply (using "reply to" mailbox
-				// in the message that just arrived
+				
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
-				printf("Server Sending: CV not found on this server.  Sending: %s: \n", buffer);
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer); 
 			}
 			else //found
@@ -1545,7 +1448,6 @@ bool HandleRequest()
 			lockIndex = atoi(lockIndexBuf); //Convert request type to integer for indexing array
 			if (lockIndex == -1) //lock didn't exist on other server, signal fails
 			{
-				printf("Signal Failed: Lock does not exist at index %d.\n", lockIndex);
 				errorOutPktHdr = outPktHdr;
 				errorOutPktHdr.to = clientNum/10+serverCount;
 				errorInPktHdr = inPktHdr;
@@ -1559,7 +1461,6 @@ bool HandleRequest()
 				cvIndex=waitingForSignalCvs[clientNum];
 				char* ack = new char [5];
 				itoa(ack,5,cvIndex);
-				printf("Machine %d requests signaling lock %s\n", (int)inPktHdr.from, locks[lockIndex%MAX_DLOCK]->getName());
 
 				// Send acknowledgement (using "reply to" mailbox
 				// in the message that just arrived
@@ -1568,38 +1469,36 @@ bool HandleRequest()
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 
-				printf("Server Sending: Signal Ack!!!\n");
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 				
-				if ( !success ) {
-				  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+				if ( !success ) 
+				{
 				  interrupt->Halt();
 				}
-				fflush(stdout);
 				
 				//if wait Q is not Empty
 				if (!(cvs[cvIndex]->isQueueEmpty())){
-					if (cvs[cvIndex]->getFirstLock() != lockIndex){ //Check if it's the same lock
-						printf("Signal Failed: signal the wrong lock\n");
-					errorOutPktHdr = outPktHdr;
-					errorOutPktHdr.to = clientNum/10+serverCount;
-					errorInPktHdr = inPktHdr;
-					errorOutMailHdr = outMailHdr;
-					errorOutMailHdr.to = (clientNum+10)%10;
-					errorInMailHdr = inMailHdr;
+					if (cvs[cvIndex]->getFirstLock() != lockIndex)
+					{ //Check if it's the same lock
+						errorOutPktHdr = outPktHdr;
+						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorInPktHdr = inPktHdr;
+						errorOutMailHdr = outMailHdr;
+						errorOutMailHdr.to = (clientNum+10)%10;
+						errorInMailHdr = inMailHdr;
 						return false;
 					}
-					else{
+					else
+					{
 						Message* reply = cvs[cvIndex]->RemoveReply(); //get reply from lock's waitQ
 						reply->pktHdr.from = reply->pktHdr.to;
 						reply->mailHdr.from = reply->mailHdr.to;
 						bool success2 = Acquire(lockIndex, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
 						
-						if ( !success2 ) {
-						  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+						if ( !success2 ) 
+						{
 						  interrupt->Halt();
 						}
-						fflush(stdout);
 					}
 				}
 				if (cvs[cvIndex]->isQueueEmpty()){
@@ -1642,7 +1541,7 @@ bool HandleRequest()
 			lockIndex = atoi(lockNum); //Convert request type to integer for indexing array
 			lockNumIndex = 0;
 			cvNumIndex = 0;
-			printf("Server: Broadcast received with CV # %d and Lock # %d\n",cvIndex, lockIndex);
+			
 			if(cvIndex/MAX_DCV != postOffice->GetID())//forward to server holdign cv
 			{
 				sprintf(buffer,"%d__%d_%s_%s",BROADCAST, clientNum, cvNum,lockNum);
@@ -1692,7 +1591,6 @@ bool HandleRequest()
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
-				printf("Server Sending: CV not found on this server.  Sending: %s: \n", buffer);
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer); 
 			}
 			else if (locks[lockIndex]->getOwnerMailID() == -1)
@@ -1706,7 +1604,6 @@ bool HandleRequest()
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
-				printf("Server Sending: CV not found on this server.  Sending: %s: \n", buffer);
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
 			}
 			else //found
@@ -1746,7 +1643,6 @@ bool HandleRequest()
 			lockIndex = atoi(lockIndexBuf); //Convert request type to integer for indexing array
 			if (lockIndex == -1) //lock didn't exist on other server, signal fails
 			{
-				printf("Broadcast Failed: Lock does not exist at index %d.\n", lockIndex);
 				errorOutPktHdr = outPktHdr;
 				errorOutPktHdr.to = clientNum/10+serverCount;
 				errorInPktHdr = inPktHdr;
@@ -1761,7 +1657,6 @@ bool HandleRequest()
 				lockIndex=lockIndex%MAX_DLOCK;
 				char* ack = new char [5];
 				itoa(ack,5,cvIndex);
-				printf("Machine %d requests broadcasting lock %s\n", (int)inPktHdr.from, locks[lockIndex]->getName());
 
 				// Send acknowledgement (using "reply to" mailbox
 				// in the message that just arrived
@@ -1773,25 +1668,26 @@ bool HandleRequest()
 				printf("Server Sending: Broadcast Ack!!!\n");
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 				
-				if ( !success ) {
-				  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+				if ( !success ) 
+				{
 				  interrupt->Halt();
 				}
 				fflush(stdout);
 				
 				//if wait Q is not Empty
 				if (!(cvs[cvIndex]->isQueueEmpty())){
-					if (cvs[cvIndex]->getFirstLock() != lockIndex){ //Check if it's the same lock
-						printf("Broadcast Failed: Broadcast the wrong lock\n");
-					errorOutPktHdr = outPktHdr;
-					errorOutPktHdr.to = clientNum/10+serverCount;
-					errorInPktHdr = inPktHdr;
-					errorOutMailHdr = outMailHdr;
-					errorOutMailHdr.to = (clientNum+10)%10;
-					errorInMailHdr = inMailHdr;
+					if (cvs[cvIndex]->getFirstLock() != lockIndex)
+					{ //Check if it's the same lock
+						errorOutPktHdr = outPktHdr;
+						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorInPktHdr = inPktHdr;
+						errorOutMailHdr = outMailHdr;
+						errorOutMailHdr.to = (clientNum+10)%10;
+						errorInMailHdr = inMailHdr;
 						return false;
 					}
-					else{
+					else
+					{
 						Message* reply = cvs[cvIndex]->RemoveReply(); //get reply from lock's waitQ
 						reply->pktHdr.from = reply->pktHdr.to;
 						reply->mailHdr.from = reply->mailHdr.to;
@@ -1804,17 +1700,16 @@ bool HandleRequest()
 						fflush(stdout);
 					}
 				}
-				while (!(cvs[cvIndex]->isQueueEmpty())){
-						Message* reply = cvs[cvIndex]->RemoveReply(); //get reply from lock's waitQ
-						reply->pktHdr.from = reply->pktHdr.to;
-						reply->mailHdr.from = reply->mailHdr.to;
-						bool success2 = Acquire(lockIndex, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
-						
-						if ( !success2 ) {
-						  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-						  interrupt->Halt();
-						}
-						fflush(stdout);
+				while (!(cvs[cvIndex]->isQueueEmpty()))
+				{
+					Message* reply = cvs[cvIndex]->RemoveReply(); //get reply from lock's waitQ
+					reply->pktHdr.from = reply->pktHdr.to;
+					reply->mailHdr.from = reply->mailHdr.to;
+					bool success2 = Acquire(lockIndex, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
+					
+					if ( !success2 ) {
+					  interrupt->Halt();
+					}
 				}
 
 				if (cvs[cvIndex]->isQueueEmpty()){
@@ -1861,7 +1756,6 @@ bool HandleRequest()
 				//check range
 				if ((cvIndex < 0)||(cvIndex > serverCount*MAX_DCV-1))
 				{
-					printf("CV cannot be Destroyed! Wrong index number of cv!\n");
 					errorOutPktHdr = outPktHdr;
 					errorOutPktHdr.to = clientNum/10+serverCount;
 					errorInPktHdr = inPktHdr;
@@ -1881,7 +1775,6 @@ bool HandleRequest()
 						//Include index of CV in reply message 
 						char* ack = new char [4];
 						itoa(ack,4,cvIndex); //Convert to string to send in ack
-						printf("CV Destroyed Ack: %s, cvIndex: %d\n", ack, cvIndex);
 			
 						// Send reply (using "reply to" mailbox
 						// in the message that just arrived
@@ -1890,18 +1783,14 @@ bool HandleRequest()
 						outMailHdr.from = postOffice->GetID();
 						outMailHdr.length = strlen(ack) + 1;
 
-						printf("Server Sending: CV %d Destroyed!!!\n", cvIndex);
 						success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 						if ( !success ) {
-						  printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
 						  interrupt->Halt();
 						}
-
-						fflush(stdout);
 					}
-					else{
-						printf("Cannot destroy: CV does not exist at index %d.\n", cvIndex);
+					else
+					{
 						errorOutPktHdr = outPktHdr;
 						errorOutPktHdr.to = clientNum/10+serverCount;
 						errorInPktHdr = inPktHdr;
@@ -1911,7 +1800,8 @@ bool HandleRequest()
 						return false;
 					}
 				}
-				else{
+				else
+				{
 					outPktHdr.to = cvIndex/MAX_DCV;
 					outMailHdr.to = outPktHdr.to;
 					outMailHdr.from = inMailHdr.from;
@@ -1922,11 +1812,8 @@ bool HandleRequest()
 			break;	
 	}
 
-	printf("Server: Request Handled!!!\n");
 	if (!success)
 	{ 
-		// if things go wrong in sending message
-		// set up the error message
 		errorOutPktHdr = outPktHdr;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
@@ -2489,7 +2376,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 			errorOutMailHdr = outMailHdr;
 			errorOutMailHdr.to = (clientNum+10)%10;
 			errorInMailHdr = inMailHdr;
-			false;
+			return false;
 		}
 		else if (locks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
 			printf("Wait Failed: Lock does not acquire at index %d.\n", lockIndex);
@@ -2509,13 +2396,12 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		outMailHdr.from = inMailHdr.from;
 		outMailHdr.length = strlen(request) + 1;
 		success = postOffice->Send(outPktHdr, outMailHdr, request);
-
-
 	}
+	return success;
 }
 
-bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
-	
+bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+{	
 	bool success = false;
 	
 	//Check if numbers are in range
@@ -2642,6 +2528,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		outMailHdr.length = strlen(request) + 1;
 		success = postOffice->Send(outPktHdr, outMailHdr, request);
 	}
+	return success;
 }
 
 bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
@@ -2781,7 +2668,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 		outMailHdr.from = inMailHdr.from;
 		outMailHdr.length = strlen(request) + 1;
 		success = postOffice->Send(outPktHdr, outMailHdr, request);
-
+		return success;
 	}
 }
 
