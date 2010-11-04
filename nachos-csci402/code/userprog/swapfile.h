@@ -44,6 +44,8 @@ class SwapFile
     SwapFile();
     ~SwapFile();
     
+    void printMemoryPage(int ppn);
+    void printFilePage(int index);
     int GetSwapPageIndex();
     
     // index to load from, ppn in main memory to load into
