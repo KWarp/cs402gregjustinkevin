@@ -21,6 +21,10 @@
 // All rights reserved.  See copyright.h for copyright notice and limitation 
 // of liability and disclaimer of warranty provisions.
 
+#ifdef NETWORK
+#include "../network/netcall.h"
+#endif
+
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
@@ -39,6 +43,14 @@ using namespace std;
   static Lock* execLock = new Lock("Exec Lock");
   static Lock* printNumberLock = new Lock("PrintNumber Lock");
   static Lock* printOutLock = new Lock("PrintOut Lock");
+  
+  #ifdef NETWORK
+	AddrSpace* processIDs[10];
+	int procIDIndex = 0;
+
+	void assignMailID(AddrSpace* spaceID);
+	int getMailID();
+  #endif
 #endif
 
 int copyin(unsigned int vaddr, int len, char *buf)
@@ -275,24 +287,57 @@ void Yield_Syscall()
 
 int CreateLock_Syscall(int vaddr)
 {
+	int len = 1;//omfg this needs to be a fucking parameter.
+	char* name = new char[len];
+	
+	if ( copyin(vaddr,len,name) == -1 ) 
+	{
+		printf("%s","Bad pointer passed to CreateLock: data not written\n");
+		delete[] name;
+		return -1;
+    }
 
-  return synchManager->CreateLock();
-
+#ifndef NETWORK
+	return synchManager->CreateLock();
+#else
+	return Request(CREATELOCK, name, getMailID());
+#endif
 }
 
 void DestroyLock_Syscall(int index)
 {
+#ifndef NETWORK
 	synchManager->DestroyLock(index);
+#else
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d",index);
+        
+	Request(DESTROYLOCK, indexBuf, getMailID());
+#endif
 }
 
-void Acquire_Syscall(int lock)
+void Acquire_Syscall(int index)
 {
-	synchManager->Acquire(lock);
+#ifndef NETWORK
+	synchManager->Acquire(index);
+#else
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d",index);
+        
+	Request(ACQUIRE, indexBuf, getMailID());
+#endif
 }
 
-void Release_Syscall(int lock)
+void Release_Syscall(int index)
 {
-	synchManager->Release(lock);
+#ifndef NETWORK
+	synchManager->Release(index);
+#else
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d",index);
+        
+	Request(RELEASE, indexBuf, getMailID());
+#endif
 }
 
 void Exec_Kernel_Thread()
@@ -352,6 +397,9 @@ void Exec_Syscall(unsigned int executableFileName)
     delete buf;
   execLock->Release();
 
+  #ifdef NETWORK
+	assignMailID(thread->space);
+  #endif
   thread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0);  
 }
 
@@ -423,51 +471,72 @@ void Exit_Syscall(int status)
   }
   else
   {
-    currentThread->Finish();  // Do this for now. Make Halt work later.
-    // delete currentThread->space;
-    // interrupt->Halt();
+    currentThread->Finish();
   }
-  
-  // if we are a child thread
-  //  currentThread->Finish();
-  //  return;
-  
-  // if we are the last thread in this process
-  //  delete currentThread->space;
-  //  if this process is the last process
-  //    interrupt->Halt();
-  //  else
-  //    currentThread->Finish();
-  //  return;
-  
-  // if we are the parent thread
-  //  delete currentThread->space;
-  //  interrupt->Halt();
 }
 
 int CreateCondition_Syscall(int vaddr)
 {
+	int len = 1;//omfg this needs to be a fucking parameter.
+	char* name = new char[len];
+	
+	if ( copyin(vaddr,len,name) == -1 ) 
+	{
+		printf("%s","Bad pointer passed to CreateLock: data not written\n");
+		delete[] name;
+		return -1;
+    }
+
+#ifndef NETWORK
 	return synchManager->CreateCondition();
+#else
+	return index = Request(CREATEMV, name, getMailID()); 
+#endif
 }
 
 void DestroyCondition_Syscall(int index)
 {
-	return synchManager->DestroyCondition(index);
+#ifndef NETWORK
+	synchManager->DestroyCondition(index);
+#else
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d",index);
+        
+	Request(DESTROYCV, indexBuf, getMailID());
+#endif
 }
 
 void Signal_Syscall(int cv, int lock)
 {
+#ifndef NETWORK
 	return synchManager->Signal(cv, lock);
+#else
+	char* indexBuf = new char[16];
+    sprintf(indexBuf,"%d_%d", cv, lock);
+	Request(SIGNAL, indexBuf, getMailID());
+#endif
 }
 
 void Wait_Syscall(int cv, int lock)
 {
+#ifndef NETWORK
 	return synchManager->Wait(cv, lock);
+#else
+	char* indexBuf = new char[16];
+    sprintf(indexBuf,"%d_%d", cv, lock);
+	Request(WAIT, indexBuf, getMailID());
+#endif
 }
 
 void Broadcast_Syscall(int cv, int lock)
 {
+#ifndef NETWORK
 	return synchManager->Broadcast(cv, lock);
+#else
+	char* indexBuf = new char[16];
+    sprintf(indexBuf,"%d_%d", cv, lock);
+	Request(BROADCAST, indexBuf, getMailID());
+#endif
 }
 
 int RandomNumber_Syscall(int count)
@@ -656,6 +725,41 @@ void HandlePageFault()
 }
 
 #endif // USE_TLB
+void assignMailID(AddrSpace* spaceIdentifier)
+{
+	if(procIDIndex > 9)
+	{
+		printf("Too many processes\n");
+		return;
+	}
+
+	for(int i = 0; i < 10; i++)
+	{
+		if(processIDs[i] == spaceIdentifier)
+		{
+			printf("Process already in instance process array!\n");
+			return;
+		}
+	}
+
+	processIDs[procIDIndex++] = spaceIdentifier;
+	return;
+}
+
+int getMailID()
+{
+	for(int i = 0; i < 10; i++)
+	{
+		if(processIDs[i] == currentThread->space)
+		{
+			return i;
+		}
+	}
+	printf("Failed to find mailID %d\n",i);
+	return -1;
+}
+
+
 #endif /* CHANGED */
 
 void ExceptionHandler(ExceptionType which)
