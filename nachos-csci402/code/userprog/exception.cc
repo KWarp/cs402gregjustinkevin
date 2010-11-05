@@ -490,7 +490,7 @@ int CreateCondition_Syscall(int vaddr)
 #ifndef NETWORK
 	return synchManager->CreateCondition();
 #else
-	return Request(CREATECV, name, getMailID()); 
+	return Request(CREATECV, name, getMailID());
 #endif
 }
 
@@ -538,6 +538,47 @@ void Broadcast_Syscall(int cv, int lock)
 	Request(BROADCAST, indexBuf, getMailID());
 #endif
 }
+
+#ifdef NETWORK
+int CreateMV_Syscall(int vaddr)
+{
+	int len = 3;//omfg this needs to be a fucking parameter.
+	char* name = new char[len];
+	
+	if ( copyin(vaddr,len,name) == -1 ) 
+	{
+		printf("%s","Bad pointer passed to CreateLock: data not written\n");
+		delete[] name;
+		return -1;
+  }
+
+	return Request(CREATEMV, name, getMailID());
+}
+
+int SetMV_Syscall(int mv, int value)
+{
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d_%d", mv, value);
+  
+  return Request(SETMV, indexBuf, getMailID());
+}
+
+int GetMV_Syscall(int mv)
+{
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d", mv);
+  
+  return Request(GETMV, indexBuf, getMailID());
+}
+
+int DestroyMV_Syscall(int mv)
+{
+	char* indexBuf = new char[16];
+	sprintf(indexBuf,"%d", mv);
+  
+  return Request(DESTROYMV, indexBuf, getMailID());
+}
+#endif
 
 int RandomNumber_Syscall(int count)
 {
@@ -894,6 +935,24 @@ void ExceptionHandler(ExceptionType which)
           DEBUG('a', "RandomNumber syscall. \n");
           rv = RandomNumber_Syscall(machine->ReadRegister(4));
           break;
+        #ifdef NETWORK
+          case SC_CreateMV:
+            DEBUG('a', "CreateMV syscall. \n");
+            rv = CreateMV_Syscall(machine->ReadRegister(4));
+            break;
+          case SC_SetMV:
+            DEBUG('a', "SetMV syscall. \n");
+            rv = SetMV_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+            break;
+          case SC_GetMV:
+            DEBUG('a', "GetMV syscall. \n");
+            rv = GetMV_Syscall(machine->ReadRegister(4));
+            break;
+          case SC_DestroyMV:
+            DEBUG('a', "DestroyMV syscall. \n");
+            rv = DestroyMV_Syscall(machine->ReadRegister(4));
+            break;
+        #endif
       #endif
     }
 
