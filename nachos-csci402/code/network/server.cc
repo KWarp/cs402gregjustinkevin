@@ -1,7 +1,3 @@
-// server.cc 
-//      Test out lock-related message delivery between a server Nachos and multiple client nachos (user programs),
-//      using the Post Office to coordinate delivery.
-
 #include "netcall.h"
 #include "list.h"
 
@@ -11,11 +7,8 @@ void Server()
 
    while(1)
    {
-                if (!(HandleRequest())){
-                        //something went wrong in handling request
-                        /*sendError();*/
+                if (!(HandleRequest()))
+				{
                 }
    }
-   // Then we're done!
-    //interrupt->Halt();
 }
