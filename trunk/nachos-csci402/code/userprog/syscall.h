@@ -34,20 +34,24 @@
 #define SC_Yield	10
 
 #ifdef CHANGED
-/* Additions for Project 2
- */
-#define SC_Acquire	11
-#define SC_Release	12
-#define SC_Wait		13
-#define SC_Signal	14
-#define SC_Broadcast	15
-#define SC_CreateLock	16
-#define SC_DestroyLock	17
-#define SC_CreateCondition	18
-#define SC_DestroyCondition	19
-#define SC_PrintOut 20
-#define SC_PrintNumber 21
-#define SC_RandomNumber 22
+  /* Additions for Project 2 & 3
+   */
+  #define SC_Acquire	11
+  #define SC_Release	12
+  #define SC_Wait		13
+  #define SC_Signal	14
+  #define SC_Broadcast	15
+  #define SC_CreateLock	16
+  #define SC_DestroyLock	17
+  #define SC_CreateCondition	18
+  #define SC_DestroyCondition	19
+  #define SC_PrintOut 20
+  #define SC_PrintNumber 21
+  #define SC_RandomNumber 22
+  #define SC_CreateMV 23
+  #define SC_SetMV 24
+  #define SC_GetMV 25
+  #define SC_DestroyMV 26
 #endif
 
 #define MAXFILENAME 256
@@ -163,11 +167,26 @@ void Broadcast(int CV, int lock);
 
 /* System call to Create a Lock, returns index into a kernel structure
  * array of actual Lock objects. */
-int CreateLock();
+#ifdef NETWORK
+  int CreateLock(const char* vaddr);
+#else
+  int CreateLock();
+#endif
+
 /* System call to Destroy a Lock, takes in the index for the Lock */
 void DestroyLock(int lock);
 /* Same deal with Conditions*/
-int CreateCondition();
+#ifdef NETWORK
+  int CreateCondition(const char* vaddr);
+#else
+  int CreateCondition();
+#endif
+
+int CreateMV(const char* vaddr);
+void SetMV(int MV, int value);
+int GetMV(int MV);
+int DestroyMV(int MV);
+
 void DestroyCondition(int lock);
 
 void PrintOut(const char* vaddr, int len);
