@@ -490,7 +490,7 @@ int CreateCondition_Syscall(int vaddr)
 #ifndef NETWORK
 	return synchManager->CreateCondition();
 #else
-	return Request(CREATEMV, name, getMailID()); 
+	return Request(CREATECV, name, getMailID()); 
 #endif
 }
 
