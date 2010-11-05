@@ -151,22 +151,38 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
 
     // Setup the pageTable.
-    pageTable = new PageTableEntry[numPages + numStackPages];
+    #ifdef USE_TLB
+      pageTable = new PageTableEntry[numPages + numStackPages];
+    #else
+      pageTable = new TranslationEntry[numPages + numStackPages];
+    #endif
 
     unsigned int vpn = 0;
     for (; vpn < (unsigned int)(divRoundUp(noffH.code.size + noffH.initData.size, PageSize)); ++vpn)
-    {
-      pageTable[vpn].virtualPage  = vpn;
-      pageTable[vpn].physicalPage = -1;
-      pageTable[vpn].valid        = FALSE;
-      pageTable[vpn].use          = FALSE;
-      pageTable[vpn].dirty        = FALSE;
-      pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+    {      
+      #ifdef USE_TLB
+        pageTable[vpn].virtualPage  = vpn;
+        pageTable[vpn].physicalPage = -1;
+        pageTable[vpn].valid        = FALSE;
+        pageTable[vpn].use          = FALSE;
+        pageTable[vpn].dirty        = FALSE;
+        pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
       
-      pageTable[vpn].location     = IN_EXECUTABLE;
-      pageTable[vpn].executable   = executable;
-      pageTable[vpn].byteOffset   = noffH.code.inFileAddr + (vpn * PageSize);
-      pageTable[vpn].swapPageIndex = -1;    // Invalid value.
+        pageTable[vpn].location     = IN_EXECUTABLE;
+        pageTable[vpn].executable   = executable;
+        pageTable[vpn].byteOffset   = noffH.code.inFileAddr + (vpn * PageSize);
+        pageTable[vpn].swapPageIndex = -1;    // Invalid value.
+      #else
+        int ppn = ppnInUseBitMap->Find();
+        executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, noffH.code.inFileAddr + (vpn * PageSize));
+        
+        pageTable[vpn].virtualPage  = vpn;
+        pageTable[vpn].physicalPage = ppn;
+        pageTable[vpn].valid        = TRUE;
+        pageTable[vpn].use          = FALSE;
+        pageTable[vpn].dirty        = FALSE;
+        pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      #endif
     }
     
     // Increase the size to leave room for the stack.
@@ -174,17 +190,29 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     
     for (; vpn < numPages; ++vpn)
     {
-      pageTable[vpn].virtualPage  = vpn;
-      pageTable[vpn].physicalPage = -1;
-      pageTable[vpn].valid        = FALSE;
-      pageTable[vpn].use          = FALSE;
-      pageTable[vpn].dirty        = FALSE;
-      pageTable[vpn].readOnly     = FALSE; // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      #ifdef USE_TLB
+        pageTable[vpn].virtualPage  = vpn;
+        pageTable[vpn].physicalPage = -1;
+        pageTable[vpn].valid        = FALSE;
+        pageTable[vpn].use          = FALSE;
+        pageTable[vpn].dirty        = FALSE;
+        pageTable[vpn].readOnly     = FALSE; // If the code segment was entirely on a separate page, we could set its pages to be read-only.
       
-      pageTable[vpn].location     = NEITHER;
-      pageTable[vpn].executable   = NULL;  // Invalid value.
-      pageTable[vpn].byteOffset   = -1;    // Invalid value.
-      pageTable[vpn].swapPageIndex = -1;   // Invalid value.
+        pageTable[vpn].location     = NEITHER;
+        pageTable[vpn].executable   = NULL;  // Invalid value.
+        pageTable[vpn].byteOffset   = -1;    // Invalid value.
+        pageTable[vpn].swapPageIndex = -1;   // Invalid value.
+      #else
+        int ppn = ppnInUseBitMap->Find();
+        bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
+        
+        pageTable[vpn].virtualPage  = vpn;
+        pageTable[vpn].physicalPage = ppn;
+        pageTable[vpn].valid        = TRUE;
+        pageTable[vpn].use          = FALSE;
+        pageTable[vpn].dirty        = FALSE;
+        pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+      #endif
     }
     
     ppnInUseLock->Release();
@@ -314,7 +342,7 @@ void AddrSpace::SaveState()
 //----------------------------------------------------------------------
 void AddrSpace::RestoreState()
 {
-  #if 0 // No longer do this for project 3.
+  #ifndef USE_TLB
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
   #endif
@@ -334,7 +362,12 @@ void AddrSpace::RestoreState()
     // printf("Allocating a new stack\n");
     ppnInUseLock->Acquire();
       int numStackPages = divRoundUp(UserStackSize, PageSize);
-      PageTableEntry* newPageTable = new PageTableEntry[numPages + numStackPages];
+      
+      #ifdef USE_TLB
+        PageTableEntry* newPageTable = new PageTableEntry[numPages + numStackPages];
+      #else
+        TranslationEntry* newPageTable = new TranslationEntry[numPages + numStackPages];
+      #endif
       
       // Deep copy old pageTable's data to newPageTable.
       for (unsigned int vpn = 0; vpn < numPages; ++vpn)
@@ -346,26 +379,40 @@ void AddrSpace::RestoreState()
         newPageTable[vpn].dirty        = pageTable[vpn].dirty;
         newPageTable[vpn].readOnly     = pageTable[vpn].readOnly;
         
-        newPageTable[vpn].location     = pageTable[vpn].location;
-        newPageTable[vpn].executable   = pageTable[vpn].executable;
-        newPageTable[vpn].byteOffset   = pageTable[vpn].byteOffset;
-        newPageTable[vpn].swapPageIndex = pageTable[vpn].swapPageIndex;
+        #ifdef USE_TLB
+          newPageTable[vpn].location     = pageTable[vpn].location;
+          newPageTable[vpn].executable   = pageTable[vpn].executable;
+          newPageTable[vpn].byteOffset   = pageTable[vpn].byteOffset;
+          newPageTable[vpn].swapPageIndex = pageTable[vpn].swapPageIndex;
+        #endif
       }
       
       // Initialize page table for the new stack's memory.
       for (unsigned int vpn = numPages; vpn < numPages + numStackPages; ++vpn)
       {
-        newPageTable[vpn].virtualPage  = vpn;
-        newPageTable[vpn].physicalPage = -1;
-        newPageTable[vpn].valid        = FALSE;
-        newPageTable[vpn].use          = FALSE;
-        newPageTable[vpn].dirty        = FALSE;
-        newPageTable[vpn].readOnly     = FALSE; // If the code segment was entirely on a separate page, we could set its pages to be read-only.
+        #ifdef USE_TLB
+          newPageTable[vpn].virtualPage  = vpn;
+          newPageTable[vpn].physicalPage = -1;
+          newPageTable[vpn].valid        = FALSE;
+          newPageTable[vpn].use          = FALSE;
+          newPageTable[vpn].dirty        = FALSE;
+          newPageTable[vpn].readOnly     = FALSE; // If the code segment was entirely on a separate page, we could set its pages to be read-only.
         
-        newPageTable[vpn].location     = NEITHER;
-        newPageTable[vpn].executable   = NULL;  // Invalid value.
-        newPageTable[vpn].byteOffset   = -1;    // Invalid value.
-        newPageTable[vpn].swapPageIndex = -1;   // Invalid value.
+          newPageTable[vpn].location     = NEITHER;
+          newPageTable[vpn].executable   = NULL;  // Invalid value.
+          newPageTable[vpn].byteOffset   = -1;    // Invalid value.
+          newPageTable[vpn].swapPageIndex = -1;   // Invalid value.
+        #else
+          int ppn = ppnInUseBitMap->Find();
+          bzero(&(machine->mainMemory[ppn * PageSize]), PageSize);
+          
+          pageTable[vpn].virtualPage  = vpn;
+          pageTable[vpn].physicalPage = ppn;
+          pageTable[vpn].valid        = TRUE;
+          pageTable[vpn].use          = FALSE;
+          pageTable[vpn].dirty        = FALSE;
+          pageTable[vpn].readOnly     = FALSE;  // If the code segment was entirely on a separate page, we could set its pages to be read-only.        
+        #endif
       }
 
       delete pageTable;

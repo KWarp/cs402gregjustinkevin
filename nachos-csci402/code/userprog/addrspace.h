@@ -53,7 +53,12 @@ class AddrSpace {
       int maxPagesInMemory; 
     #endif
     
-    PageTableEntry *pageTable;	// Assume linear page table translation for now!
+    #ifdef USE_TLB
+      PageTableEntry *pageTable;
+    #else
+      TranslationEntry *pageTable;
+    #endif
+    
     unsigned int numPages;		    // Number of pages in the virtual address space.
 };
 

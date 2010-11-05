@@ -10,48 +10,27 @@
 
 void LockTest()
 {
-  int lockIndex, lockIndex2, i;
+  int lockIndex;
 
   PrintOut("------------------------------------------\n", 43);
   PrintOut("Testing Lock\n", 13); 
   PrintOut("------------------------------------------\n", 43);
 
-  PrintOut("Creating Locks...", 17); 
+  PrintOut("Creating Lock...", 17); 
   lockIndex = CreateLock("LK1");
-  lockIndex2 = CreateLock("LK2");
-  if (lockIndex2 > lockIndex)
+  if (lockIndex >= 0)
     PrintOut("Succeeded\n", 10);
-  else
-    PrintOut("Failed\n", 7);
 
   PrintOut("Acquiring Lock...", 17);
-  /*
-  if (Acquire(lockIndex2) == 0)
-    PrintOut("Succeeded\n", 10);
-  else
-    PrintOut("Failed\n", 7);
-  */
-  Acquire(lockIndex2);
+  Acquire(lockIndex);
   PrintOut("Succeeded\n", 10);
   
   PrintOut("Releasing Lock...", 17);
-  /*
-  if (Release(lockIndex2) == 0)
-    PrintOut("Succeeded\n", 10);
-  else
-    PrintOut("Failed\n", 7);
-  */
-  Release(lockIndex2);
+  Release(lockIndex);
   PrintOut("Succeeded\n", 10);
   
   PrintOut("Destroying Lock...", 18);
-  /*
-  if (DestroyLock(lockIndex2) == 0)
-    PrintOut("Succeeded\n", 10);
-  else
-    PrintOut("Failed\n", 7);
-  */
-  DestroyLock(lockIndex2);
+  DestroyLock(lockIndex);
   PrintOut("Succeeded\n", 10);
 }
 
