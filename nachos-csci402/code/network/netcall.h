@@ -19,7 +19,6 @@
 #define MAX_DMV 500 
 #define MAX_DCV 100 
 
-//enum for request types
 enum RequestType
 {
 	CREATELOCK,ACQUIRE,RELEASE,DESTROYLOCK,CREATECV,SIGNAL,BROADCAST,WAIT,DESTROYCV,
