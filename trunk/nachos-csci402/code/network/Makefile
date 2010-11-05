@@ -1568,6 +1568,7 @@ bitmap.o: ../userprog/bitmap.cc ../threads/copyright.h \
   ../threads/copyright.h ../threads/utility.h
 exception.o: ../userprog/exception.cc ../threads/copyright.h \
   ../threads/system.h ../threads/copyright.h ../threads/utility.h \
+  ../network/netcall.h \
   ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \
   /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/include/stdio.h \
   /usr/include/stdarg.h /usr/include/iso/stdarg_iso.h \

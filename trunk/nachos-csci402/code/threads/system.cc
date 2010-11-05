@@ -48,6 +48,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
 
 #ifdef NETWORK
   PostOffice *postOffice;
+	int serverCount = 1;
 #endif
 
 // External definition, to allow us to take a pointer to this function
@@ -161,6 +162,16 @@ void Initialize(int argc, char **argv)
         ASSERT(argc > 1);
         netname = atoi(*(argv + 1));
         argCount = 2;
+      }
+	  else if (!strcmp(*argv, "-sc")) 
+	  {
+		serverCount=atoi(*(argv + 1));
+		if(serverCount<0 || serverCount > 5)
+		{
+				printf("Invalid number of servers");
+				interrupt->Halt();
+		}
+		argCount=2;
       }
     #endif
   }

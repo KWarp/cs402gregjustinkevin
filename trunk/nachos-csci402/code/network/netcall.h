@@ -59,7 +59,12 @@ public:
     MailHeader mailHdr;
     char *data;
 };
-
+#ifdef CHANGED
+// Locks can be in two states, FREE and BUSY.  We have here defined
+// FREE to be a true boolean value, and BUSY to be false.
+#define FREE true;
+#define BUSY false;
+#endif
 //Class for a distributed lock. Does not deals with threads directly, instead manages reply messages that will notify waiting processes
 class DistributedLock {
   public:
