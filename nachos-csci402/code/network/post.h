@@ -127,6 +127,9 @@ class PostOffice {
    				// packet has arrived and can be pulled
 				// off of network (i.e., time to call 
 				// PostalDelivery)
+#ifdef CHANGED
+        int GetID();
+#endif
 
   private:
     Network *network;		// Physical network connection

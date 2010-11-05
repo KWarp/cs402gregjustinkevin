@@ -69,6 +69,7 @@ extern Timer *timer;				        // the hardware alarm clock
 #ifdef NETWORK
   #include "post.h"
   extern PostOffice* postOffice;
+  extern int serverCount;
 #endif
 
 #endif // SYSTEM_H

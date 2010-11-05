@@ -490,7 +490,7 @@ int CreateCondition_Syscall(int vaddr)
 #ifndef NETWORK
 	return synchManager->CreateCondition();
 #else
-	return index = Request(CREATEMV, name, getMailID()); 
+	return Request(CREATEMV, name, getMailID()); 
 #endif
 }
 
@@ -773,7 +773,8 @@ void assignMailID(AddrSpace* spaceIdentifier)
 
 int getMailID()
 {
-	for(int i = 0; i < 10; i++)
+	int i = 0;
+	for(i = 0; i < 10; i++)
 	{
 		if(processIDs[i] == currentThread->space)
 		{

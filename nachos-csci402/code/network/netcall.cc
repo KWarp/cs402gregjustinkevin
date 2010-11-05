@@ -136,7 +136,7 @@ int Request(int requestType, char* data, int mailID)
 
     outPktHdr.to = ((int)Random())%serverCount;		
     outMailHdr.to = outPktHdr.to;
-    outMailHdr.from = mailID; //postOffice->GetID(); 
+    outMailHdr.from = postOffice->GetID(); 
     outMailHdr.length = strlen(request) + 1;
 
     if ( !postOffice->Send(outPktHdr, outMailHdr, request)) 
@@ -144,7 +144,7 @@ int Request(int requestType, char* data, int mailID)
       interrupt->Halt();
     }
 
-    postOffice->Receive(mailID, &inPktHdr, &inMailHdr, buffer); //I am making assumption that mailbox number matches machine id...
+    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
 	
 	return atoi(buffer); //buffer should contain the index lock/mv created/destroyed at or value of mv getted
 }

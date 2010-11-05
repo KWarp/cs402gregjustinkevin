@@ -348,3 +348,9 @@ PostOffice::PacketSent()
     messageSent->V();
 }
 
+#ifdef CHANGED
+int PostOffice::GetID()
+{ 
+    return netAddr;
+}
+#endif
