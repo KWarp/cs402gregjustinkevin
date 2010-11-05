@@ -87,7 +87,7 @@ int Request(int requestType, char* data, int mailID)
 	{
       interrupt->Halt();
     }
-
+    
     postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
 	
 	return atoi(buffer); 
@@ -130,9 +130,10 @@ bool HandleRequest()
 	char* request = NULL;
 
 	postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
-
+  
 	char c = '?';
-	int i,a ,m ,j,x;
+	int i = 0;
+  int a, m, j, x;
 	
 	while(c!='_') 
 	{
@@ -141,12 +142,13 @@ bool HandleRequest()
 			break;
 		reqType[i++] = c;
 	}
-
+  
 	reqType[i] = '\0'; 
 	requestType = atoi(reqType); 
 	
 	switch(requestType)
 	{
+    printf("requestType: %d\n", requestType);
 		case CREATELOCK:
 			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
 			if((createDLockIndex >= 0)&&(createDLockIndex < (MAX_DLOCK-1)))
@@ -208,7 +210,7 @@ bool HandleRequest()
 					outMailHdr.length = strlen(ack) + 1;
 
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
-
+          
 					if ( !success ) 
 					{
 					  interrupt->Halt();
@@ -789,11 +791,12 @@ bool HandleRequest()
 			
 			break;
 		case ACQUIRE:
-			
+			printf("here\n");
 			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
 			m=0; 
 			if(buffer[i+1] == '_')
 			{
+        printf("here2\n");
 				i++;
 				do 
 				{
@@ -802,10 +805,12 @@ bool HandleRequest()
 						break;
 					client[m++] = c;	
 				}while(c!='_');
-
+        printf("here3\n");
+        
 				client[m]='\0';
 				clientNum = atoi(client);
 			}
+      printf("here4\n");
 			m=0;
 			while(c!='\0')
 			{
@@ -813,7 +818,7 @@ bool HandleRequest()
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf); 
-			
+			printf("here5\n");
 			if(lockIndex/MAX_DLOCK != postOffice->GetID())
 			{
 				sprintf(buffer,"%d__%d_%s",ACQUIRE, clientNum, lockIndexBuf);
@@ -825,7 +830,9 @@ bool HandleRequest()
 			}
 			else
 				success = Acquire(lockIndex, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
+      printf("here6\n");
 			break;
+      
 		case RELEASE:
 			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
 			m=0; 

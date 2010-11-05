@@ -711,7 +711,6 @@ int loadPageIntoIPT(int vpn)
     //printf("Loading from executable (vpn %d, ppn %d, byteOffset %d) for process %d\n", vpn, ppn, currentThread->space->pageTable[vpn].byteOffset, (int)currentThread->space);
     currentThread->space->pageTable[vpn].executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize,
                                                             currentThread->space->pageTable[vpn].byteOffset);
-    
   }
   else if (currentThread->space->pageTable[vpn].location == IN_SWAP_FILE)
   {
@@ -822,7 +821,7 @@ int getMailID()
 			return i;
 		}
 	}
-	printf("Failed to find mailID %d\n",i);
+	// printf("Failed to find mailID %d\n",i);
 	return -1;
 }
 #endif /* NETWORK */
