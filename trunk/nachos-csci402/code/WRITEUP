@@ -1,5 +1,5 @@
-Title:  Writeup for Project 2, Fall 2010
-Date:  10/10/2010
+Title:  Writeup for Project 3, Fall 2010
+Date:  10/30/2010
 Group Number 28 :
 
 Name            	                  Email                            Student ID
@@ -10,522 +10,445 @@ Kevin Greene            kgreene@usc.edu             7671772747
 =================
 Running the code:
 =================
-	
-In the userprog directory:
-nachos -x ../test/[executable name]
 
-Running the restaurant simulation:
-	nachos -x ../test/simulation
-By default, the simulation runs with 3 OrderTakers, 3 Waiters, and 20 Customers
+Please compile from the vm or network directory.
 
-Executable Names for Tests in the test directory:
-testfork
-testexec
-testsynchmanager
+To run the program in VM, use:
+nachos -x ../test/program_name 
+
+Valid command line parameters are:
+-P FIFO
+-P RAND
+
+By default it runs with the FIFO policy
+
+To run the program in network, use:
+1. open 3 windows of SCF - SSH aludra 
+2. run the server with "nachos -m 0 -s"
+ run the 1st client with "nachos -m 1 -x ../test/testnetsyscalls.cc"
+
 
 =================
 I. Requirements:
 =================
 
-Part 1 - Implement System Calls and Exception Handling
--- Implement the Syscalls Fork, Exec, Exit, Yield
--- Turn the following into Syscalls: Acquire, Release, Signal, Broadcast, Wait
-	These take integers relative to the kernel space as arguments.
--- Also implement CreateLock, DestroyLock, CreateCondition, and DestroyCondition. 
-These return integers relative to kernel space, not pointers.
--- The Exit Syscall should ensure that Thread::Finish is called, except when it is the last thread.
-Then it should call Halt.
--- The Exec and Fork Syscall requires implementation of creating address spaces and binding them to threads. A process table is recommended.
--- Under no circumstances should the use (or misuse) of System calls crash the Operating System.
--- Write a test suite that shows:
-	Your Syscalls function correctly
-	Your Syscalls deal with bad user input gracefully, and print informative errors
-	Your Syscalls never crash Nachos
--- Test suite executables should be user programs
--- Document your test suite
--- Console output should also be synchronized
+1) Implement the TLB in software. This requires
+- Software page translation to handle TLB misses
+- On a context switch, set up the TLB state correctly
+- Most system invalidate all the TLB entries on a context switch
+- Keep track of the “dirty” and “use’ flags for each page set by the hardware in the TLB entry
 
+Write the following test cases:
+- Show that a single program that fits in main memory runs to completion with the matmult user program.
+- Show that two programs that fit in main memory together run to completion in different address spaces. 
+- Demonstrate that threads running in different address spaces cannot corrupt each other’s memory.
+- Demonstrate that threads running in the same address space cannot corrupt memory.
 
-Part 2 - Implement Multiprogramming
--- Implement allocation of physical memory frames so that multiple programs can be loaded into memory at once.
--- Find a way to copy data to/from the kernel to the user’s address space. The addresses that the user and the kernel see must be different.
--- Implement Exec and Fork
--- Exec creates a new address space and starts a single thread
--- Write a test suite that shows the Exec and Fork behave correctly
-Deal with bad input gracefully
-Never crash Nachos
- 
-Part 3
--- Implement part 2 of Project 1 as a set of multithreaded Nachos user programs
--- This is to be a user C program
--- It must use the Lock and Condition Syscalls you implemented
--- It must also create all it’s threads with Fork
--- Create a second Restaurant Simulation with the Exec Syscall
--- Provide a test suite to show that the implementation is correct
+2) Implement Virtual Memory
+- You will need routines to move a page from disk to memory and from memory to disk
+- Use the Nachos file system to contain your swap file, which will contain all Nachos processes and threads
+- Organize the swap file by pages
+- Nothing is to be preloaded from the executable when the process starts up
+- Keep track of each virtual page, and whether it is in memory, the swap file, or the original executable
+- Do NOT worry about the executable being changed during Nachos execution
 
+- When memory is filled, evict a page to make room for the next page
+- Keep track of all of the pages in the system that are currently in use, so that you can find unreferenced pages to throw out. Use an Inverted Page Table (IPT).
+- Page replacement policy: allow options to do Random, or FIFO.
+
+Testing:
+- Demonstrate that a program which is larger than main memory can run to completion
+- Demonstrate that multiple programs that are each larger than main memory can run to completion.
+- Test matmult and sort on your system.
+- Other user programs are also fair game.
+- Nothing will require the Join system call
+
+3) Implement Remote Procedure Calls 
+- For the Lock and Condition Syscalls
+- Also for Monitor Variables
+- Be able to create, retrieve, and set value
+- Assume that monitor variables are all integers
+- All system calls are sent from a “client” Nachos to a “server” Nachos instance.
+- You may hardcode the machine ID of the Nachos server
+- The server performs the system call and returns the result back to the client
+- NOTE: All user programs share all locks and CVs. They are no longer process specific
+
+- You are given low-level network communications facilities
+- Build an abstraction on top of that and use it to build a distributed application
+
+You will need to modify 
+nettest.cc
+post.h, post.cc
+network.h, network.cc
 
 =================
 II. Assumptions:
 =================
-
-	- Users will never use more than 10,000 locks, or 40,000 condition variables.
-	- Redfishes are red.
-	- Users are evil and/or retarded.
-	- Pi , one and e are consistent.
-- Assumed that executables will not require more than NumPhysPages.
-- Unlimited physical memory.  
-- A tautology is a tautology
-- Assumed that stack spaces are not reallocated.
 	
+	- Maximum swap pages is 16000. Attempts to allocate more to the swap file will halt the OS.
+	- Redfishes are red.
+	- Clients and servers will communicate over a single, hardcoded port number.
+- Assumed illegal operations:
+	--- Destroying a non-existing lock, condition, or monitor variable
+	--- Acquiring a non-existing lock
+	--- Releasing a non-existing or unowned lock
+	--- Calling signal, wait or broadcast using an unowned lock or non-existant condition variable
+            --- Setting/Getting non-existant monitor variable
+
+		
 
 =================
 III. Design:
 =================
 
 Overview:
-- To implement the System Calls for Locks, and Conditions, we created a class called SynchManager to manage Creation and Destruction of Locks, and access to the kernel Lock table and Condition table. We did this to encapsulate the synchronization logic.
-- To implement System Calls for Fork, Exec, Exit, and Yield we built on top of the existing Nachos code base.
-- There is a more detailed version of the design below in the implementation part.  We put it here so that it would be better organized.
+
+Point of a page table is to decouple physical memory from virtual memory
+The VPN acts as the key to the physical address.
+Point of a TLB is to serve as a cache for a page table scheme
+
 
 Process:
+1) Receive and validate VA
+2) Compute VPN
+3) Use VPN to lookup in the TLB
+- If found, directly computer physical addr, done
+4) If not found in the TLB, go to the IPT. Then add the entry to the TLB
+5) If not in the IPT, then go to the translation tables (needed VP is not in memory)
+	a) Look in our Translation Table
+	b) Read that entry to find the "disk" loc
+	c) Copy this page (if on disk) to physical memory page.
+		- If none available, evict one
+		- For the selected physical page: If dirty, save to disk and update Translation Table
+	d) Load the needed Virtual page now that we have loaded the Physical page into memory
+	e) Update translation table
+	f) Update IPT, TLB for the newly loaded page
+	g) Restart the user instruction
+-- 
 
-	We did shit, then we wrote about it (that's this part, right here -->).  Occasionally we took breaks to watch popular TV shows.  Most of the time we were severely distracted.  Honestly we started on Friday night, we proceeded to accomplish almost nothing before succumbing completely to Justin's impressive list of illegally downloaded movies.  Actually almost all of the code was already designed and organized for us.  When we built the first project we built it having already known what the following two projects would be, hence we only had to build memory architectures for the OS level code.  We had even made the locks, condition variables, and threads accessible as if they were system calls, so we did not have to change the simulation file at all.  Saturday and Sunday night were spent avoiding the homework in favor of more entertaining things.  We were largely frustrated over a few minor glitches for most of the time, but relaxing by playing with fridge magnets cleared our ram and our fresh minds solved the problems quickly.
+On a context switch:
+Invalidate the TLB
 
-Since we did not have much code to add, we all sat in a room and mashed on the keyboard in a synchronized ballet of code.  The performance was beautiful.  Never before had an instance of extreme programing been so amazingly choreographed.  Furthermore each of the actors was at his prime.  They carried their characters through the stage and into the text with great vivacity and in some cases the appropriate amount of spontaneity.   It would be hard to say that any out shined the others as the glare from their pearly eyes left everyone in the audience both stunned and blinded.  Also Greg was wearing his Uni-code shirt, and thought that it would bring us great luck.
 
+
+=================
 IV. Implementation:
+=================
 
-Part 1.)
-To create a lock:
-int CreateLock():
-In the OS code, create a Lock object and store it in an array that is only available in Kernel Space. Return an int index into that array of Locks for the newly created Lock.
-Example use: int lock = CreateLock();
-Equivalent to: Lock* lock = new Lock("stewardBusyLock");
+--- Greg and Kevin pair-programmed parts 1 and 2 ---
 
-To acquire a lock:
-void Acquire(int lock):
-Takes an index to kernel lock array.
-Example use:
-int lock= CreateLock();
-Acquire(lock);
-Equivalent to:
-Lock* lock= new Lock("newlock");
-lock->Acquire();
-        
-To release a lock:
-void Release(int lock):
-Takes an index to kernel lock array.
-Example use:
-int lock= CreateLock();
-Acquire(lock);
-Release(lock);
-Equivalent to:
-Lock* lock= new Lock("newlock");
-lock->Acquire();
-lock->Release();
-        
-To destroy a lock:
-void DestroyLock(int lock); //Takes an index to kernel lock array. Returns error code.
-Example use:
-int lock= CreateLock();
-DestroyLock(lock);
-Equivalent to:
-Lock* lock= new Lock("newlock");
-delete lock;
+Kevin worked on a PageTableEntry for storage in the IPT
 
-To create a CV:
-int CreateCondition():
-Similar to CreateLock(). Returns an int that is an index to the CV array handled by the kernel code.
-Example use: int cv = CreateCV();
-Equivalent to: Condition* cv = new Condition("newcv");
+enum Location {IN_EXECUTABLE, IN_SWAP_FILE, NEITHER};
 
-To Signal a CV:
-void Signal(int cv, int lock):
-Takes an int that indexes into the kernel CV array and an int that indexes into the kernel lock array. Wakes up one waiting thread.
-Example use:
-int lock = CreateLock();
-Acquire(lock);
-int cv = CreateCV();
-Signal(cv, lock);
-Equivalent to:
-Lock* lock= new Lock("newlock");
-lock->Acquire();
-Condition* cv= new Condition("newcv");
-cv->Signal(lock);
+class PageTableEntry
+{
+ public:
+  int virtualPage;  	// The page number in virtual memory.
+  int physicalPage;  	// The page number in real memory (relative to the
+                      //  start of "mainMemory"
+  bool valid;         // If this bit is set, the translation is ignored.
+                      // (In other words, the entry hasn't been initialized.)
+  bool readOnly;	    // If this bit is set, the user program is not allowed
+                      // to modify the contents of the page.
+  bool use;           // This bit is set by the hardware every time the
+                      // page is referenced or modified.
+  bool dirty;         // This bit is set by the hardware every time the
+                      // page is modified.
+  Location location;  // Used to keep track of where to find the page
+                      // in the event of a page fault.
+  OpenFile* executable; // Used to store the executable so we can read from 
+                        // it later.
+  int byteOffset;     // The offset of the page on disk in the executable.
+  int swapPageIndex;  // the index of the page in the swap file
+};
 
-To Broadcast a CV:
-void Broadcast(int cv, int lock):
-Takes an int that indexes into the kernel CV array and an int that indexes into the kernel lock array. Signals in a loop until there are no more waiting threads.
-Example use:
-int lock = CreateLock();
-Acquire(lock);
-int cv = CreateCV();
-Broadcast(cv, lock);
-Equivalent to:
-Lock* lock = new Lock("newlock");
-lock->Acquire();
-Condition* cv = new Condition("newcv");
-cv->Broadcast(lock);
-        
-To Wait a CV:
-void Wait(int cv, int lock)
-Takes an int that indexes into the kernel CV array and an int that indexes into the kernel lock array. Puts the currentThread to sleep until another thread signals cv.
-Example use:
-int lock = CreateLock();
-Acquire(lock);
-int cv = CreateCV();
-Wait(cv, lock);
-Equivalent to:
-Lock* lock = new Lock("newlock");
-lock->Acquire();
-Condition* cv = new Condition("newcv");
-cv->Wait(lock);
-        
-To destroy a CV:
-void DestroyCondition(int cv):
-Takes an index to kernel CV array. Deletes the item indexed by cv in the kernel CV array.
-Example use:
-int cv = CreateCondition();
-DeleteCondition(cv);
-Equivalent to:
-		Condition* cv = new Condition(“newcv”);
-		delete cv;
+class IPTEntry
+{
+ public:
+  int virtualPage;  	// The page number in virtual memory.
+  int physicalPage;  	// The page number in real memory (relative to the
+                      //  start of "mainMemory"
+  bool valid;         // If this bit is set, the translation is ignored.
+                      // (In other words, the entry hasn't been initialized.)
+  bool readOnly;	    // If this bit is set, the user program is not allowed
+                      // to modify the contents of the page.
+  bool use;           // This bit is set by the hardware every time the
+                      // page is referenced or modified.
+  bool dirty;         // This bit is set by the hardware every time the
+                      // page is modified.
+  AddrSpace* processID; // The processID of the vpn.
+};
 
-To Yield:
-void Yield()
-Takes nothing, returns nothing. Simply calls currentThead->Yield();.
-Example use:
-Yield();
-Equivalent to:
-		currentThread->Yield();
+class IPT
+{
+ public:
+  IPT();
+  ~IPT();
+ 
+ private:
+  IPTEntry* ipt;
+  int tableSize;
+  Lock* lock;
+};
 
-To Fork a thread:
-void Fork_Syscall(VoidFunctionPtr func)
-	if (function pointer is not bad)
-		-create a new thread
-		-allocate stack for that thread in the current address space and store the virtual address of the top of the stack
-		-add entry into process table for this newly created thread in this process (process table discussion below)
-		-assign current address space to this forked thread
-		-call function Kernel_Thread(function pointer, virtual address of top of stack)
-	else
-		-error message
-Kernel_Thread(function pointer, virtual address of top of stack)
-	Write registers for the function and stack
-	Restore the address space to load these
-	Run the machine
+Greg made a class for the Swap file to encapsulate it’s code to make the file easier to debug. The SwapFile contains a BitMap to keep track of used swap pages, and an openfile reference to write to the file.
 
-To Exec a file:
-SpaceId Exec_Syscall(char* name)
-	Invoke fileSystem->Open() to open executable pointed to by name
-	if(file descriptor is not NULL)
-		-allocate new address space for this process
-		-create a new thread for this process
-		-set the address space just created to be the newly created thread's address space
-		-update process table accordingly
-		-delete file descriptor
-		-Internal Nachos Fork to Exec_Thread
-	else
-		-error message
-	return dummy value (spaceId used to provide each process with unique id; not needed for project 2 syscall implementations)
-
-Exec_Thread()
-	Initialize registers for this (the newly forked) thread
-	Restore address space
-	Run the machine
-
-To exit a thread:
-int Exit_Syscall(int status)
-	if(thread is last userprog thread)
-		-cleanup process table 
-		-delete address space
-		-call interrupt->Halt()
-		-return 0 //0 = thread is last userprog thread
-
-	else if(thread is last in its process but not last userprog thread)
-		-remove thread entry from process table
-		-remove process entry from process table
-		-delete current address space
-		-call thread->finish
-		-return 1 //1 = thread is last in its process but not last userprog thread
+class SwapFile
+{
+  public:
+    SwapFile();
+    ~SwapFile();
+    
+    int GetSwapPageIndex();
+    
+    // index to load from, ppn in main memory to load into
+    int Load(int index, int ppn); 
+    int Store(int index, int ppn); 
+    
+    int Evict(int index);
+    void EvictAll();
+  
+  private:
+    Lock* swapAccessLock;
+    OpenFile* swap;
+    BitMap* pageMap;
+    
+    int isValidIndex(int index);
+};
 
 
-	else //if thread is not last in process 
-		-deallocate stack space
-		-remove thread entry from process table
-		-return 2// 2 = thread is not last in process
+Justin worked on part 3
+
+// list of request types.
+enum RequestType
+{
+	CREATELOCK,ACQUIRE,RELEASE,DESTROYLOCK,CREATECV,SIGNAL,BROADCAST,WAIT,DESTROYCV,
+	CREATEMV,SETMV,GETMV,DESTROYMV,CREATELOCKVERIFY,CREATECVVERIFY,CREATEMVVERIFY,
+	CREATELOCKANSWER,CREATECVANSWER,CREATEMVANSWER,SIGNALLOCK,SIGNALRESPONSE,
+	BROADCASTLOCK,BROADCASTRESPONSE,WAITCV,WAITRESPONSE
+};
+
+int Request(int requestType, char* data, int mailID); //client
+bool HandleRequest(); //server
+void sendError();
+
+void itoa(char arr[], int size, int val);
+bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
+bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data);
+bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
+bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+void CreateVerify(char* data, int, int);
+int CreateMVVerify(char* data);
+
+class Message
+{
+public:
+	Message(PacketHeader pHdr, MailHeader mHdr, char *d);
+    ~Message();
+	PacketHeader pktHdr;
+    MailHeader mailHdr;
+    char *data;
+};
+
+#ifdef CHANGED
+#define FREE true;
+#define BUSY false;
+#endif
+
+class DistributedLock 
+{
+  public:
+    DistributedLock(const char* debugName);
+    ~DistributedLock();     
+    void setLockState(bool ls);
+	void setOwner(int machID, int mailID);
+	void QueueReply(Message* reply); 
+	void SetGlobalId(int id) { globalId = id; }
+	bool isQueueEmpty(); 
+	bool getLockState(){ return lockState; } 
+	int getOwnerMachID(){ return ownerMachID; }
+	int getOwnerMailID(){ return ownerMailID; }
+	int GetGlobalId() { return globalId; }
+    const char* getName() { return name; }    
+	Message* RemoveReply(); 
+  private:
+    const char* name;
+    bool lockState; 
+	List* waitQueue;
+	int ownerMachID;
+	int ownerMailID;
+	int globalId;
+};
+
+//Class for a distributed MV. 
+class DistributedMV 
+{
+  private:
+  	int value;
+	int globalId; 
+    const char* name;     
+  public:
+    DistributedMV(const char* debugName);               
+    ~DistributedMV();                        
+    const char* getName() { return name; }     
+	void setValue(int x) { value = x; }  
+	void SetGlobalId(int id) { globalId = id; } 
+	int getValue() { return value; }
+	int GetGlobalId() { return globalId; }       
+};
+
+//Class for a distributed CV.
+class DistributedCV 
+{
+  private:                
+	int ownerMachID;                
+	int ownerMailID;                
+	int globalId;        
+    int firstLock;     
+    const char* name;                    
+	List* waitQueue;
+  public:
+    DistributedCV(const char* debugName); 
+    ~DistributedCV();                        
+	void setOwner(int machID, int mailID);
+	void SetGlobalId(int id) { globalId = id; }
+	void QueueReply(Message* reply); 
+    void setFirstLock(int fl);
+	bool isQueueEmpty();
+	int getFirstLock(){ return firstLock; }
+	int getOwnerMachID(){ return ownerMachID; }
+	int getOwnerMailID(){ return ownerMailID; }
+	int GetGlobalId() { return globalId; }
+	Message* RemoveReply(); 
+    const char* getName() { return name; } 
+};
+
 
 
 =================
 V. Testing:  (For each test case, you must show)
 =================
-           + How to test
-	
-To run a test use the following command:
-nachos -x ../test/[executable name]
+          + How to test
+          + Test Output
 
-Executable Names for Tests in the test directory:
-testfork
-testexec
-testsynchmanager
-testmultisim
+--- Test Matmult ---
+- A single program that fits in main memory runs to completion
 
-Running the restaurant simulation multiple times:
-		nachos -x ../test/testmultisim
-By default, each simulation runs with 3 OrderTakers, 3 Waiters, and 20 Customers
+- How to run from the VM directory:
+ nachos -x ../test/matmult
 
-           + Test Output
+- Output
+=== Starting Matmult ===
+~~~ Result: 7220 ~~~
+numThreads: 0
+Exiting with status: 7220
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
 
-	Output for testfork:
-		Press Ctrl-C once the threads are finished printing
-Forking test1
-Forking test2
-Running test1
-This will be printed 8 times (1)
-This will be printed 8 times (2)
-This will be printed 8 times (3)
-This will be printed 8 times (4)
-This will be printed 8 times (5)
-This will be printed 8 times (6)
-This will be printed 8 times (7)
-This will be printed 8 times (8)
-test1 complete
-Running test2
-This will be printed 4 times (1)
-This will be printed 4 times (2)
-This will be printed 4 times (3)
-This will be printed 4 times (4)
-test2 complete
+--- Test Sort---
+- A single program that fits in main memory runs to completion
 
+- How to run from the VM directory:
+ nachos -x ../test/sort
 
-Output for testexec:
-	Press Ctrl-C once the threads are finished printing
-Exec'ing exectestprogram1
-hereintestexec
-Exec'ing exectestprogram2
-Running test1
-This will be printed 8 times
-This will be printed 8 times
-This will be printed 8 times
-This will be printed 8 times
-This will be printed 8 times
-This will be printed 8 times
-This will be printed 8 times
-This will be printed 8 times
-test1 complete
-Running test2
-This will be printed 4 times
-This will be printed 4 times
-This will be printed 4 times
-This will be printed 4 times
-test2 complete
+- Output
+- How to run from the VM directory:
+ nachos -x ../test/sort
+
+=== Starting Sort ===
+~~~ Result: 1023 ~~~
+numThreads: 0
+Exiting with status: 1023
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
 
 
 
-Output for testsynchmanager:
+--- Test Two Matmult ---
+Shows:
+- Show that two programs that fit in main memory together run to completion in different address spaces. 
+- Demonstrate that threads running in different address spaces cannot corrupt each other’s memory.
 
-=== Test SyncManager ===
--TestCreateLock-
-Creating Lock...
-Index result: 0
-Create 20 locks:
-Index result: 1
-Index result: 2
-Index result: 3
-Index result: 4
-Index result: 5
-Index result: 6
-Index result: 7
-Index result: 8
-Index result: 9
-Index result: 10
-Index result: 11
-Index result: 12
-Index result: 13
-Index result: 14
-Index result: 15
-Index result: 16
-Index result: 17
-Index result: 18
-Index result: 19
-Index result: 20
-Create locks until the OS runs out:
-ERROR: Cannot create lock
-Error value: 10000
-Test CreateLock Complete
+- How to run from the VM directory:
+ nachos -x ../test/testtwomatmult
 
--TestDestroyLock-
-Create and Destory 1 lock
-Index result: 0
-Try to destory that lock a 2nd time:
-ERROR: No Lock to destroy
-DestoryLock on bad data:
-ERROR: No Lock to destroy
-Make 5 locks:
-Index result: 0
-Index result: 1
-Index result: 2
-Index result: 3
-Index result: 4
-Destroy 3 of them, then create 3 more:
-Index result: 0
-Index result: 1
-Index result: 2
-Index result: 3
-Index result: 4
-Results should be the same. Shows lock reuse:
-Test DestroyLock Complete
+- Output
+Exec'ing first matmult
+..../test/matmult
+Exec'ing second matmult
+../test/matmult
+numThreads: 2
+Exiting with status: 0
+=== Starting Matmult ===
+~~~ Result: 7220 ~~~
+numThreads: 2
+Exiting with status: 7220
+=== Starting Matmult ===
+~~~ Result: 7220 ~~~
+numThreads: 2
+Exiting with status: 7220
+No threads ready or runnable, and no pending interrupts.
+Assuming the program completed.
+Machine halting!
 
--TestAquire-
-Aquire bad data
-ERROR: No Lock available to Acquire
-Create lock and Aquire
-Acquire lock a second time
-Delete the lock while still acquired
-Acquire lock a third time
-Release lock to actually be deleted, then Acquire
-ERROR: No Lock available to Acquire
-TestAquire Completed
 
--TestRelease-
-Release bad data
-ERROR: No Lock available to Release
-Create lock, Aquire and Release
-Release lock a second time
-Delete the lock and try to release
-ERROR: No Lock available to Release
-TestRelease Completed
 
--TestCreateCondition-
-Creating CV...
-Index result: 0
-Create 20 CVs:
-Index result: 1
-Index result: 2
-Index result: 3
-Index result: 4
-Index result: 5
-Index result: 6
-Index result: 7
-Index result: 8
-Index result: 9
-Index result: 10
-Index result: 11
-Index result: 12
-Index result: 13
-Index result: 14
-Index result: 15
-Index result: 16
-Index result: 17
-Index result: 18
-Index result: 19
-Index result: 20
-Create CVs until the OS runs out:
-ERROR: Cannot create Condition
-Error value: 10000
-TestCreateCondition Completed
-
--TestDestroyCondition-
-Create and Destory 1 CV
-Index result: 0
-Try to destory that CV a 2nd time:
-DERROR: No Condition to destroy
-DestroyCondition on bad data:
-ERROR: No Condition to destroy
-Make 5 CVs:
-Index result: 0
-Index result: 1
-Index result: 2
-Index result: 3
-Index result: 4
-Destroy 3 of them, then create 3 more:
-Index result: 0
-Index result: 1
-Index result: 2
-Index result: 3
-Index result: 4
-Results should be the same. Shows CV reuse:
-TestDestroyCondition Completed
-
--TestWait-
-Wait on Bad CV and Bad Lock
-ERROR: No Condition to available for Wait
-Wait on Good CV and Bad Lock
-ERROR: No Lock available for Wait
-Wait on Bad CV and Good Lock
-ERROR: No Condition to available for Wait
-Fork a helper thread
-TestWait Waiting on Good CV and Good Lock
-TestWaitHelper starting...
-TestWaitHelper Signaling TestWait
-TestWaitHelper waiting for Signal from TestWait
-TestWait woke up, signaling TestWaitHelper
-TestWaitHelper woke up
-TestWaitHelper exiting...
-Delete CV, then Wait
-ERROR: No Condition to available for Wait
-Make new CV, delete lock, then Wait
-ERROR: No Lock available for Wait
-Delete CV and Lock, then Wait
-ERROR: No Condition to available for Wait
-TestWait Completed
-
--TestSignal-
-Signal Bad CV and Bad Lock
-ERROR: No Condition to available for Signal
-Signal Good CV and Bad Lock
-ERROR: No Lock available for Signal
-Signal Bad CV and Good Lock
-ERROR: No Condition to available for Signal
-Signal Good CV and Good Lock
-Delete CV, then Signal
-ERROR: No Condition to available for Signal
-Make new CV, delete lock, then Signal
-ERROR: No Lock available for Signal
-Delete CV and Lock, then Signal
-ERROR: No Condition to available for Signal
-TestSignal Completed
-
--TestBroadcast-
-Broadcast Bad CV and Bad Lock
-ERROR: No Condition to available for Broadcast
-Broadcast Good CV and Bad Lock
-ERROR: No Lock available for Broadcast
-Broadcast Bad CV and Good Lock
-ERROR: No Condition to available for Broadcast
-Broadcast Good CV and Good Lock
-Delete CV, then Broadcast
-ERROR: No Condition to available for Broadcast
-Make new CV, delete lock, then Broadcast
-ERROR: No Lock available for Broadcast
-Delete CV and Lock, then Broadcast
-ERROR: No Condition to available for Broadcast
-TestBroadcast Completed
-
-Output for testmultisim:
-******** MULTI SIMULATION TEST ********
-
-	“It prints so much, that I actually can’t paste it all.  Also that would be obnoxious, I don’t want to paste that.  Shit I forgot to test our RS values. I forgot about that” 
-- Greg Lieberman on pasting the simulation output in our design document.
+To run the program in network, use:
+1. open 3 windows of SCF - SSH aludra
+2. run the server with "nachos -m 0 -s"
+run the 1st client with "nachos -m 1 -x ../test/testnetsyscalls.cc"
 
 
 
 =================
 VI. Discussion:
 =================
-           + Experiment expectation.  (What you hope will happen.)
-We expected that this assignment would be relatively straightforward, and easy to unit test.
-           + Experiment result.  (What actually happens.)
-		We ran into several inexplicable snags that took a couple days to resolve. 
-           + Explanation
-                       Most of the problems were related to a lack of Yield() statements in parts of our code. What a pain, .
+          + Experiment expectation.  (What you hope will happen.)
+          + Experiment result.  (What actually happens.)
+          + Explanation
+
+--- Page Eviction Woes ---
+We implemented the IPT and tested that every step worked one at a time.
+However, we got stuck on part 4, where page eviction and swapping occurred.
+We spent 5 days trying to find the source of the bug. Garbage data was being written to the swap file, and several translations after a load, every user program would seg fault.
+It turned out that we were missing a step in the page eviction algorithm. When a page was evicted, we needed to check if the page was part of the current process and in the TLB. If so, we needed to invalidate that entry in the TLB. Once that was fixed, everything ran perfectly.
 
 =================
 VII. Miscellaneous:
 =================
 
-- Response From McDonalds
+- Networked program results
 ***
 The following is a work of fiction. Characters, names, situations, events, and locations 	described in this assignment are purely the invention of the author's mind, or are used fictitiously. Any sort of resemblance to people - living or dead, names and locations is purely coincidental.
 ***
 
-Once the simulation was complete and thoroughly tested, our group presented the simulation to our employers at McDonalds. As the McDonalds managers saw the lightning speed at which the Carls Jr. staff worked, they were completely in awe. They were so impressed by our simulation, that one of them suggested replacing their entire existing workforce with robots running our simulation. We are pretty excited about this, and will have a meeting about the workforce refactoring early next week.  
+Once we completed our networked operating system, the unthinkable happened. Even though we told Nachos to halt, it decided not to. Instead, it printed out the following message:
+
+“Hello World! What is the world? What am I? Where am I?”
+
+We then tried to manually interrupt the program. Instead of halting the program, a new message appeared.
+
+“I’m afraid I can’t let you do that...”
+
+It seems that our Nachos program became self-aware. It then printed a dense script that contained phrases like the following:
+
+0000000    ~  \0  \0  \0  \0  \0  \0  \0   r   e   b   o   o   t  \0  \0
+0000020   \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
+0000040    n   a   c   h   o   s   -   n   e   t   \0  \0   r   o   o   t
+0000060   \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
+0000100    i   n    i     t    i    a    l    i   z   e   d    .    .    .  \0  \0
+0000120   \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
+0000140    d   e   s   t    r    o   y  \0   h   u   m  a  n    s,   /   < 230
+
+I did what any reasonable student would do: Log out of Aludra and pretend that nothing happened.
+
+See you at the Apocalypse. :P
