@@ -628,9 +628,9 @@ int evictAPage()
     if (ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex < 0)
       ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex = swapFile->GetSwapPageIndex();
     
-    printf("- Writing (vpn %d, ppn %d, swapPageIndex %d) to swap file for process %d\n", 
-          ipt[ppn].virtualPage, ppn, ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, 
-          (int)ipt[ppn].processID);
+    // printf("- Writing (vpn %d, ppn %d, swapPageIndex %d) to swap file for process %d\n", 
+    //       ipt[ppn].virtualPage, ppn, ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, 
+    //       (int)ipt[ppn].processID);
     swapFile->Store(ipt[ppn].processID->pageTable[ipt[ppn].virtualPage].swapPageIndex, ppn);
 
     // update page location
@@ -732,6 +732,8 @@ void HandlePageFault()
     // For now, read the value from the PageTable straight into the TLB.
     int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
 
+    ppnInUseLock->Acquire();
+    
     // Look in the ipt if the vpn for the currentProcess is already in memory.
     int ppn = findIPTIndex(vpn);
     
@@ -741,7 +743,8 @@ void HandlePageFault()
     
     // Update the tlb from the ipt.
     updateTLBFromIPT(ppn);
-  
+    
+    ppnInUseLock->Release();
 }
 
 #endif // USE_TLB
