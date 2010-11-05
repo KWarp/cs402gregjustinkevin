@@ -287,7 +287,7 @@ void Yield_Syscall()
 
 int CreateLock_Syscall(int vaddr)
 {
-	int len = 1;//omfg this needs to be a fucking parameter.
+	int len = 3;//omfg this needs to be a fucking parameter.
 	char* name = new char[len];
 	
 	if ( copyin(vaddr,len,name) == -1 ) 
@@ -477,7 +477,7 @@ void Exit_Syscall(int status)
 
 int CreateCondition_Syscall(int vaddr)
 {
-	int len = 1;//omfg this needs to be a fucking parameter.
+	int len = 3;//omfg this needs to be a fucking parameter.
 	char* name = new char[len];
 	
 	if ( copyin(vaddr,len,name) == -1 ) 
