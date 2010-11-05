@@ -100,7 +100,7 @@ DistributedCV::~DistributedCV()
 	delete waitQueue;
 }
 
-DistributedLock* locks[MAX_DLOCK]; //array of locks
+DistributedLock* dlocks[MAX_DLOCK]; //array of locks
 DistributedMV* mvs[MAX_DMV]; //array of MVs
 DistributedCV* cvs[MAX_DCV]; //array of CVs
 int createDLockIndex = 0; // Counter of locks being created
@@ -225,7 +225,7 @@ bool HandleRequest()
 				//Check if lock already exists, just send index. If not, create it.
 				for(int k=0; k<createDLockIndex; k++)
 				{
-					if(!strcmp(locks[k]->getName(), lockName[clientNum]))
+					if(!strcmp(dlocks[k]->getName(), lockName[clientNum]))
 					{
 						lockIndex = k;
 					}
@@ -243,9 +243,9 @@ bool HandleRequest()
 							localLockName[i]=lockName[clientNum][i];
 							localLockName[i+1]= '\0';
 						}
-						locks[createDLockIndex] = new DistributedLock(localLockName); 
-						locks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
-						if(locks[createDLockIndex] == NULL)
+						dlocks[createDLockIndex] = new DistributedLock(localLockName); 
+						dlocks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
+						if(dlocks[createDLockIndex] == NULL)
 						{
 						//Handle error...
 							printf("Error in creation of %s!\n", lockName[clientNum]);
@@ -256,13 +256,13 @@ bool HandleRequest()
 							return false;
 						}
 					
-					lockIndex = locks[createDLockIndex]->GetGlobalId();
+					lockIndex = dlocks[createDLockIndex]->GetGlobalId();
 					createDLockIndex++;
 					}
 					else
 					{
-						//printf("Exists here: %i\n", locks[localLockIndex[clientNum]]->GetGlobalId());				
-						lockIndex=locks[localLockIndex[clientNum]]->GetGlobalId();
+						//printf("Exists here: %i\n", dlocks[localLockIndex[clientNum]]->GetGlobalId());				
+						lockIndex=dlocks[localLockIndex[clientNum]]->GetGlobalId();
 					}
 					//Include index of lock in reply message 
 					char* ack = new char [5];
@@ -340,9 +340,9 @@ bool HandleRequest()
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
 					}
-					locks[createDLockIndex] = new DistributedLock(localLockName); 
-					locks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
-					if(locks[createDLockIndex] == NULL)
+					dlocks[createDLockIndex] = new DistributedLock(localLockName); 
+					dlocks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
+					if(dlocks[createDLockIndex] == NULL)
 					{
 						//Handle error...
 						printf("Error in creation of %s!\n", lockName[clientNum]);
@@ -353,7 +353,7 @@ bool HandleRequest()
 						return false;
 					}
 					
-					lockIndex = locks[createDLockIndex]->GetGlobalId();
+					lockIndex = dlocks[createDLockIndex]->GetGlobalId();
 					createDLockIndex++;
 				}
 				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex !=-1) //exists on other server and not here
@@ -362,7 +362,7 @@ bool HandleRequest()
 				}
 				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex==-1) //exists here
 				{
-					lockIndex=locks[localLockIndex[clientNum]]->GetGlobalId();
+					lockIndex=dlocks[localLockIndex[clientNum]]->GetGlobalId();
 				}
 				else //exists multiple places; should never happen
 				{
@@ -420,7 +420,7 @@ bool HandleRequest()
 			//Check if lock exists
 			for(int k=0; k<createDLockIndex; k++)
 			{
-				if(!strcmp(locks[k]->getName(), localLockName))
+				if(!strcmp(dlocks[k]->getName(), localLockName))
 				{
 					lockIndex = k;
 					break;
@@ -441,7 +441,7 @@ bool HandleRequest()
 			}
 			else //found
 			{
-				sprintf(request,"%d_%d_%d",CREATELOCKANSWER, clientNum, locks[lockIndex]->GetGlobalId());
+				sprintf(request,"%d_%d_%d",CREATELOCKANSWER, clientNum, dlocks[lockIndex]->GetGlobalId());
 				outMailHdr.length = strlen(request) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, request); 
 			}
@@ -830,7 +830,7 @@ bool HandleRequest()
 				}
 				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex==-1) //exists here
 				{
-					//printf("Exists here: %i\n", locks[localLockIndex[clientNum]]->GetGlobalId());
+					//printf("Exists here: %i\n", dlocks[localLockIndex[clientNum]]->GetGlobalId());
 					
 					mvIndex=mvs[localLockIndex[clientNum]]->GetGlobalId();
 				}
@@ -1309,13 +1309,13 @@ bool HandleRequest()
 			else
 			{
 				lockIndex = waitingForWaitLocks[clientNum];
-				locks[lockIndex]->setOwner(-1, -1); //Reset distributed lock owner 
-				locks[lockIndex]->setLockState(true); //Set distributed lock to available. 
-				if(!locks[lockIndex]->isQueueEmpty()) //if someone was waiting, make them owner and give them their reply msg
+				dlocks[lockIndex]->setOwner(-1, -1); //Reset distributed lock owner 
+				dlocks[lockIndex]->setLockState(true); //Set distributed lock to available. 
+				if(!dlocks[lockIndex]->isQueueEmpty()) //if someone was waiting, make them owner and give them their reply msg
 				{
-					Message* reply = locks[lockIndex]->RemoveReply(); //get reply from lock's waitQ
-					locks[lockIndex]->setOwner(reply->pktHdr.to, reply->mailHdr.to); //Set distributed lock owner 
-					locks[lockIndex]->setLockState(false); //Set distributed lock to busy.
+					Message* reply = dlocks[lockIndex]->RemoveReply(); //get reply from lock's waitQ
+					dlocks[lockIndex]->setOwner(reply->pktHdr.to, reply->mailHdr.to); //Set distributed lock owner 
+					dlocks[lockIndex]->setLockState(false); //Set distributed lock to busy.
 					success = postOffice->Send(reply->pktHdr, reply->mailHdr, reply->data); //Let new owner know they have acquired the lock
 
 					if ( !success ) 
@@ -1400,7 +1400,7 @@ bool HandleRequest()
 				lockIndexBuf[m++] = c; //Actually want to copy '\0' too
 			}
 			lockIndex = atoi(lockIndexBuf); //Convert request type to integer for indexing array
-			if(locks[lockIndex%MAX_DLOCK] == NULL)//If cv not found
+			if(dlocks[lockIndex%MAX_DLOCK] == NULL)//If cv not found
 			{
 				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, client, -1);
 				
@@ -1580,7 +1580,7 @@ bool HandleRequest()
 				lockIndexBuf[m++] = c; //Actually want to copy '\0' too
 			}
 			lockIndex = atoi(lockIndexBuf); //Convert request type to integer for indexing array
-			if(locks[lockIndex%MAX_DLOCK] == NULL)//If cv not found
+			if(dlocks[lockIndex%MAX_DLOCK] == NULL)//If cv not found
 			{
 				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, client, -1);
 	
@@ -1593,7 +1593,7 @@ bool HandleRequest()
 
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer); 
 			}
-			else if (locks[lockIndex]->getOwnerMailID() == -1)
+			else if (dlocks[lockIndex]->getOwnerMailID() == -1)
 			{//check if lock acquired
 				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, client, -1);
 	
@@ -1843,7 +1843,7 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	else if(lockIndex/MAX_DLOCK == postOffice->GetID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
-		if(locks[lockIndex] == NULL) //If not found
+		if(dlocks[lockIndex] == NULL) //If not found
 		{
 			printf("Cannot acquire: Lock does not exist at index %d.\n", lockIndex);
 			return false;
@@ -1852,13 +1852,13 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		{
 			//Create reply. Send back index of acquired lock for verification.
 			char * ack = new char [5];
-			itoa(ack,5,locks[lockIndex]->GetGlobalId()); //Convert to string to send in ack
-			printf("Machine %d has acquired %s at index %d\n", clientNum/10+serverCount, locks[lockIndex]->getName(), lockIndex);
+			itoa(ack,5,dlocks[lockIndex]->GetGlobalId()); //Convert to string to send in ack
+			printf("Machine %d has acquired %s at index %d\n", clientNum/10+serverCount, dlocks[lockIndex]->getName(), lockIndex);
 			//Check if already acquired/busy
 			
-			if(!locks[lockIndex]->getLockState()) //if busy, create message for reply and add to lock's waitqueue
+			if(!dlocks[lockIndex]->getLockState()) //if busy, create message for reply and add to lock's waitqueue
 			{
-				printf("Machine %d being added to waitQueue for acquiring %s!\n", clientNum/10+serverCount, locks[lockIndex]->getName());
+				printf("Machine %d being added to waitQueue for acquiring %s!\n", clientNum/10+serverCount, dlocks[lockIndex]->getName());
 				
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
@@ -1866,13 +1866,13 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 				outMailHdr.length = strlen(ack) + 1;
 				
 				Message* reply = new Message(outPktHdr, outMailHdr, ack);
-				locks[lockIndex]->QueueReply(reply);
+				dlocks[lockIndex]->QueueReply(reply);
 				success=true;
 			}
 			else //else, set lock owner and send reply to notify that acquire occured
 			{
-				locks[lockIndex]->setOwner(clientNum/10+serverCount, (clientNum+10)%10); //Set distributed lock owner to whoever requested acquire
-				locks[lockIndex]->setLockState(false); //Set distributed lock to busy. Gives me error when try to just put 'BUSY'
+				dlocks[lockIndex]->setOwner(clientNum/10+serverCount, (clientNum+10)%10); //Set distributed lock owner to whoever requested acquire
+				dlocks[lockIndex]->setLockState(false); //Set distributed lock to busy. Gives me error when try to just put 'BUSY'
 				
 				// Send acknowledgement (using "reply to" mailbox
 				// in the message that just arrived
@@ -1882,7 +1882,7 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 				
-				printf("Server Sending: Lock %d Acquired!!!\n",locks[lockIndex]->GetGlobalId());
+				printf("Server Sending: Lock %d Acquired!!!\n",dlocks[lockIndex]->GetGlobalId());
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 				if ( !success ) {
@@ -1960,7 +1960,7 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	else if(lockIndex/MAX_DLOCK == postOffice->GetID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
-		if(locks[lockIndex] == NULL) //If not found
+		if(dlocks[lockIndex] == NULL) //If not found
 		{
 			printf("Cannot release: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
@@ -1974,13 +1974,13 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 
 		//Create reply. Send back index of released lock for verification.
 		char * ack = new char [5];
-		itoa(ack,5,locks[lockIndex]->GetGlobalId()); //Convert to string to send in ack
-		printf("Machine %d has released %s at index %d\n", clientNum/10+serverCount, locks[lockIndex]->getName(), locks[lockIndex]->GetGlobalId());
+		itoa(ack,5,dlocks[lockIndex]->GetGlobalId()); //Convert to string to send in ack
+		printf("Machine %d has released %s at index %d\n", clientNum/10+serverCount, dlocks[lockIndex]->getName(), dlocks[lockIndex]->GetGlobalId());
 
 		//send reply to notify that release occured
 		
-		locks[lockIndex]->setOwner(-1, -1); //Reset distributed lock owner 
-		locks[lockIndex]->setLockState(true); //Set distributed lock to available. 
+		dlocks[lockIndex]->setOwner(-1, -1); //Reset distributed lock owner 
+		dlocks[lockIndex]->setLockState(true); //Set distributed lock to available. 
 		
 		// Send acknowledgement (using "reply to" mailbox
 		// in the message that just arrived
@@ -1990,7 +1990,7 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 
-		printf("Server Sending: Lock %d Released!!!\n", locks[lockIndex]->GetGlobalId());
+		printf("Server Sending: Lock %d Released!!!\n", dlocks[lockIndex]->GetGlobalId());
 		success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 		if ( !success ) {
@@ -1998,11 +1998,11 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		  interrupt->Halt();
 		}
 
-		if(!locks[lockIndex]->isQueueEmpty()) //if someone was waiting, make them owner and give them their reply msg
+		if(!dlocks[lockIndex]->isQueueEmpty()) //if someone was waiting, make them owner and give them their reply msg
 		{
-			Message* reply = locks[lockIndex]->RemoveReply(); //get reply from lock's waitQ
-			locks[lockIndex]->setOwner(reply->pktHdr.to, reply->mailHdr.to); //Set distributed lock owner 
-			locks[lockIndex]->setLockState(false); //Set distributed lock to busy.
+			Message* reply = dlocks[lockIndex]->RemoveReply(); //get reply from lock's waitQ
+			dlocks[lockIndex]->setOwner(reply->pktHdr.to, reply->mailHdr.to); //Set distributed lock owner 
+			dlocks[lockIndex]->setLockState(false); //Set distributed lock to busy.
 			success = postOffice->Send(reply->pktHdr, reply->mailHdr, reply->data); //Let new owner know they have acquired the lock
 
 			if ( !success ) {
@@ -2038,7 +2038,7 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 	else if(lockIndex/MAX_DLOCK == postOffice->GetID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
-		if(locks[lockIndex] == NULL) //If not found
+		if(dlocks[lockIndex] == NULL) //If not found
 		{
 			printf("Cannot destroy: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
@@ -2052,12 +2052,12 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 
 		//Create reply. Send back index of destroyed lock for verification.
 		char * ack = new char [5];
-		itoa(ack,5,locks[lockIndex]->GetGlobalId()); //Convert to string to send in ack
+		itoa(ack,5,dlocks[lockIndex]->GetGlobalId()); //Convert to string to send in ack
 
-		delete locks[lockIndex];
-		locks[lockIndex] = NULL;
+		delete dlocks[lockIndex];
+		dlocks[lockIndex] = NULL;
 		createDLockIndex --;
-		if(locks[lockIndex] == NULL)
+		if(dlocks[lockIndex] == NULL)
 		{
 			printf("Machine %d has destroyed lock at index %d\n", postOffice->GetID(),  postOffice->GetID()*MAX_DLOCK+lockIndex);
 		}
@@ -2292,7 +2292,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
 		//check if CV & Lock exist
-		if(locks[lockIndex] == NULL) //If lock not found
+		if(dlocks[lockIndex] == NULL) //If lock not found
 		{
 			printf("Wait Failed: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
@@ -2303,7 +2303,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
-		else if (locks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
+		else if (dlocks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
 			printf("Wait Failed: Lock does not acquire at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
 			errorOutPktHdr.to = clientNum/10+serverCount;
@@ -2325,18 +2325,18 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		}
 		//cv & lock are correct!!
 		//Release the lock
-		locks[lockIndex]->setOwner(-1, -1); //Reset distributed lock owner 
-		locks[lockIndex]->setLockState(true); //Set distributed lock to available. 
+		dlocks[lockIndex]->setOwner(-1, -1); //Reset distributed lock owner 
+		dlocks[lockIndex]->setLockState(true); //Set distributed lock to available. 
 		//check wait Q, if I'm the 1st, then set the lock to be this lock
 		if (cvs[cvIndex]->isQueueEmpty())
 			cvs[cvIndex]-> setFirstLock(lockIndex+postOffice->GetID()*MAX_DLOCK);
 			
 		//wake the one waiting for acquiring this lock
-		if(!locks[lockIndex]->isQueueEmpty()) //if someone was waiting, make them owner and give them their reply msg
+		if(!dlocks[lockIndex]->isQueueEmpty()) //if someone was waiting, make them owner and give them their reply msg
 		{
-			Message* reply = locks[lockIndex]->RemoveReply(); //get reply from lock's waitQ
-			locks[lockIndex]->setOwner(reply->pktHdr.to, reply->mailHdr.to); //Set distributed lock owner 
-			locks[lockIndex]->setLockState(false); //Set distributed lock to busy.
+			Message* reply = dlocks[lockIndex]->RemoveReply(); //get reply from lock's waitQ
+			dlocks[lockIndex]->setOwner(reply->pktHdr.to, reply->mailHdr.to); //Set distributed lock owner 
+			dlocks[lockIndex]->setLockState(false); //Set distributed lock to busy.
 			success = postOffice->Send(reply->pktHdr, reply->mailHdr, reply->data); //Let new owner know they have acquired the lock
 
 			if ( !success ) {
@@ -2352,7 +2352,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		
 		//add to wait Q
 		printf("Machine %d being added to waitQueue for Wait with CV: %s Lock: %s\n", 
-					(int)inPktHdr.from, cvs[cvIndex]->getName(), locks[lockIndex]->getName());
+					(int)inPktHdr.from, cvs[cvIndex]->getName(), dlocks[lockIndex]->getName());
 		outPktHdr.to = clientNum/10+serverCount;
 		outMailHdr.to = (clientNum+10)%10;
 		outMailHdr.from = postOffice->GetID();
@@ -2367,7 +2367,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
 		//check if CV & Lock exist
-		if(locks[lockIndex] == NULL) //If lock not found
+		if(dlocks[lockIndex] == NULL) //If lock not found
 		{
 			printf("Wait Failed: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
@@ -2378,7 +2378,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
-		else if (locks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
+		else if (dlocks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
 			printf("Wait Failed: Lock does not acquire at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
 			errorOutPktHdr.to = clientNum/10+serverCount;
@@ -2433,7 +2433,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		//check if CV & Lock exist
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
-		if(locks[lockIndex] == NULL) //If lock not found
+		if(dlocks[lockIndex] == NULL) //If lock not found
 		{
 			printf("Signal Failed: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
@@ -2444,7 +2444,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
-		else if (locks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
+		else if (dlocks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
 			printf("Signal Failed: Lock does not acquire at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
 			errorOutPktHdr.to = clientNum/10+serverCount;
@@ -2469,7 +2469,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		//Create reply
 		char* ack = new char [5];
 		itoa(ack,5,cvIndex);
-		printf("Machine %d requests signaling lock %s\n", (int)inPktHdr.from, locks[lockIndex]->getName());
+		printf("Machine %d requests signaling lock %s\n", (int)inPktHdr.from, dlocks[lockIndex]->getName());
 
 		// Send acknowledgement (using "reply to" mailbox
 		// in the message that just arrived
@@ -2562,7 +2562,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 		//check if CV & Lock exist
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
-		if(locks[lockIndex] == NULL) //If lock not found
+		if(dlocks[lockIndex] == NULL) //If lock not found
 		{
 			printf("Broadcast Failed: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
@@ -2573,7 +2573,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
-		else if (locks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
+		else if (dlocks[lockIndex]->getOwnerMailID() == -1){//check if lock acquired
 			printf("Broadcast Failed: Lock does not acquire at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
 			errorOutPktHdr.to = clientNum/10+serverCount;
@@ -2598,7 +2598,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 		//Create reply
 		char* ack = new char [5];
 		itoa(ack,5,cvIndex);
-		printf("Machine %d requests broadcasting lock %s\n", (int)inPktHdr.from, locks[lockIndex]->getName());
+		printf("Machine %d requests broadcasting lock %s\n", (int)inPktHdr.from, dlocks[lockIndex]->getName());
 
 		// Send acknowledgement (using "reply to" mailbox
 		// in the message that just arrived
