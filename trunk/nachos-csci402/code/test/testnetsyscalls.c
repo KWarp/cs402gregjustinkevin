@@ -17,7 +17,7 @@ void LockTest()
   PrintOut("------------------------------------------\n", 43);
 
   PrintOut("Creating Lock...\n", 18); 
-  lockIndex = CreateLock("LK1");
+  lockIndex = CreateLock("LK1", 3);
   if (lockIndex >= 0)
     PrintOut("Succeeded\n", 10);
 
@@ -43,8 +43,8 @@ void MVTest()
   PrintOut("------------------------------------------\n", 43);
   
   PrintOut("Creating MVs...\n", 16);
-  mvIndex = CreateMV("MV1");
-  mvIndex2 = CreateMV("MV2");
+  mvIndex = CreateMV("MV1", 3);
+  mvIndex2 = CreateMV("MV2", 3);
   if (mvIndex2 > mvIndex)
     PrintOut("Succeeded\n", 10);
   else
@@ -75,8 +75,8 @@ void CVTest()
   PrintOut("------------------------------------------\n", 43);
   
   PrintOut("Creating CV...\n", 15);
-  cvIndex = CreateCondition("CV1");
-  lockIndex = CreateLock("LK1");
+  cvIndex = CreateCondition("CV1", 3);
+  lockIndex = CreateLock("LK1", 3);
   PrintOut("Succeeded\n", 10);
   
   /* PrintOut("Testing Signal...\n", 18); */

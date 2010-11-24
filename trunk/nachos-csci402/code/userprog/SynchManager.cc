@@ -39,7 +39,7 @@ SynchManager::~SynchManager()
  * Create 
  * =============================================================*/
 
-int SynchManager::CreateLock()
+int SynchManager::CreateLock(char* name)
 {
 	lock_ForLockTable->Acquire();
 		int lockIndex = lockBitMap->Find(); // Marks index if found one
@@ -52,13 +52,13 @@ int SynchManager::CreateLock()
 		}
 		// make a lock entry
 		LockEntry* entry = new LockEntry();
-		entry->lock = new Lock("Lock #"+lockIndex);
+		entry->lock = new Lock(name);
 		lockEntries[lockIndex] = entry;
 	lock_ForLockTable->Release();
 	return lockIndex;
 }
 
-int SynchManager::CreateCondition()
+int SynchManager::CreateCondition(char* name)
 {
 	lock_ForCVTable->Acquire();
 		int cvIndex = cvBitMap->Find();
@@ -71,7 +71,7 @@ int SynchManager::CreateCondition()
 		}
 		// make a cv entry
 		CVEntry* entry = new CVEntry();
-		entry->cv = new Condition("CV #"+cvIndex);
+		entry->cv = new Condition(name);
 		cvEntries[cvIndex] = entry;
 	lock_ForCVTable->Release();
 	return cvIndex;
