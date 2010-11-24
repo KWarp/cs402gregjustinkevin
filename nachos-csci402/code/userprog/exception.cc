@@ -461,6 +461,8 @@ void Exit_Syscall(int status)
 {
   printf("numThreads: %d\n", processTable->getNumThreads());
   printf("Exiting with status: %d\n", status);
+  
+  #if 0
   if (processTable->getNumThreads() > 1)
   {
     processTable->killThread(currentThread->space);
@@ -473,6 +475,9 @@ void Exit_Syscall(int status)
   {
     currentThread->Finish();
   }
+  #else
+    currentThread->Finish();
+  #endif
 }
 
 int CreateCondition_Syscall(int vaddr)
@@ -964,11 +969,12 @@ void ExceptionHandler(ExceptionType which)
     return;
   }
   #ifdef CHANGED
-  #ifdef USE_TLB
-    else if (which == PageFaultException)
-    {
-      HandlePageFault();
-    }
+    #ifdef USE_TLB
+      else if (which == PageFaultException)
+      {
+        HandlePageFault();
+      }
+    #endif
     else if (which == BusErrorException)
     {
       printf("BusErrorException of type %d \n", type);
@@ -988,7 +994,6 @@ void ExceptionHandler(ExceptionType which)
       //printf("Dividing by zero to stop program for debugging...\n");
       //int fail = 1 / 0;
     }
-  #endif
   #endif
   else
   {

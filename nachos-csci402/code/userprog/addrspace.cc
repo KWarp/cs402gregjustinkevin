@@ -155,8 +155,11 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
       pageTable = new PageTableEntry[numPages + numStackPages];
     #else
       pageTable = new TranslationEntry[numPages + numStackPages];
+      // Check we're not trying to run anything too big -- at least until we have virtual memory.
+      ASSERT(numPages + numStackPages <= NumPhysPages);    
     #endif
 
+    // Read data from just the code and initData sections.
     unsigned int vpn = 0;
     for (; vpn < (unsigned int)(divRoundUp(noffH.code.size + noffH.initData.size, PageSize)); ++vpn)
     {      
@@ -342,7 +345,9 @@ void AddrSpace::SaveState()
 //----------------------------------------------------------------------
 void AddrSpace::RestoreState()
 {
-  #ifndef USE_TLB
+  #ifdef USE_TLB
+  
+  #else
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
   #endif
