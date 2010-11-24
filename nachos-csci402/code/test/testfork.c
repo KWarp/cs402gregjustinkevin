@@ -48,7 +48,7 @@ void test2()
 
 int main()
 {
-  lock = CreateLock();
+  lock = CreateLock("test fork lock", 14);
 
   PrintOut("Forking test1\n", 14);
   Fork(test1);

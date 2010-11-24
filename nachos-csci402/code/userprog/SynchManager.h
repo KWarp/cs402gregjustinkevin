@@ -65,8 +65,8 @@ class SynchManager
     SynchManager();		// initialize
     ~SynchManager();	// deallocate the condition
     
-	int CreateLock();
-    int CreateCondition();
+	int CreateLock(char* name);
+  int CreateCondition(char* name);
 	
 	void DestroyLock(int index);
 	void DestroyCondition(int index);

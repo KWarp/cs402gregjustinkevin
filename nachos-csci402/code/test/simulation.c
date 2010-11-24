@@ -114,43 +114,43 @@ void Initialize()
   int i;
 
   /* Initialize Locks */
-  lock_MrCr_LineToEnterRest = GetLock();
-  lock_OrCr_LineToOrderFood = GetLock();
+  lock_MrCr_LineToEnterRest = CreateLock("lock_MrCr_LineToEnterRest", 25);
+  lock_OrCr_LineToOrderFood = CreateLock("lock_OrCr_LineToOrderFood", 25);
   
   for (i = 0; i < count_MaxNumOrderTakers; ++i)
-    lock_OrderTakerBusy[i] = GetLock();
+    lock_OrderTakerBusy[i] = CreateLock("lock_OrderTakerBusy", 19);
 	
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    lock_CustomerSittingFromCustomerID[i] = GetLock();
+    lock_CustomerSittingFromCustomerID[i] = CreateLock("lock_CustomerSittingFromCustomerID", 34);
   
-  lock_OrCr_OrderReady = GetLock();
+  lock_OrCr_OrderReady = CreateLock("lock_OrCr_OrderReady", 20);
   
-  lock_MrWr = GetLock();
+  lock_MrWr = CreateLock("lock_MrWr", 9);
   for (i = 0; i < numInventoryItemTypes; ++i)
-	lock_MrCk_InventoryLocks[i] = GetLock();
+	lock_MrCk_InventoryLocks[i] = CreateLock("lock_MrCk_InventoryLocks", 24);
 	
-  lock_HireCook = GetLock();
-  lock_OrdersNeedingBagging = GetLock();
-  lock_OrWr_BaggedOrders = GetLock();
-  lock_Init_InitializationLock = GetLock();
+  lock_HireCook = CreateLock("lock_HireCook", 13);
+  lock_OrdersNeedingBagging = CreateLock("lock_OrdersNeedingBagging", 25);
+  lock_OrWr_BaggedOrders = CreateLock("lock_OrWr_BaggedOrders", 22);
+  lock_Init_InitializationLock = CreateLock("lock_Init_InitializationLock", 28);
 
   /* Initialize CV's */
-  CV_OrWr_BaggedOrders = CreateCondition();
-  CV_HireCook = CreateCondition();
+  CV_OrWr_BaggedOrders = CreateCondition("CV_OrWr_BaggedOrders", 20);
+  CV_HireCook = CreateCondition("CV_HireCook", 11);
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    CV_MrCk_InventoryLocks[i] = CreateCondition();
-  CV_MrWr = CreateCondition();
+    CV_MrCk_InventoryLocks[i] = CreateCondition("CV_MrCk_InventoryLocks", 22);
+  CV_MrWr = CreateCondition("CV_MrWr", 7);
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    CV_CustomerWaitingForFood[i] = CreateCondition();
-  CV_OrCr_OrderReady = CreateCondition();
+    CV_CustomerWaitingForFood[i] = CreateCondition("CV_CustomerWaitingForFood", 25);
+  CV_OrCr_OrderReady = CreateCondition("CV_OrCr_OrderReady", 18);
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    CV_CustomerSittingFromCustomerID[i] = CreateCondition();
+    CV_CustomerSittingFromCustomerID[i] = CreateCondition("CV_CustomerSittingFromCustomerID", 32);
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    CV_OrderTakerBusy[i] = CreateCondition();
+    CV_OrderTakerBusy[i] = CreateCondition("CV_OrderTakerBusy", 17);
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    CV_OrCr_LineToOrderFoodFromCustomerID[i] = CreateCondition();
+    CV_OrCr_LineToOrderFoodFromCustomerID[i] = CreateCondition("CV_OrCr_LineToOrderFoodFromCustomerID", 37);
   for (i = 0; i < count_MaxNumCustomers; ++i)
-    CV_MrCr_LineToEnterRestFromCustomerID[i] = CreateCondition();
+    CV_MrCr_LineToEnterRestFromCustomerID[i] = CreateCondition("CV_MrCr_LineToEnterRestFromCustomerID", 37);
     
   /* Initialize Monitor Variables and Globals */
 	count_NumTablesAvailable = 10;

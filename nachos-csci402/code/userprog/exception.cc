@@ -285,20 +285,25 @@ void Yield_Syscall()
 	currentThread->Yield();
 }
 
-int CreateLock_Syscall(int vaddr)
+int CreateLock_Syscall(int vaddr, int len)
 {
-	int len = 3;//omfg this needs to be a fucking parameter.
-	char* name = new char[len];
-	
-	if ( copyin(vaddr,len,name) == -1 ) 
+  char* name;
+	if ( !(name = new char[len+1]) ) {
+		printf("%s","Error allocating kernel buffer for lock name.\n");
+		return -1;
+	} 
+  name[len] = '\0';
+  
+  //read in the string at vaddr, copy it to buf
+	if ( copyin(vaddr, len, name) == -1 ) 
 	{
 		printf("%s","Bad pointer passed to CreateLock: data not written\n");
 		delete[] name;
 		return -1;
-    }
-
+  }
+  
 #ifndef NETWORK
-	return synchManager->CreateLock();
+	return synchManager->CreateLock(name);
 #else
 	return Request(CREATELOCK, name, getMailID());
 #endif
@@ -480,20 +485,25 @@ void Exit_Syscall(int status)
   #endif
 }
 
-int CreateCondition_Syscall(int vaddr)
+int CreateCondition_Syscall(int vaddr, int len)
 {
-	int len = 3;//omfg this needs to be a fucking parameter.
-	char* name = new char[len];
+	char* name;
+	if ( !(name = new char[len+1]) ) {
+		printf("%s","Error allocating kernel buffer for lock name.\n");
+		return -1;
+	} 
+  name[len] = '\0';
 	
-	if ( copyin(vaddr,len,name) == -1 ) 
+  //read in the string at vaddr, copy it to buf
+	if ( copyin(vaddr, len, name) == -1 )
 	{
-		printf("%s","Bad pointer passed to CreateLock: data not written\n");
+		printf("%s","Bad pointer passed to CreateCondition: data not written\n");
 		delete[] name;
 		return -1;
     }
 
 #ifndef NETWORK
-	return synchManager->CreateCondition();
+	return synchManager->CreateCondition(name);
 #else
 	return Request(CREATECV, name, getMailID());
 #endif
@@ -545,14 +555,19 @@ void Broadcast_Syscall(int cv, int lock)
 }
 
 #ifdef NETWORK
-int CreateMV_Syscall(int vaddr)
+int CreateMV_Syscall(int vaddr, int len)
 {
-	int len = 3;//omfg this needs to be a fucking parameter.
-	char* name = new char[len];
+	char* name;
+	if ( !(name = new char[len+1]) ) {
+		printf("%s","Error allocating kernel buffer for lock name.\n");
+		return -1;
+	} 
+  name[len] = '\0';
 	
-	if ( copyin(vaddr,len,name) == -1 ) 
+  //read in the string at vaddr, copy it to buf
+	if ( copyin(vaddr, len, name) == -1 )
 	{
-		printf("%s","Bad pointer passed to CreateLock: data not written\n");
+		printf("%s","Bad pointer passed to CreateMV: data not written\n");
 		delete[] name;
 		return -1;
   }
@@ -881,7 +896,7 @@ void ExceptionHandler(ExceptionType which)
           break;
         case SC_CreateLock:
           DEBUG('a', "CreateLock syscall. \n");
-          rv = CreateLock_Syscall(machine->ReadRegister(4));
+          rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
           break;
         case SC_DestroyLock:
           DEBUG('a', "DestroyLock syscall. \n");
@@ -897,7 +912,7 @@ void ExceptionHandler(ExceptionType which)
           break;
         case SC_CreateCondition:
           DEBUG('a', "CreateCondition syscall.\n");
-          rv = CreateCondition_Syscall(machine->ReadRegister(4));
+          rv = CreateCondition_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
           break;
         case SC_DestroyCondition:
           DEBUG('a', "DestroyCondition syscall. \n");
@@ -942,7 +957,7 @@ void ExceptionHandler(ExceptionType which)
         #ifdef NETWORK
           case SC_CreateMV:
             DEBUG('a', "CreateMV syscall. \n");
-            rv = CreateMV_Syscall(machine->ReadRegister(4));
+            rv = CreateMV_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
             break;
           case SC_SetMV:
             DEBUG('a', "SetMV syscall. \n");

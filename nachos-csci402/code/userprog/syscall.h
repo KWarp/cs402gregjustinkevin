@@ -167,22 +167,15 @@ void Broadcast(int CV, int lock);
 
 /* System call to Create a Lock, returns index into a kernel structure
  * array of actual Lock objects. */
-#ifdef NETWORK
-  int CreateLock(const char* vaddr);
-#else
-  int CreateLock();
-#endif
+int CreateLock(const char* vaddr, int len);
 
 /* System call to Destroy a Lock, takes in the index for the Lock */
 void DestroyLock(int lock);
 /* Same deal with Conditions*/
-#ifdef NETWORK
-  int CreateCondition(const char* vaddr);
-#else
-  int CreateCondition();
-#endif
+int CreateCondition(const char* vaddr, int len);
 
-int CreateMV(const char* vaddr);
+
+int CreateMV(const char* vaddr, int len);
 void SetMV(int MV, int value);
 int GetMV(int MV);
 int DestroyMV(int MV);

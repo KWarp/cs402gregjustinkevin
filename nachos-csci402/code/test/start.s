@@ -133,14 +133,6 @@ Yield:
 	j	$31
 	.end Yield
   
-	.globl GetLock
-	.ent	GetLock
-GetLock:
-	addiu $2,$0,SC_CreateLock
-	syscall
-	j	$31
-	.end GetLock
-
 
 /* Project 2 Additions*/	
 	

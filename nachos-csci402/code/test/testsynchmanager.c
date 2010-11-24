@@ -63,7 +63,7 @@ void TestCreateLock()
 	PrintOut("-TestCreateLock-\n", 17);
 	lockHandle = -1;
 	PrintOut("Creating Lock...\n", 17);
-	lockHandle = CreateLock();
+	lockHandle = CreateLock("lock #1", 7);
 	PrintOut("Index result: ", 14);
 	PrintNumber(lockHandle);
 	PrintOut("\n", 1);
@@ -71,14 +71,14 @@ void TestCreateLock()
 	PrintOut("Create 20 locks:\n", 17);
 	for(i = 0; i < 20; i++)
 	{
-		lockHandle = CreateLock();
+		lockHandle = CreateLock("lock of 20", 10);
 		PrintOut("Index result: ", 14);
 		PrintNumber(lockHandle);
 		PrintOut("\n", 1);
 	}
-	
+  
 	PrintOut("Create locks until the OS runs out:\n", 36);
-	while(CreateLock() != -1)
+	while(CreateLock("lock of infinite", 16) != -1)
 	{
 		i++;
 	}
@@ -109,7 +109,7 @@ void TestDestroyLock()
 	PrintOut("-TestDestroyLock-\n", 18);
 	
 	PrintOut("Create and Destory 1 lock\n", 26);
-	lockHandles[0] = CreateLock();
+	lockHandles[0] = CreateLock("lock#0", 6);
 	PrintOut("Index result: ", 14);
 	PrintNumber(lockHandles[0]);
 	PrintOut("\n", 1);
@@ -121,11 +121,11 @@ void TestDestroyLock()
 	DestroyLock(-1);
 	
 	PrintOut("Make 5 locks:\n", 14);
-	lockHandles[0] = CreateLock();
-	lockHandles[1] = CreateLock();
-	lockHandles[2] = CreateLock();
-	lockHandles[3] = CreateLock();
-	lockHandles[4] = CreateLock();
+	lockHandles[0] = CreateLock("lock#0", 6);
+	lockHandles[1] = CreateLock("lock#1", 6);
+	lockHandles[2] = CreateLock("lock#2", 6);
+	lockHandles[3] = CreateLock("lock#3", 6);
+	lockHandles[4] = CreateLock("lock#4", 6);
 	
 	for(i = 0; i < 5; i++)
 	{
@@ -139,9 +139,9 @@ void TestDestroyLock()
 	DestroyLock(lockHandles[2]);
 	DestroyLock(lockHandles[4]);
 	
-	lockHandles[0] = CreateLock();
-	lockHandles[2] = CreateLock();
-	lockHandles[4] = CreateLock();
+	lockHandles[0] = CreateLock("lock#0", 6);
+	lockHandles[2] = CreateLock("lock#1", 6);
+	lockHandles[4] = CreateLock("lock#2", 6);
 	
 	for(i = 0; i < 5; i++)
 	{
@@ -170,7 +170,7 @@ void TestAquire()
 	Acquire(-1);
 	
 	PrintOut("Create lock and Aquire\n", 23);
-	lockHandle = CreateLock();
+	lockHandle = CreateLock("lock#0", 6);
 	Acquire(lockHandle);
 	PrintOut("Acquire lock a second time\n", 27);
 	Acquire(lockHandle);
@@ -200,7 +200,7 @@ void TestRelease()
 	Release(-1);
 	
 	PrintOut("Create lock, Aquire and Release\n", 32);
-	lockHandle = CreateLock();
+	lockHandle = CreateLock("lock#0", 6);
 	Acquire(lockHandle);
 	Release(lockHandle);
 	PrintOut("Release lock a second time\n", 27);
@@ -225,7 +225,7 @@ void TestCreateCondition()
 	PrintOut("-TestCreateCondition-\n", 22);
 	cvHandle = -1;
 	PrintOut("Creating CV...\n", 15);
-	cvHandle = CreateCondition();
+	cvHandle = CreateCondition("cv#0", 4);
 	PrintOut("Index result: ", 14);
 	PrintNumber(cvHandle);
 	PrintOut("\n", 1);
@@ -233,14 +233,14 @@ void TestCreateCondition()
 	PrintOut("Create 20 CVs:\n", 15);
 	for(i = 0; i < 20; i++)
 	{
-		cvHandle = CreateCondition();
+		cvHandle = CreateCondition("cv of 20", 8);
 		PrintOut("Index result: ", 14);
 		PrintNumber(cvHandle);
 		PrintOut("\n", 1);
 	}
 	
 	PrintOut("Create CVs until the OS runs out:\n", 34);
-	while(CreateCondition() != -1)
+	while(CreateCondition("cv of infinite", 14) != -1)
 	{
 		i++;
 	}
@@ -270,7 +270,7 @@ void TestDestroyCondition()
 	PrintOut("-TestDestroyCondition-\n", 23);
 	
 	PrintOut("Create and Destory 1 CV\n", 26);
-	cvHandles[0] = CreateCondition();
+	cvHandles[0] = CreateCondition("cv#0", 4);
 	PrintOut("Index result: ", 14);
 	PrintNumber(cvHandles[0]);
 	PrintOut("\n", 1);
@@ -282,11 +282,11 @@ void TestDestroyCondition()
 	DestroyCondition(-1);
 	
 	PrintOut("Make 5 CVs:\n", 14);
-	cvHandles[0] = CreateCondition();
-	cvHandles[1] = CreateCondition();
-	cvHandles[2] = CreateCondition();
-	cvHandles[3] = CreateCondition();
-	cvHandles[4] = CreateCondition();
+	cvHandles[0] = CreateCondition("cv#0", 4);
+	cvHandles[1] = CreateCondition("cv#1", 4);
+	cvHandles[2] = CreateCondition("cv#2", 4);
+	cvHandles[3] = CreateCondition("cv#3", 4);
+	cvHandles[4] = CreateCondition("cv#4", 4);
 	
 	for(i = 0; i < 5; i++)
 	{
@@ -300,9 +300,9 @@ void TestDestroyCondition()
 	DestroyCondition(cvHandles[2]);
 	DestroyCondition(cvHandles[4]);
 	
-	cvHandles[0] = CreateCondition();
-	cvHandles[2] = CreateCondition();
-	cvHandles[4] = CreateCondition();
+	cvHandles[0] = CreateCondition("cv#0", 4);
+	cvHandles[2] = CreateCondition("cv#1", 4);
+	cvHandles[4] = CreateCondition("cv#2", 4);
 	
 	for(i = 0; i < 5; i++)
 	{
@@ -325,8 +325,8 @@ int globalLockHandle;
 void TestWait()
 {
 	PrintOut("-TestWait-\n", 11);
-	globalCVHandle = CreateCondition();
-	globalLockHandle = CreateLock();
+	globalCVHandle = CreateCondition("global cv", 11);
+	globalLockHandle = CreateLock("global lock", 11);
 	
 	Acquire(globalLockHandle);
 		PrintOut("Wait on Bad CV and Bad Lock\n", 28);
@@ -350,7 +350,7 @@ void TestWait()
 	DestroyCondition(globalCVHandle);
 	Wait(globalCVHandle, globalLockHandle);
 	PrintOut("Make new CV, delete lock, then Wait\n", 37);
-	globalCVHandle = CreateCondition();
+	globalCVHandle = CreateCondition("cv#0", 4);
 	DestroyLock(globalLockHandle);
 	Wait(globalCVHandle, globalLockHandle);
 	PrintOut("Delete CV and Lock, then Wait\n", 31);
@@ -387,8 +387,8 @@ void TestSignal()
 {
 	int cvHandle;
 	int lockHandle;
-	cvHandle = CreateCondition();
-	lockHandle = CreateLock();
+	cvHandle = CreateCondition("cv#0", 4);
+	lockHandle = CreateLock("lock#0", 6);
 	
 	PrintOut("-TestSignal-\n", 13);
 	PrintOut("Signal Bad CV and Bad Lock\n", 27);
@@ -404,7 +404,7 @@ void TestSignal()
 	DestroyCondition(cvHandle);
 	Signal(cvHandle, lockHandle);
 	PrintOut("Make new CV, delete lock, then Signal\n", 38);
-	cvHandle = CreateCondition();
+	cvHandle = CreateCondition("cv#1", 4);
 	DestroyLock(lockHandle);
 	Signal(cvHandle, lockHandle);
 	PrintOut("Delete CV and Lock, then Signal\n", 32);
@@ -423,8 +423,8 @@ void TestBroadcast()
 {
 	int cvHandle;
 	int lockHandle;
-	cvHandle = CreateCondition();
-	lockHandle = CreateLock();
+	cvHandle = CreateCondition("cv#0", 4);
+	lockHandle = CreateLock("lock#0", 6);
 	
 	PrintOut("-TestBroadcast-\n", 16);
 	
@@ -441,7 +441,7 @@ void TestBroadcast()
 	DestroyCondition(cvHandle);
 	Broadcast(cvHandle, lockHandle);
 	PrintOut("Make new CV, delete lock, then Broadcast\n", 41);
-	cvHandle = CreateCondition();
+	cvHandle = CreateCondition("cv#1", 4);
 	DestroyLock(lockHandle);
 	Broadcast(cvHandle, lockHandle);
 	PrintOut("Delete CV and Lock, then Broadcast\n", 35);
