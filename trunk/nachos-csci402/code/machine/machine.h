@@ -34,7 +34,7 @@ using namespace std;
 					// the disk sector size, for
 					// simplicity
 
-#if 0 // def CHANGED
+#ifdef CHANGED
   #define NumPhysPages    1048576 // HUGE!!!
 #else
   #define NumPhysPages    32

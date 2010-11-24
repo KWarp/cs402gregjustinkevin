@@ -4,7 +4,7 @@
 #include "addrspace.h"
 #include "bitmap.h"
 
-#define MAX_NUM_PROCESSES 10
+#define MAX_NUM_PROCESSES 100
 
 class ProcessTableEntry
 {
