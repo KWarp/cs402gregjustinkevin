@@ -598,6 +598,13 @@ int DestroyMV_Syscall(int mv)
   
   return Request(DESTROYMV, indexBuf, getMailID());
 }
+
+int StartSimulation_Syscall()
+{
+  // send a msg to this programs network thread
+  
+  // when replied to, the simulation can run
+}
 #endif
 
 int RandomNumber_Syscall(int count)
@@ -971,6 +978,11 @@ void ExceptionHandler(ExceptionType which)
             DEBUG('a', "DestroyMV syscall. \n");
             rv = DestroyMV_Syscall(machine->ReadRegister(4));
             break;
+          case SC_StartSimulation:
+            DEBUG('a', "StartSimulation syscall. \n");
+            rv = StartSimulation_Syscall();
+            break;
+            
         #endif
       #endif
     }
