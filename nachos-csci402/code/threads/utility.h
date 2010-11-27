@@ -32,8 +32,10 @@
 						// This is the same definition 
 						// as in the g++ library.
 
-#define min(a,b)  (((a) < (b)) ? (a) : (b))
-#define max(a,b)  (((a) > (b)) ? (a) : (b))
+// The following two lines cause a compiler error when including vector in the same file 
+//  because they are re-defining macros that already exist in the stl library.
+// #define min(a,b)  (((a) < (b)) ? (a) : (b))
+// #define max(a,b)  (((a) > (b)) ? (a) : (b))
 
 // Divide and either round up or down 
 #define divRoundDown(n,s)  ((n) / (s))

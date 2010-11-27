@@ -19,6 +19,11 @@
 #include "copyright.h"
 #include "post.h"
 
+#ifdef CHANGED
+  #include <time.h>
+  #include "system.h"
+#endif
+
 extern "C" {
 	int bcopy(char *, char *, int);
 };
@@ -278,6 +283,14 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
     pktHdr.from = netAddr;
     pktHdr.length = mailHdr.length + sizeof(MailHeader);
 
+    // Add sent message to the list of messages that have not been acked 
+    //  so we can resend it later if necessary.
+    #ifdef CHANGED
+      unAckedMessagesLock->Acquire();
+        unAckedMessages.push_back(new UnAckedMessage(time(NULL), pktHdr, mailHdr, data));
+      unAckedMessagesLock->Release();
+    #endif
+    
     // concatenate MailHeader and data
     bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
     bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
@@ -290,7 +303,8 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
     sendLock->Release();
 
     delete [] buffer;			// we've sent the message, so
-					// we can delete our buffer
+          // we can delete our buffer
+    
     return success;
 }
 

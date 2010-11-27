@@ -70,6 +70,13 @@ extern Timer *timer;				        // the hardware alarm clock
   #include "post.h"
   extern PostOffice* postOffice;
   extern int serverCount;
+  
+  #ifdef CHANGED
+    #include "vector"
+    #include "../network/unackedmessage.h"
+    extern Lock* unAckedMessagesLock;
+    extern vector<UnAckedMessage*> unAckedMessages;
+  #endif
 #endif
 
 #endif // SYSTEM_H
