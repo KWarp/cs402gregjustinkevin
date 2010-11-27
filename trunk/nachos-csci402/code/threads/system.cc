@@ -8,6 +8,10 @@
 #include "copyright.h"
 #include "system.h"
 
+#ifdef CHANGED
+  #include <time.h>
+#endif
+
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
 
@@ -49,6 +53,12 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
 #ifdef NETWORK
   PostOffice *postOffice;
 	int serverCount = 1;
+  
+  #ifdef CHANGED
+    vector<UnAckedMessage*> unAckedMessages;
+    Lock* unAckedMessagesLock;
+    Timer* msgResendTimer;
+  #endif
 #endif
 
 // External definition, to allow us to take a pointer to this function
@@ -76,6 +86,37 @@ static void TimerInterruptHandler(int dummy)
   if (interrupt->getStatus() != IdleMode)
     interrupt->YieldOnReturn();
 }
+
+#ifdef CHANGED
+#ifdef NETWORK
+// Gets called on a timer.
+static void MsgResendInterruptHandler(int dummy)
+{
+  static int ResendTimeout = 60;  // Num seconds without receiving an Ack until we resend a message.
+
+  unAckedMessagesLock->Acquire();
+    // Resend any UnAckedMessages that have not been resent for too long.
+    time_t currentTime = time(NULL);
+    for (unsigned int i = 0; i < unAckedMessages.size(); ++i)
+    {
+      if (currentTime - unAckedMessages[i]->lastTimeSent > ResendTimeout)
+      {
+        // Resend the message.
+        postOffice->Send(unAckedMessages[i]->pktHdr, unAckedMessages[i]->mailHdr, 
+                         unAckedMessages[i]->data);
+        
+        // The line above will add another message to the end of unAckedMessages with 
+        //  lastTimeSent updated and with the same data. Therefore, we need to remove the entry at this index.
+        unAckedMessages.erase(unAckedMessages.begin() + i);
+        
+        // Decrement i to point at the next expected value to examine.
+        i--;
+      }
+    }
+  unAckedMessagesLock->Release();
+}
+#endif
+#endif
 
 //----------------------------------------------------------------------
 // Initialize
@@ -107,6 +148,10 @@ void Initialize(int argc, char **argv)
   #ifdef NETWORK
     double rely = 1;		// network reliability
     int netname = 0;		// UNIX socket name
+    
+    #ifdef CHANGED
+      unAckedMessagesLock = new Lock("UnAckedMessages Lock");
+    #endif
   #endif
     
   for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount)
@@ -182,13 +227,19 @@ void Initialize(int argc, char **argv)
   scheduler = new Scheduler();		// initialize the ready queue
   if (randomYield)				// start the timer (if needed)
     timer = new Timer(TimerInterruptHandler, 0, randomYield);
+    
+  #ifdef CHANGED
+    #ifdef NETWORK
+      msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
+    #endif
+  #endif
 
   threadToBeDestroyed = NULL;
 
   // We didn't explicitly allocate the current thread we are running in.
   // But if it ever tries to give up the CPU, we better have a Thread
   // object to save its state. 
-  currentThread = new Thread("main");		
+  currentThread = new Thread("main");	
   currentThread->setStatus(RUNNING);
 
   interrupt->Enable();
@@ -200,7 +251,7 @@ void Initialize(int argc, char **argv)
     #ifdef CHANGED
       ppnInUseBitMap = new BitMap(NumPhysPages);
       ppnInUseLock = new Lock("ppnInUseLock");
-      processTable = new ProcessTable();
+      // processTable = new ProcessTable();
     #endif
   #endif
 

@@ -388,7 +388,7 @@ void Exec_Syscall(unsigned int executableFileName)
     
     Thread* thread = new Thread("Exec'd Process Thread");
     thread->space = new AddrSpace(executable);
-    processTable->addProcess(thread->space);
+    // processTable->addProcess(thread->space);
     
     #ifdef USE_TLB
       // Invalidate all entries in the TLB.
@@ -445,8 +445,8 @@ void Fork_Syscall(unsigned int functionPtr)
     thread->stackStartIndex = currentThread->space->AllocateStack();
 
     // Add new thread to current process in processTable.
-    processTable->addThread(thread->space);
-
+    // processTable->addThread(thread->space);
+    
     #ifdef USE_TLB
       // Invalidate all entries in the TLB.
       IntStatus old = interrupt->SetLevel(IntOff);
@@ -464,7 +464,7 @@ void Fork_Syscall(unsigned int functionPtr)
 
 void Exit_Syscall(int status)
 {
-  printf("numThreads: %d\n", processTable->getNumThreads());
+  // printf("numThreads: %d\n", processTable->getNumThreads());
   printf("Exiting with status: %d\n", status);
   
   #if 0
@@ -481,7 +481,8 @@ void Exit_Syscall(int status)
     currentThread->Finish();
   }
   #else
-    currentThread->Finish();
+  currentThread->Finish();
+  return;
   #endif
 }
 
@@ -799,7 +800,7 @@ void HandlePageFault()
     // For now, read the value from the PageTable straight into the TLB.
     int vpn = machine->ReadRegister(BadVAddrReg) / PageSize;
 
-    ppnInUseLock->Acquire();
+    // ppnInUseLock->Acquire();
     
     // Look in the ipt if the vpn for the currentProcess is already in memory.
     int ppn = findIPTIndex(vpn);
@@ -811,7 +812,7 @@ void HandlePageFault()
     // Update the tlb from the ipt.
     updateTLBFromIPT(ppn);
     
-    ppnInUseLock->Release();
+    // ppnInUseLock->Release();
 }
 
 #endif // USE_TLB
