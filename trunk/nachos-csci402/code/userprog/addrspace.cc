@@ -364,7 +364,6 @@ void AddrSpace::RestoreState()
   //----------------------------------------------------------------------
   int AddrSpace::AllocateStack()
   {
-    // printf("Allocating a new stack\n");
     ppnInUseLock->Acquire();
       int numStackPages = divRoundUp(UserStackSize, PageSize);
       
