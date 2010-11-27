@@ -240,8 +240,16 @@ DestroyMV:
 	j	$31
 	.end DestroyMV
 
+	.globl StartSimulation
+	.ent	StartSimulation
+StartSimulation:
+	addiu $2,$0,SC_StartSimulation
+	syscall
+	j	$31
+	.end StartSimulation
+
 	.globl PrintOut
-	.ent	PrintOut
+	.ent	PrintOut  
 PrintOut:
 	addiu $2,$0,SC_PrintOut
 	syscall

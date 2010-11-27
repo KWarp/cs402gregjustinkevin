@@ -292,6 +292,7 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 
 int main()
 {
+  StartSimulation();
   RunSimulation(-1, -1, -1);
   return 0;
 }
