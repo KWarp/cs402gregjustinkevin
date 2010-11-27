@@ -72,7 +72,7 @@ int Request(int requestType, char* data, int mailID)
 	char* request = new char [MaxMailSize];
     sprintf(request,"%d_%s",requestType, data);
 	
-	for(int i=0;i<MaxMailSize;i++)
+	for(unsigned int i=0;i<MaxMailSize;i++)
 		buffer[i]='\0';
 		
 	PacketHeader outPktHdr, inPktHdr;
@@ -100,7 +100,7 @@ bool HandleRequest()
 	PacketHeader outPktHdr, inPktHdr;
     MailHeader outMailHdr, inMailHdr;
 	
-	for(int i=0;i<MaxMailSize;buffer[i++]='\0');
+	for(int i=0;i<(int)MaxMailSize;buffer[i++]='\0');
 	char reqType[MaxMailSize];		
 	int requestType = -1;			
 	char* localLockName = new char[32];		
@@ -178,7 +178,7 @@ bool HandleRequest()
 			
 					if(localLockIndex[clientNum] == -1)
 					{
-						for(int i=0;lockName[clientNum][i]!='\0';i++)
+						for(i=0;lockName[clientNum][i]!='\0';i++)
 						{
 							localLockName[i]=lockName[clientNum][i];
 							localLockName[i+1]= '\0';
@@ -251,7 +251,7 @@ bool HandleRequest()
 			verifyResponses[clientNum]++;
 			if (verifyResponses[clientNum]==serverCount-1)
 			{
-				for (int i=0; i< serverCount-1; i++)
+				for (i=0; i< serverCount-1; i++)
 				{
 					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
 					{
@@ -265,7 +265,7 @@ bool HandleRequest()
 				}
 				if(localLockIndex[clientNum] == -1 && otherServerLockIndex ==-1) 
 				{
-					for(int i=0;lockName[clientNum][i]!='\0';i++){
+					for(i=0;lockName[clientNum][i]!='\0';i++){
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
 					}
@@ -319,8 +319,6 @@ bool HandleRequest()
 			
 			printf("Verifying Lock\n");
 			lockIndex=-1;
-			char client[3];
-			int clientNum;
 			request = new char [MaxMailSize];
 			x=0;
 			do 
@@ -396,7 +394,7 @@ bool HandleRequest()
 				{
 					if(localLockIndex[clientNum] == -1) 
 					{
-						for(int i=0;lockName[clientNum][i]!='\0';i++)
+						for(i=0;lockName[clientNum][i]!='\0';i++)
 						{
 							localLockName[i]=lockName[clientNum][i];
 							localLockName[i+1]= '\0';
@@ -468,7 +466,7 @@ bool HandleRequest()
 			verifyResponses[clientNum]++;
 			if (verifyResponses[clientNum]==serverCount-1)
 			{
-				for (int i=0; i< serverCount-1; i++)
+				for (i=0; i< serverCount-1; i++)
 				{
 					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
 					{
@@ -482,7 +480,7 @@ bool HandleRequest()
 				}
 				if(localLockIndex[clientNum] == -1 && otherServerLockIndex ==-1) //If not found here or elsewhere
 				{
-					for(int i=0;lockName[clientNum][i]!='\0';i++){
+					for(i=0;lockName[clientNum][i]!='\0';i++){
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
 					}
@@ -553,7 +551,7 @@ bool HandleRequest()
 				localLockName[a++] = c; 
 			}
 			localLockName[a] = '\0';
-			for(int j=0; j<createDCVIndex; j++)
+			for(j=0; j<createDCVIndex; j++)
 			{
 				if(!strcmp(cvs[j]->getName(), localLockName))
 				{
@@ -606,7 +604,7 @@ bool HandleRequest()
 				{
 					if(localLockIndex[clientNum] == -1) 
 					{
-						for(int i=0;lockName[clientNum][i]!='\0';i++)
+						for(i=0;lockName[clientNum][i]!='\0';i++)
 						{
 							localLockName[i]=lockName[clientNum][i];
 							localLockName[i+1]= '\0';
@@ -679,7 +677,7 @@ bool HandleRequest()
 			verifyResponses[clientNum]++;
 			if (verifyResponses[clientNum]==serverCount-1)
 			{
-				for (int i=0; i< serverCount-1; i++)
+				for (i=0; i< serverCount-1; i++)
 				{
 					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
 					{
@@ -693,7 +691,7 @@ bool HandleRequest()
 				}
 				if(localLockIndex[clientNum] == -1 && otherServerLockIndex ==-1) 
 				{
-					for(int i=0;lockName[clientNum][i]!='\0';i++){
+					for(i=0;lockName[clientNum][i]!='\0';i++){
 						localLockName[i]=lockName[clientNum][i];
 						localLockName[i+1]= '\0';
 					}
@@ -765,7 +763,7 @@ bool HandleRequest()
 				localLockName[a++] = c; 
 			}
 			localLockName[a] = '\0';
-			for(int j=0; j<createDMVIndex; j++)
+			for(j=0; j<createDMVIndex; j++)
 			{
 				if(!strcmp(mvs[j]->getName(), localLockName))
 				{
@@ -1113,7 +1111,7 @@ bool HandleRequest()
 			cvNumIndex = 0;
 			if(cvs[cvIndex%MAX_DCV] == NULL)
 			{
-				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, client, -1);
+				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, (int)client, -1);
 				
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
@@ -1136,7 +1134,7 @@ bool HandleRequest()
 				Message* reply = new Message(outPktHdr, outMailHdr, ack);
 				cvs[cvIndex%MAX_DCV]->QueueReply(reply);
 
-				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, client, cvIndex);
+				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, (int)client, cvIndex);
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
 				outMailHdr.from = postOffice->GetID();
@@ -1275,7 +1273,7 @@ bool HandleRequest()
 			lockIndex = atoi(lockIndexBuf); 
 			if(dlocks[lockIndex%MAX_DLOCK] == NULL)
 			{
-				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, client, -1);
+				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, (int)client, -1);
 				
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
@@ -1286,7 +1284,7 @@ bool HandleRequest()
 			}
 			else //found
 			{
-				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, client, lockIndex);
+				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, (int)client, lockIndex);
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
 				outMailHdr.from = postOffice->GetID();
@@ -1452,7 +1450,7 @@ bool HandleRequest()
 			lockIndex = atoi(lockIndexBuf);
 			if(dlocks[lockIndex%MAX_DLOCK] == NULL)
 			{
-				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, client, -1);
+				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, (int)client, -1);
 	
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
@@ -1463,7 +1461,7 @@ bool HandleRequest()
 			}
 			else if (dlocks[lockIndex]->getOwnerMailID() == -1)
 			{
-				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, client, -1);
+				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, (int)client, -1);
 	
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
@@ -1474,7 +1472,7 @@ bool HandleRequest()
 			}
 			else
 			{
-				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, client, lockIndex);
+				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, (int)client, lockIndex);
 				outPktHdr.to = clientNum/10+serverCount;
 				outMailHdr.to = (clientNum+10)%10;
 				outMailHdr.from = postOffice->GetID();
@@ -1848,6 +1846,7 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	else
 	{
 	}
+  return false;
 }
 
 bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
@@ -1906,6 +1905,7 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 	{
 		printf("problem; shouldn't have gotten past switch statement w/o being forwarded\n");
 	}
+  return false;
 }
 
 bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
@@ -1960,6 +1960,7 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 	{
 		printf("problem; shouldn't have gotten past switch statement w/o being forwarded\n");
 	}
+  return false;
 }
 
 bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
@@ -1999,6 +2000,7 @@ bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeade
 	{
 		printf("problem; shouldn't have gotten past switch statement w/o being forwarded\n");
 	}
+  return false;
 }
 
 bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
@@ -2058,6 +2060,7 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	else
 	{
 	}
+  return false;
 }
 
 bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
