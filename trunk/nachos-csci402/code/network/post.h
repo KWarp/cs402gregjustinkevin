@@ -23,10 +23,10 @@
 // All rights reserved.  See copyright.h for copyright notice and limitation 
 // of liability and disclaimer of warranty provisions.
 
-#include "copyright.h"
-
 #ifndef POST_H
 #define POST_H
+
+#include "copyright.h"
 
 #include "network.h"
 #include "synchlist.h"

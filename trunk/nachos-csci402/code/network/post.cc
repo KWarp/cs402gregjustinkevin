@@ -20,7 +20,7 @@
 #include "post.h"
 
 #ifdef CHANGED
-  #include <time.h>
+  #include <sys/time.h>
   #include "system.h"
 #endif
 
@@ -287,7 +287,9 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
     //  so we can resend it later if necessary.
     #ifdef CHANGED
       unAckedMessagesLock->Acquire();
-        unAckedMessages.push_back(new UnAckedMessage(time(NULL), pktHdr, mailHdr, data));
+        timeval timeStamp;
+        gettimeofday(&timeStamp, NULL);
+        unAckedMessages.push_back(new UnAckedMessage(timeStamp, pktHdr, mailHdr, data));
       unAckedMessagesLock->Release();
     #endif
     
@@ -365,6 +367,10 @@ PostOffice::PacketSent()
 #ifdef CHANGED
 int PostOffice::GetID()
 { 
+  #if 1 // This is the machine ID.
     return netAddr;
+  #else
+    return currentThread->mailID;
+  #endif
 }
 #endif
