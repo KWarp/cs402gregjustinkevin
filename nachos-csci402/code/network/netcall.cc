@@ -67,16 +67,20 @@ int createDLockIndex = 0;
 int createDCVIndex = 0; 
 int createDMVIndex = 0; 
 
-int Request(int requestType, char* data, int machineID, int mailID)
+int Request(RequestType requestType, char* data, int machineID, int mailID)
 {
-	char* request = new char [MaxMailSize];
-    sprintf(request,"%d_%s",requestType, data);
+  // Send an Ack to the message sender.
+  timeval timeStamp;
+  gettimeofday(&timeStamp, NULL);
   
-	for(unsigned int i=0;i<MaxMailSize;i++)
+  char request[MaxMailSize];
+  sprintf(request, "%d:%d!%d_%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, requestType, data);
+  
+	for(int i = 0; i < (int)MaxMailSize; ++i)
 		buffer[i]='\0';
 		
-	PacketHeader outPktHdr, inPktHdr;
-    MailHeader outMailHdr, inMailHdr;
+  PacketHeader outPktHdr, inPktHdr;
+  MailHeader outMailHdr, inMailHdr;
 
     outPktHdr.from = postOffice->GetID();
     outMailHdr.from = currentThread->mailID;
@@ -84,16 +88,37 @@ int Request(int requestType, char* data, int machineID, int mailID)
     outMailHdr.to = mailID;
     outMailHdr.length = strlen(request) + 1;
 
-    if ( !postOffice->Send(outPktHdr, outMailHdr, request))
-    {
-      interrupt->Halt();
-    }
-    
-    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
-	
-  // TODO: Remove the packet we just received from our network thread from unAckedMessages.
+  if (!postOffice->Send(outPktHdr, outMailHdr, request))
+    interrupt->Halt();
+
+  postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+  parseMessage(buffer, timeStamp, requestType);
   
-	return atoi(buffer); 
+  // Remove the message we just received from our network thread from unAckedMessages.
+  bool found = false;
+  for (int i = 0; i < (int)unAckedMessages.size(); ++i)
+  {
+    timeval unAckedMessageTime;
+    RequestType unAckedMessageRequestType = INVALIDTYPE;
+    parseMessage(unAckedMessages[i]->data, unAckedMessageTime, unAckedMessageRequestType);
+    
+    if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
+        unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
+        unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
+        unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
+        unAckedMessageTime.tv_sec == timeStamp.tv_sec &&
+        unAckedMessageTime.tv_usec == timeStamp.tv_usec)
+    {
+      // Remove the message from unAckedMessages, since it has now been Acked.
+      unAckedMessages.erase(unAckedMessages.begin() + i);
+      found = true;
+      break;
+    }
+  }
+  if (!found) // Error!!! This should never happen.
+    printf("Request: Ack message not found in unAckedMessages\n");
+
+  return atoi(buffer); 
 }
 
 // Parses timeStamp and requestType from the data packet, buf.
@@ -140,17 +165,59 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
   return i;
 }
 
-void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* buf)
+void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
 {
-  // Add buffer to receivedMessages.
-  // If the message is from my UserProgram thread.
-  //  Remove message from unAckedMessages to simulate an Ack.
-  // Else if the message is from another NetworkThread (including self).
-  //  Send an Ack to the message sender.
-  
-  
-  // if the message is from our own UserProg, delete the entry in unAckedMessages to simulate an Ack.
-  // else Send an Ack
+  // Find the message in unAckedMessages.
+  bool found = false;
+  for (int i = 0; i < (int)unAckedMessages.size(); ++i)
+  {
+    if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
+        unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
+        unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
+        unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
+        unAckedMessages[i]->mailHdr.length == inMailHdr.length)
+    {
+      found = true;
+      for (int j = 0; j < (int)inMailHdr.length; ++j)
+      {
+        if (unAckedMessages[i]->data[i] != inData[j])
+          found = false;
+      }
+    }
+    if (found)
+    {
+      // If the message is from our UserProg thread.
+      if (inPktHdr.from == postOffice->GetID() &&
+          inMailHdr.from == currentThread->mailID + 1)
+      {
+        // Remove the entry from unAckedMessage to simulate an Ack.
+        unAckedMessages.erase(unAckedMessages.begin() + i);
+        break;
+      }
+      else // if the message is from another thread (including self?).
+      {  
+        // Send an Ack to the message sender.
+        timeval timeStamp;
+        gettimeofday(&timeStamp, NULL);
+        
+        char request[MaxMailSize];
+        sprintf(request, "%d:%d!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, ACK);
+        
+        PacketHeader outPktHdr;
+        MailHeader outMailHdr;
+        outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
+        outPktHdr.to = inPktHdr.from;
+        outMailHdr.to = inMailHdr.from;
+        outMailHdr.length = strlen(buffer) + 1;
+        
+        if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
+          interrupt->Halt();
+      }
+    }
+    // Else
+    //  Serious problems!!!
+  }
 }
 
 bool HandleRequest()

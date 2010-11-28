@@ -401,11 +401,12 @@ void Exec_Syscall(unsigned int executableFileName)
     
     // delete executable;
     delete buf;
-  execLock->Release();
 
   #ifdef NETWORK
 	assignMailID(thread->space);
   #endif
+  execLock->Release();
+  
   thread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0);  
 }
 
