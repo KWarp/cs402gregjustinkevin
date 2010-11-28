@@ -73,6 +73,7 @@ extern Timer *timer;				        // the hardware alarm clock
   
   #ifdef CHANGED
     #include "vector"
+    #include "sys/time.h"
     #include "../network/unackedmessage.h"
     extern vector<UnAckedMessage*> unAckedMessages;
     extern Lock* unAckedMessagesLock;
@@ -89,6 +90,7 @@ extern Timer *timer;				        // the hardware alarm clock
       }
       int machineID;
       int mailID;
+      timeval timeStamp;
     };
     
     extern vector<NetThreadInfoEntry*> globalNetThreadInfo;
