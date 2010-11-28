@@ -45,6 +45,19 @@
 #include "addrspace.h"
 #endif
 
+
+#ifdef CHANGED
+  #ifdef NETWORK
+    // This causes a weird include loop that causes a compiler error.
+    // #include "../network/post.h"
+    
+    // Do this instead.
+    #ifndef MailBoxAddress
+      typedef int MailBoxAddress;
+    #endif
+  #endif
+#endif
+
 // CPU register state to be saved on context switch.  
 // The SPARC and MIPS only need 10 registers, but the Snake needs 18.
 // For simplicity, this is just the max over all architectures.
@@ -101,6 +114,12 @@ class Thread {
     void setStatus(ThreadStatus st) { status = st; }
     char* getName() { return (name); }
     void Print() { printf("%s, ", name); }
+    
+    #ifdef CHANGED
+      #ifdef NETWORK
+        MailBoxAddress mailID;
+      #endif
+    #endif
 
   private:
     // some of the private data for this class is listed above

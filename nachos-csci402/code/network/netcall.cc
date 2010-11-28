@@ -1,4 +1,5 @@
 #include "netcall.h"
+#include <sys/time.h>
 
 Message::Message(PacketHeader pHdr, MailHeader mHdr, char *d)
 {
@@ -66,7 +67,6 @@ int createDLockIndex = 0;
 int createDCVIndex = 0; 
 int createDMVIndex = 0; 
 
-
 int Request(int requestType, char* data, int mailID)
 {
 	char* request = new char [MaxMailSize];
@@ -83,14 +83,67 @@ int Request(int requestType, char* data, int mailID)
     outMailHdr.from = postOffice->GetID(); 
     outMailHdr.length = strlen(request) + 1;
 
-    if ( !postOffice->Send(outPktHdr, outMailHdr, request)) 
+    if ( !postOffice->Send(outPktHdr, outMailHdr, request))
 	{
       interrupt->Halt();
     }
     
     postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
 	
+  // TODO: Remove the packet we just received from our network thread from unAckedMessages.
+  
 	return atoi(buffer); 
+}
+
+// Parses timeStamp and requestType from the data packet, buf.
+// Returns the index of the start of data.
+int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
+{
+  char reqTypeStr[MaxMailSize];
+  char timeStampStr[MaxMailSize];
+  char c = '?';
+  int i = 0;
+  
+  // Parse timeStamp.
+  while (c != ':')
+  {
+    c = buf[i];
+    if (c == ':')
+      break;
+    timeStampStr[i++] = c;
+  }
+  timeStampStr[i++] = '\0';
+  timeStamp.tv_sec = atoi(timeStampStr);
+  
+  while (c != '!')
+  {
+    c = buf[i];
+    if (c == '!')
+      break;
+    timeStampStr[i++] = c;
+  }
+  timeStampStr[i++] = '\0';
+  timeStamp.tv_usec = atoi(timeStampStr);
+  
+  // Parse requestType.
+  while (c != '_')
+  {
+    c = buf[i];
+    if (c == '_')
+      break;
+    reqTypeStr[i++] = c;
+  }
+  reqTypeStr[i++] = '\0'; 
+  requestType = (RequestType)atoi(reqTypeStr);
+  
+  return i;
+}
+
+void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* buf)
+{
+  // Add buffer to receivedMessages.
+  // if the message is from our own UserProg, delete the entry in unAckedMessages to simulate an Ack.
+  // else Send an Ack
 }
 
 bool HandleRequest()
@@ -100,9 +153,9 @@ bool HandleRequest()
 	PacketHeader outPktHdr, inPktHdr;
     MailHeader outMailHdr, inMailHdr;
 	
-	for(int i=0;i<(int)MaxMailSize;buffer[i++]='\0');
-	char reqType[MaxMailSize];		
-	int requestType = -1;			
+	for(int i=0;i<(int)MaxMailSize;buffer[i++]='\0');	
+	RequestType requestType = INVALIDTYPE;
+  timeval timeStamp;	
 	char* localLockName = new char[32];		
 	char lockIndexBuf[MaxMailSize];
 	char mvIndexBuf[MaxMailSize];	
@@ -131,21 +184,10 @@ bool HandleRequest()
 
 	postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
   
-	char c = '?';
-	int i = 0;
+  int i = parseMessage(buffer, timeStamp, requestType);
+	char c = buffer[i];
+	
   int a, m, j, x;
-	
-	while(c!='_') 
-	{
-		c = buffer[i];
-		if(c=='_')
-			break;
-		reqType[i++] = c;
-	}
-  
-	reqType[i] = '\0'; 
-	requestType = atoi(reqType); 
-	
 	switch(requestType)
 	{
     printf("requestType: %d\n", requestType);

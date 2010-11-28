@@ -9,7 +9,7 @@
 #include "system.h"
 
 #ifdef CHANGED
-  #include <time.h>
+  #include <sys/time.h>
 #endif
 
 // This defines *all* of the global data structures used by Nachos.
@@ -55,9 +55,17 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
 	int serverCount = 1;
   
   #ifdef CHANGED
+    #include "netcall.h"
     vector<UnAckedMessage*> unAckedMessages;
     Lock* unAckedMessagesLock;
     Timer* msgResendTimer;
+    vector<UnAckedMessage*> receivedMessages;
+    Lock* receivedMessagesLock;
+    vector<NetThreadInfoEntry*> globalNetThreadInfo;
+    
+    // Hard-coded network location of the registration server.
+    static const int RegistrationServerMachineID = 0;
+    static const int RegistrationServerMailID = 0;
   #endif
 #endif
 
@@ -92,14 +100,14 @@ static void TimerInterruptHandler(int dummy)
 // Gets called on a timer.
 static void MsgResendInterruptHandler(int dummy)
 {
-  static int ResendTimeout = 60;  // Num seconds without receiving an Ack until we resend a message.
+  static int ResendTimeout = 5;  // Num seconds without receiving an Ack until we resend a message.
 
   unAckedMessagesLock->Acquire();
     // Resend any UnAckedMessages that have not been resent for too long.
     time_t currentTime = time(NULL);
     for (unsigned int i = 0; i < unAckedMessages.size(); ++i)
     {
-      if (currentTime - unAckedMessages[i]->lastTimeSent > ResendTimeout)
+      if (currentTime - unAckedMessages[i]->lastTimeSent.tv_sec > ResendTimeout)
       {
         // Resend the message.
         postOffice->Send(unAckedMessages[i]->pktHdr, unAckedMessages[i]->mailHdr, 
@@ -115,8 +123,278 @@ static void MsgResendInterruptHandler(int dummy)
     }
   unAckedMessagesLock->Release();
 }
-#endif
-#endif
+
+int totalNumNetworkThreads = 10;
+void RegServer()
+{
+  PacketHeader inPktHdr, outPktHdr;
+  MailHeader inMailHdr, outMailHdr;
+  char buffer[MaxMailSize];
+  RequestType requestType = INVALIDTYPE;
+  timeval timeStamp;
+  int i = 0;
+  int j = 0;
+  int machineID = 0;
+  int mailID = 0;
+  char c = '?';
+  char tmpStr[MaxMailSize];
+  char request[MaxMailSize];
+  static const int ThreadsPerMessage = 5; 
+  
+  while ((int)globalNetThreadInfo.size() < totalNumNetworkThreads)
+  {
+    // Wait for a REGNETTHREAD message.
+    while (requestType != REGNETTHREAD)
+    {
+      postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+      i = parseMessage(buffer, timeStamp, requestType);
+    }
+    
+    Ack(inPktHdr, inMailHdr, buffer);
+
+    // Parse machineID.
+    c = '?';
+    while (c != '-')
+    {
+      c = buffer[i];
+      if (c == '-')
+        break;
+      tmpStr[i++] = c;
+    }
+    tmpStr[i++] = '\0';
+    machineID = atoi(tmpStr);
+    
+    // Parse mailID.
+    c = '?';
+    while (c != '\0')
+    {
+      c = buffer[i];
+      if (c == '\0')
+        break;
+      tmpStr[i++] = c;
+    }
+    tmpStr[i++] = '\0';
+    mailID = atoi(tmpStr);
+    
+    // Clear the input buffer for next time.
+    for(i = 0; i < (int)MaxMailSize; ++i)
+      buffer[i] = '\0';
+    
+    // Add the network thread that just messaged us to globalNetThreadInfo.
+    NetThreadInfoEntry* entry = new NetThreadInfoEntry(machineID, mailID);
+    globalNetThreadInfo.push_back(entry);
+    
+    // Respond to the network thread with the number of messages it will receive containing globalNetThreadInfo.
+    
+    // Clear the output buffer.
+    for(i = 0; i < (int)MaxMailSize; ++i)
+      request[i] = '\0';
+    
+    sprintf(request, "%l:%l!%d_%d", timeStamp.tv_sec, timeStamp.tv_usec, REGNETTHREADRESPONSE, 
+            divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
+    
+    outPktHdr.from = postOffice->GetID();
+    outMailHdr.from = currentThread->mailID;
+    outPktHdr.to = inPktHdr.from;
+    outMailHdr.to = inMailHdr.from;
+    outMailHdr.length = strlen(request) + 1;
+    
+    if (!postOffice->Send(outPktHdr, outMailHdr, request))
+      interrupt->Halt();
+  }
+  
+  // Message all the threads with globalNetThreadInfo.
+  for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
+  {
+    // Clear the output buffer.
+    for(i = 0; i < (int)MaxMailSize; ++i)
+      request[i] = '\0';
+  
+    sprintf(request, "%l:%l!%d_", timeStamp.tv_sec, timeStamp.tv_usec, GROUPINFO);
+    
+    for (j = 0; j < ThreadsPerMessage && i < (int)globalNetThreadInfo.size(); ++j, ++i)
+    {
+      // Convert ints to char* strings we can send.
+      char machineIDBuf[2];
+      char mailIDBuf[3];
+      itoa(machineIDBuf, globalNetThreadInfo[i]->machineID, 10);
+      itoa(mailIDBuf, globalNetThreadInfo[i]->mailID, 10);
+      sprintf(request + strlen(request), "%s%s", machineIDBuf, mailIDBuf);
+    }
+
+    // Send the all the threads who are waiting.
+    for (j = 0; j < (int)globalNetThreadInfo.size(); ++j)
+    {
+      outPktHdr.from = postOffice->GetID();
+      outMailHdr.from = currentThread->mailID;
+      outPktHdr.to = globalNetThreadInfo[j]->machineID;
+      outMailHdr.to = globalNetThreadInfo[j]->mailID;
+      outMailHdr.length = strlen(request) + 1;
+      
+      if (!postOffice->Send(outPktHdr, outMailHdr, request))
+        interrupt->Halt();
+    }
+  }
+}
+
+// Register with the Registration Server before we start processing messages.
+void RegisterNetworkThread()
+{
+  PacketHeader inPktHdr, outPktHdr;
+  MailHeader inMailHdr, outMailHdr;
+  char buffer[MaxMailSize];
+  RequestType requestType = INVALIDTYPE;
+  timeval timeStamp;
+  int i = 0;
+  int numMessages = 0;
+  char c = '?';
+  char tmpStr[MaxMailSize];
+  char request[MaxMailSize];
+  
+  // Wait for StartSimulation message from UserProgram.
+  while (requestType != STARTSIMULATION)
+  {
+    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    parseMessage(buffer, timeStamp, requestType);
+  }
+  
+  // Ack that we got the message by removing it from unAckedMessages.
+  Ack(inPktHdr, inMailHdr, buffer);
+  
+  // Message server with machineID and mailBoxID.
+  sprintf(request, "%l:%l!%d_%d-%d", timeStamp.tv_sec, timeStamp.tv_usec, REGNETTHREAD, 
+          postOffice->GetID(), currentThread->mailID);
+	
+  // Do error checking for length of request here?
+  
+  // Clear the input buffer for next time.
+	for(i = 0; i < MaxMailSize; ++i)
+		buffer[i] = '\0';
+  
+  outPktHdr.from = postOffice->GetID();
+  outMailHdr.from = currentThread->mailID;
+  outPktHdr.to = RegistrationServerMachineID;
+  outMailHdr.to = RegistrationServerMailID;
+  outMailHdr.length = strlen(request) + 1;
+  
+  if (!postOffice->Send(outPktHdr, outMailHdr, request))
+    interrupt->Halt();
+  
+  // Wait for an Ack message from Registration Server.
+  // The Ack will contain numMessages.
+  requestType = INVALIDTYPE;
+  while (requestType != REGNETTHREADRESPONSE)
+  {
+    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    i = parseMessage(buffer, timeStamp, requestType);
+  }
+  
+  Ack(inPktHdr, inMailHdr, buffer);
+  
+  // Parse numMessages.
+  c = '?';
+  while (c != '\0')
+  {
+    c = buffer[i];
+    if (c == '\0')
+      break;
+    tmpStr[i++] = c;
+  }
+  tmpStr[i++] = '\0';
+  numMessages = atoi(tmpStr);
+  
+  // Clear the input buffer for next time.
+	for(i = 0; i < (int)MaxMailSize; ++i)
+		buffer[i] = '\0';
+  
+  // Wait for all of the messages.
+  for (i = 0; i < numMessages; ++i)
+  {
+    while (requestType != GROUPINFO)
+    {
+      postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+      i = parseMessage(buffer, timeStamp, requestType);
+    }
+    
+    Ack(inPktHdr, inMailHdr, buffer);
+
+    int machineID, mailID;
+    
+    // Parse machineID and mailID.
+    c = '?';
+    while (c != '\0')
+    {
+      c = buffer[i];
+      if (c == '\0')
+        break;
+        
+      tmpStr[0] = buffer[i];
+      tmpStr[1] = '\0';
+      tmpStr[2] = buffer[i + 2];
+      tmpStr[3] = buffer[i + 3];
+      tmpStr[4] = '\0';
+      
+      machineID = atoi(tmpStr);
+      mailID = atoi(&tmpStr[2]);
+      NetThreadInfoEntry* entry = new NetThreadInfoEntry(machineID, mailID);
+      globalNetThreadInfo.push_back(entry);
+    
+      i += 3;
+    }
+  }
+}
+
+void NetworkThread()
+{
+  PacketHeader inPktHdr, outPktHdr;
+  MailHeader inMailHdr, outMailHdr;
+  char buffer[MaxMailSize];
+  int requestType = -1;
+  timeval timeStamp;
+  int i = 0;
+  int numMessages = 0;
+  char c = '?';
+  char* tmpStr[MaxMailSize];
+  
+  RegisterNetworkThread();
+  
+  while (true)
+  {
+    // Wait for a message to be received.
+    // postOffice->Receive();
+    
+    // If we have already received and handled the message (the sender failed to receive our response Ack).
+    // if (messageIsRedundant())
+    {
+      // If the message if from my UserProgram thread.
+      //  Remove message from unAckedMessages to simulate an Ack.
+      // Else if the message is from another NetworkThread (including self).
+      //  Send an Ack to the message sender.
+      
+      // Discard the redundant message.
+      // continue;
+    }
+    
+    // Add message to receivedMessages.
+    
+    // If the message is from my UserProgram thread.
+    {
+      // Remove message from unAckedMessages to simulate an Ack.
+      // Append timestamp to message.
+      // Send message to all NetworkThreads (including self).
+    }
+    
+    // Else if the message is from another NetworkThread (including self).
+    {
+      // Send an Ack to the sender.
+      // Do Total Ordering.
+      // Process all the messages we can.
+    }    
+  }
+}
+
+#endif  // NETWORK
+#endif  // CHANGED
 
 //----------------------------------------------------------------------
 // Initialize
@@ -151,6 +429,7 @@ void Initialize(int argc, char **argv)
     
     #ifdef CHANGED
       unAckedMessagesLock = new Lock("UnAckedMessages Lock");
+      receivedMessagesLock = new Lock("ReceivedMessages Lock");
     #endif
   #endif
     

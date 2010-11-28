@@ -468,21 +468,21 @@ void Exit_Syscall(int status)
   printf("Exiting with status: %d\n", status);
   
   #if 0
-  if (processTable->getNumThreads() > 1)
-  {
-    processTable->killThread(currentThread->space);
-    if (processTable->getNumThreadsForProcess(currentThread->space) == 0)
-      delete currentThread->space;
+    if (processTable->getNumThreads() > 1)
+    {
+      processTable->killThread(currentThread->space);
+      if (processTable->getNumThreadsForProcess(currentThread->space) == 0)
+        delete currentThread->space;
+      currentThread->Finish();
+      return;
+    }
+    else
+    {
+      currentThread->Finish();
+    }
+  #else
     currentThread->Finish();
     return;
-  }
-  else
-  {
-    currentThread->Finish();
-  }
-  #else
-  currentThread->Finish();
-  return;
   #endif
 }
 
@@ -602,7 +602,8 @@ int DestroyMV_Syscall(int mv)
 
 int StartSimulation_Syscall()
 {
-  // send a msg to this programs network thread
+  // Send a msg to this program's network thread.
+  Request(STARTSIMULATION, NULL, getMailID());
   
   // when replied to, the simulation can run
 }
