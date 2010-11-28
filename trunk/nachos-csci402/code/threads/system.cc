@@ -190,7 +190,7 @@ void RegServer()
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
     
-    sprintf(request, "%dl:%dl!%d_%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREADRESPONSE, 
+    sprintf(request, "%d:%d!%d_%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREADRESPONSE, 
             divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
     
     outPktHdr.from = postOffice->GetID();
@@ -210,7 +210,7 @@ void RegServer()
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
   
-    sprintf(request, "%dl:%dl!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, GROUPINFO);
+    sprintf(request, "%d:%d!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, GROUPINFO);
     
     for (j = 0; j < ThreadsPerMessage && i < (int)globalNetThreadInfo.size(); ++j, ++i)
     {
@@ -262,7 +262,7 @@ void RegisterNetworkThread()
   Ack(inPktHdr, inMailHdr, buffer);
   
   // Message server with machineID and mailBoxID.
-  sprintf(request, "%dl:%dl!%d_%d-%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREAD, 
+  sprintf(request, "%d:%d!%d_%d-%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREAD, 
           postOffice->GetID(), currentThread->mailID);
 	
   // Do error checking for length of request here?
@@ -377,7 +377,7 @@ void updateTimeStamp(char* buffer)
   
   // Get the current timeStamp.
   gettimeofday(&timeStamp, NULL);
-  sprintf(tmpStr, "%dl:%dl!", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
+  sprintf(tmpStr, "%d:%d!", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
   
   // Copy the timeStamp to buffer.
   int i = 0;
@@ -393,7 +393,7 @@ void NetworkThread()
   PacketHeader inPktHdr, outPktHdr;
   MailHeader inMailHdr, outMailHdr;
   char buffer[MaxMailSize];
-  int requestType = -1;
+  RequestType requestType = INVALIDTYPE;
   timeval timeStamp;
   int i = 0;
   int numMessages = 0;
@@ -406,6 +406,36 @@ void NetworkThread()
   {
     // Wait for a message to be received.
     postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    parseMessage(buffer, timeStamp, requestType);
+    
+    // If the packet is an Ack, process it.
+    if (requestType == ACK)
+    {
+      bool found = false;
+      for (i = 0; i < (int)unAckedMessages.size(); ++i)
+      {
+        timeval unAckedMessageTime;
+        RequestType unAckedMessageRequestType = INVALIDTYPE;
+        parseMessage(unAckedMessages[i]->data, unAckedMessageTime, unAckedMessageRequestType);
+        
+        if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
+            unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
+            unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
+            unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
+            unAckedMessageTime.tv_sec == timeStamp.tv_sec &&
+            unAckedMessageTime.tv_usec == timeStamp.tv_usec)
+        {
+          // Remove the message from unAckedMessages, since it has now been Acked.
+          unAckedMessages.erase(unAckedMessages.begin() + i);
+          found = true;
+          break;
+        }
+      }
+      if (!found) // Error!!! This should never happen.
+        printf("Ack message not found in unAckedMessages\n");
+        
+      continue;
+    }
     
     // Signal that we have received the message.
     Ack(inPktHdr, inMailHdr, buffer);
@@ -413,7 +443,7 @@ void NetworkThread()
     // If we have already received and handled the message (the sender failed to receive our response Ack).
     if (messageIsRedundant(inPktHdr, inMailHdr, buffer))
     {
-      // Ignore the redundant message.
+      // Do not process the redundant message.
       continue;
     }
     
@@ -421,7 +451,7 @@ void NetworkThread()
     gettimeofday(&timeStamp, NULL);
     receivedMessages.push_back(new UnAckedMessage(timeStamp, inPktHdr, inMailHdr, buffer));
     
-    // If the message is from my UserProgram thread.
+    // If the message is from our UserProg thread.
     if (inPktHdr.from == postOffice->GetID() &&
         inMailHdr.from == currentThread->mailID + 1)
     {
