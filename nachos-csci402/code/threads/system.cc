@@ -399,6 +399,7 @@ void NetworkThread()
   int numMessages = 0;
   char c = '?';
   char tmpStr[MaxMailSize];
+  vector<UnAckedMessage*> msgQueue;
   
   RegisterNetworkThread();
   
@@ -474,7 +475,59 @@ void NetworkThread()
     else // if the message is from another thread (including self).
     {
       // Do Total Ordering.
-      // Process all the messages we can.
+      // 1. Extract timestamp and member's ID.
+      parseMessage(unAckedMessages[i]->data, timeStamp, requestType);
+      
+      // 2. Update last timestamp, in the table, for that member.
+      for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
+      {
+        if (inPktHdr.from  == globalNetThreadInfo[i]->machineID &&
+            inMailHdr.from == globalNetThreadInfo[i]->mailID)
+        {
+          globalNetThreadInfo[i]->timeStamp = timeStamp;
+          break;
+        }
+      }
+      
+      // 3. Insert the message into msgQueue in timestamp order.
+      for (i = 0; i < (int)msgQueue.size(); ++i)
+      {
+        if (msgQueue[i]->lastTimeSent.tv_sec > timeStamp.tv_sec ||
+            (msgQueue[i]->lastTimeSent.tv_sec == timeStamp.tv_sec &&
+             msgQueue[i]->lastTimeSent.tv_usec > timeStamp.tv_usec))
+        {
+          msgQueue.insert(msgQueue.begin() + i, new UnAckedMessage(timeStamp, inPktHdr, inMailHdr, buffer));
+          break;
+        }
+      }
+      
+      // 4. Extract the earliest timestamp value from the table.
+      timeval earliestTimeStamp = globalNetThreadInfo[0]->timeStamp;
+      for (i = 1; i < (int)globalNetThreadInfo.size(); ++i)
+      {
+        if (globalNetThreadInfo[i]->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
+            (globalNetThreadInfo[i]->timeStamp.tv_sec == earliestTimeStamp.tv_sec &&
+             globalNetThreadInfo[i]->timeStamp.tv_usec < earliestTimeStamp.tv_usec))
+        {
+          earliestTimeStamp = globalNetThreadInfo[i]->timeStamp;
+        }
+      }
+      
+      // 5. Process any message, in timestamp order, with a timestamp <=
+      //    value from step 4.
+      for (i = 1; i < (int)globalNetThreadInfo.size(); ++i)
+      {
+        if (msgQueue[i]->lastTimeSent.tv_sec < earliestTimeStamp.tv_sec ||
+            (msgQueue[i]->lastTimeSent.tv_sec == earliestTimeStamp.tv_sec &&
+             msgQueue[i]->lastTimeSent.tv_usec <= earliestTimeStamp.tv_usec))
+        {
+          // Process message.
+          
+          // Remove the message from the queue.
+          msgQueue.erase(msgQueue.begin() + i);
+          i--;
+        }
+      }
     }    
   }
 }
