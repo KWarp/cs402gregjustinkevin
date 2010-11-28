@@ -67,24 +67,25 @@ int createDLockIndex = 0;
 int createDCVIndex = 0; 
 int createDMVIndex = 0; 
 
-int Request(int requestType, char* data, int mailID)
+int Request(int requestType, char* data, int machineID, int mailID)
 {
 	char* request = new char [MaxMailSize];
     sprintf(request,"%d_%s",requestType, data);
-	
+  
 	for(unsigned int i=0;i<MaxMailSize;i++)
 		buffer[i]='\0';
 		
 	PacketHeader outPktHdr, inPktHdr;
     MailHeader outMailHdr, inMailHdr;
 
-    outPktHdr.to = ((int)Random())%serverCount;		
-    outMailHdr.to = outPktHdr.to;
-    outMailHdr.from = postOffice->GetID(); 
+    outPktHdr.from = postOffice->GetID();
+    outMailHdr.from = currentThread->mailID;
+    outPktHdr.to = machineID;
+    outMailHdr.to = mailID;
     outMailHdr.length = strlen(request) + 1;
 
     if ( !postOffice->Send(outPktHdr, outMailHdr, request))
-	{
+    {
       interrupt->Halt();
     }
     
