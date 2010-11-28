@@ -36,7 +36,25 @@ StartProcess(char *filename)
     space = new AddrSpace(executable);
 
     currentThread->space = space;
-
+    
+    /*
+    #ifdef CHANGED
+      #ifdef NETWORK
+        Thread* netThread = new Thread("First Network Thread");
+        netThread->space = space;
+        
+        netThread->mailID = mailIDCounter++;
+        currentThread->mailID = mailIDCounter++;
+        
+        // Allocate stack space for second thread.
+        netThread->stackStartIndex = netThread->space->AllocateStack();
+        
+        // can cause a race condition
+        netThread->Fork((VoidFunctionPtr)Fork_Kernel_Thread, (unsigned int)NetworkThread);
+      #endif
+    #endif
+    */
+    
     // delete executable;			// close file
 
     space->InitRegisters();		// set the initial register values
