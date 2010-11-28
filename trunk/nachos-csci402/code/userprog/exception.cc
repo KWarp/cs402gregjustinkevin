@@ -49,6 +49,7 @@ using namespace std;
 	int procIDIndex = 0;
 
 	void assignMailID(AddrSpace* spaceID);
+  int getMachineID();
 	int getMailID();
   #endif
 #endif
@@ -305,7 +306,7 @@ int CreateLock_Syscall(int vaddr, int len)
 #ifndef NETWORK
 	return synchManager->CreateLock(name);
 #else
-	return Request(CREATELOCK, name, getMailID());
+	return Request(CREATELOCK, name, getMachineID(), getMailID());
 #endif
 }
 
@@ -317,7 +318,7 @@ void DestroyLock_Syscall(int index)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
         
-	Request(DESTROYLOCK, indexBuf, getMailID());
+	Request(DESTROYLOCK, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -329,7 +330,7 @@ void Acquire_Syscall(int index)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
         
-	Request(ACQUIRE, indexBuf, getMailID());
+	Request(ACQUIRE, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -341,7 +342,7 @@ void Release_Syscall(int index)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
         
-	Request(RELEASE, indexBuf, getMailID());
+	Request(RELEASE, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -506,7 +507,7 @@ int CreateCondition_Syscall(int vaddr, int len)
 #ifndef NETWORK
 	return synchManager->CreateCondition(name);
 #else
-	return Request(CREATECV, name, getMailID());
+	return Request(CREATECV, name, getMachineID(), getMailID());
 #endif
 }
 
@@ -518,7 +519,7 @@ void DestroyCondition_Syscall(int index)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
         
-	Request(DESTROYCV, indexBuf, getMailID());
+	Request(DESTROYCV, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -529,7 +530,7 @@ void Signal_Syscall(int cv, int lock)
 #else
 	char* indexBuf = new char[16];
     sprintf(indexBuf,"%d_%d", cv, lock);
-	Request(SIGNAL, indexBuf, getMailID());
+	Request(SIGNAL, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -540,7 +541,7 @@ void Wait_Syscall(int cv, int lock)
 #else
 	char* indexBuf = new char[16];
     sprintf(indexBuf,"%d_%d", cv, lock);
-	Request(WAIT, indexBuf, getMailID());
+	Request(WAIT, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -551,7 +552,7 @@ void Broadcast_Syscall(int cv, int lock)
 #else
 	char* indexBuf = new char[16];
     sprintf(indexBuf,"%d_%d", cv, lock);
-	Request(BROADCAST, indexBuf, getMailID());
+	Request(BROADCAST, indexBuf, getMachineID(), getMailID());
 #endif
 }
 
@@ -573,7 +574,7 @@ int CreateMV_Syscall(int vaddr, int len)
 		return -1;
   }
 
-	return Request(CREATEMV, name, getMailID());
+	return Request(CREATEMV, name, getMachineID(), getMailID());
 }
 
 int SetMV_Syscall(int mv, int value)
@@ -581,7 +582,7 @@ int SetMV_Syscall(int mv, int value)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d_%d", mv, value);
   
-  return Request(SETMV, indexBuf, getMailID());
+  return Request(SETMV, indexBuf, getMachineID(), getMailID());
 }
 
 int GetMV_Syscall(int mv)
@@ -589,7 +590,7 @@ int GetMV_Syscall(int mv)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d", mv);
   
-  return Request(GETMV, indexBuf, getMailID());
+  return Request(GETMV, indexBuf, getMachineID(), getMailID());
 }
 
 int DestroyMV_Syscall(int mv)
@@ -597,14 +598,20 @@ int DestroyMV_Syscall(int mv)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d", mv);
   
-  return Request(DESTROYMV, indexBuf, getMailID());
+  return Request(DESTROYMV, indexBuf, getMachineID(), getMailID());
 }
 
-void StartSimulation_Syscall()
+void StartUserProgram_Syscall()
 {
   // Send a msg to this program's network thread.
-  Request(STARTSIMULATION, NULL, getMailID());
+  printf("StartUserProgram_Syscall\n");
+  char* data = new char[1];
+  data[1] = '\0';
+  int i = Request(STARTUSERPROGRAM, data, getMachineID(), getMailID());
   // when replied to, the simulation can run
+  printf("%d\n", i);
+  
+  printf("Finished StartUserProgram_Syscall\n");
 }
 #endif
 
@@ -839,18 +846,37 @@ void assignMailID(AddrSpace* spaceIdentifier)
 	return;
 }
 
+
+// intended for user program threads
+int getMachineID()
+{
+  // TO DO!!!!
+  return postOffice->GetID();
+}
+
+
+// intended for user program threads
 int getMailID()
 {
-	int i = 0;
-	for(i = 0; i < 10; i++)
-	{
-		if(processIDs[i] == currentThread->space)
-		{
-			return i;
-		}
-	}
-	// printf("Failed to find mailID %d\n",i);
-	return -1;
+  #if 0
+    int i = 0;
+    for(i = 0; i < 10; i++)
+    {
+      if(processIDs[i] == currentThread->space)
+      {
+        return i;
+      }
+    }
+    // printf("Failed to find mailID %d\n",i);
+    return -1;
+  #else
+    // Project 4
+    //TEMP SOLUTION UNTIL THREADS GET MADE CORRECTLY!!!
+    return currentThread->mailID + 1; 
+    // return network thread paired with this user thread
+    //return currentThread->mailID - 1; 
+    
+  #endif
 }
 #endif /* NETWORK */
 
@@ -979,9 +1005,9 @@ void ExceptionHandler(ExceptionType which)
             DEBUG('a', "DestroyMV syscall. \n");
             rv = DestroyMV_Syscall(machine->ReadRegister(4));
             break;
-          case SC_StartSimulation:
-            DEBUG('a', "StartSimulation syscall. \n");
-            rv = StartSimulation_Syscall();
+          case SC_StartUserProgram:
+            DEBUG('a', "StartUserProgram syscall. \n");
+            StartUserProgram_Syscall();
             break;
             
         #endif

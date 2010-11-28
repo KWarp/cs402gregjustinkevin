@@ -52,7 +52,7 @@
   #define SC_SetMV 24
   #define SC_GetMV 25
   #define SC_DestroyMV 26
-  #define SC_StartSimulation 27
+  #define SC_StartUserProgram 27
 #endif
 
 #define MAXFILENAME 256
@@ -188,7 +188,7 @@ void PrintNumber(int i);
 int RandomNumber(int count);
 
 /* Block the network thread */
-void StartSimulation();
+void StartUserProgram();
 
 #endif /* CHANGED */
 

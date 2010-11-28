@@ -252,7 +252,7 @@ void RegisterNetworkThread()
   char request[MaxMailSize];
   
   // Wait for StartSimulation message from UserProgram.
-  while (requestType != STARTSIMULATION)
+  while (requestType != STARTUSERPROGRAM)
   {
     postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
     parseMessage(buffer, timeStamp, requestType);
