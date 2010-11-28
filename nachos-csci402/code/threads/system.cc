@@ -66,6 +66,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     // Hard-coded network location of the registration server.
     static const int RegistrationServerMachineID = 0;
     static const int RegistrationServerMailID = 0;
+    int mailIDCounter = 0;
   #endif
 #endif
 
@@ -146,7 +147,7 @@ void RegServer()
     // Wait for a REGNETTHREAD message.
     while (requestType != REGNETTHREAD)
     {
-      postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+      postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
       i = parseMessage(buffer, timeStamp, requestType);
     }
     
@@ -251,15 +252,19 @@ void RegisterNetworkThread()
   char tmpStr[MaxMailSize];
   char request[MaxMailSize];
   
+  printf("NET THREAD: Wait for StartSimulation message from UserProgram\n");
   // Wait for StartSimulation message from UserProgram.
   while (requestType != STARTUSERPROGRAM)
   {
-    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
     parseMessage(buffer, timeStamp, requestType);
   }
+  printf("NET THREAD: Recieved STARTUSERPROGRAM\n");
   
   // Ack that we got the message by removing it from unAckedMessages.
   Ack(inPktHdr, inMailHdr, buffer);
+
+  printf("NET THREAD: Message server with machineID and mailBoxID\n");
   
   // Message server with machineID and mailBoxID.
   sprintf(request, "%d:%d!%d_%d-%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREAD, 
@@ -280,17 +285,19 @@ void RegisterNetworkThread()
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
   
+  printf("NET THREAD: Wait for an Ack message from Registration Server\n");
   // Wait for an Ack message from Registration Server.
   // The Ack will contain numMessages.
   requestType = INVALIDTYPE;
   while (requestType != REGNETTHREADRESPONSE)
   {
-    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
     i = parseMessage(buffer, timeStamp, requestType);
   }
   
   Ack(inPktHdr, inMailHdr, buffer);
   
+  printf("NET THREAD: Parse numMessages\n");
   // Parse numMessages.
   c = '?';
   while (c != '\0')
@@ -307,12 +314,13 @@ void RegisterNetworkThread()
 	for(i = 0; i < (int)MaxMailSize; ++i)
 		buffer[i] = '\0';
   
+  printf("NET THREAD: Wait for all of the messages\n");
   // Wait for all of the messages.
   for (i = 0; i < numMessages; ++i)
   {
     while (requestType != GROUPINFO)
     {
-      postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+      postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
       i = parseMessage(buffer, timeStamp, requestType);
     }
     
@@ -390,6 +398,7 @@ void updateTimeStamp(char* buffer)
 
 void NetworkThread()
 {
+  printf("Starting NetworkThread\n");
   PacketHeader inPktHdr, outPktHdr;
   MailHeader inMailHdr, outMailHdr;
   char buffer[MaxMailSize];
@@ -401,12 +410,14 @@ void NetworkThread()
   char tmpStr[MaxMailSize];
   vector<UnAckedMessage*> msgQueue;
   
+  printf("Before RegisterNetworkThread\n");
   RegisterNetworkThread();
+  printf("After RegisterNetworkThread\n");
   
   while (true)
   {
     // Wait for a message to be received.
-    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
     parseMessage(buffer, timeStamp, requestType);
     
     // If the packet is an Ack, process it.

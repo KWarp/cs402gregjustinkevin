@@ -51,6 +51,8 @@ using namespace std;
 	void assignMailID(AddrSpace* spaceID);
   int getMachineID();
 	int getMailID();
+  
+  void Fork_Kernel_Thread(unsigned int functionPtr);
   #endif
 #endif
 
@@ -348,10 +350,13 @@ void Release_Syscall(int index)
 
 void Exec_Kernel_Thread()
 {
+  currentThread->Yield();
+  //printf("Exec_Kernel_Thread\n");
   execLock->Acquire();
     currentThread->space->InitRegisters();
     currentThread->space->RestoreState();
   execLock->Release();
+  //printf("Finish Exec_Kernel_Thread\n");
   machine->Run();
 }
 
@@ -386,10 +391,22 @@ void Exec_Syscall(unsigned int executableFileName)
       execLock->Release();
       return;
     }   
-    
-    Thread* thread = new Thread("Exec'd Process Thread");
-    thread->space = new AddrSpace(executable);
-    // processTable->addProcess(thread->space);
+    #ifdef NETWORK
+      Thread* netThread = new Thread("Exec'd Network Thread");
+      Thread* userThread = new Thread("Exec'd User Prog Thread");
+
+      userThread->space = new AddrSpace(executable);
+      
+      netThread->mailID = mailIDCounter++;
+      userThread->mailID = mailIDCounter++;
+      printf("netThread->mailID: %d\n", netThread->mailID);
+      printf("userThread->mailID: %d\n", userThread->mailID);
+      
+    #else
+      Thread* thread = new Thread("Exec'd Process Thread");
+      thread->space = new AddrSpace(executable);
+      // processTable->addProcess(thread->space);
+    #endif
     
     #ifdef USE_TLB
       // Invalidate all entries in the TLB.
@@ -401,13 +418,16 @@ void Exec_Syscall(unsigned int executableFileName)
     
     // delete executable;
     delete buf;
-
-  #ifdef NETWORK
-	assignMailID(thread->space);
-  #endif
+  
   execLock->Release();
   
-  thread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0);  
+  #ifdef NETWORK
+    //assignMailID(netThread->space);
+    userThread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0); 
+    netThread->Fork((VoidFunctionPtr)NetworkThread, 0);
+  #else
+    thread->Fork((VoidFunctionPtr)Exec_Kernel_Thread, 0);  
+  #endif
 }
 
 // Pass a pointer to this function when forking a  new process in kernel space.
@@ -422,7 +442,6 @@ void Fork_Kernel_Thread(unsigned int functionPtr)
     machine->WriteRegister(NextPCReg, functionPtr + 4);
     machine->WriteRegister(StackReg, currentThread->stackStartIndex * PageSize - 16);
   forkLock->Release();
-  
   machine->Run();
 }
 
@@ -605,14 +624,13 @@ int DestroyMV_Syscall(int mv)
 void StartUserProgram_Syscall()
 {
   // Send a msg to this program's network thread.
-  printf("StartUserProgram_Syscall\n");
+  printf("USER: StartUserProgram_Syscall\n");
   char* data = new char[1];
   data[1] = '\0';
-  int i = Request(STARTUSERPROGRAM, data, getMachineID(), getMailID());
+  Request(STARTUSERPROGRAM, data, getMachineID(), getMailID());
   // when replied to, the simulation can run
-  printf("%d\n", i);
   
-  printf("Finished StartUserProgram_Syscall\n");
+  printf("USER: Finished StartUserProgram_Syscall\n");
 }
 #endif
 
@@ -851,7 +869,6 @@ void assignMailID(AddrSpace* spaceIdentifier)
 // intended for user program threads
 int getMachineID()
 {
-  // TO DO!!!!
   return postOffice->GetID();
 }
 
@@ -872,10 +889,8 @@ int getMailID()
     return -1;
   #else
     // Project 4
-    //TEMP SOLUTION UNTIL THREADS GET MADE CORRECTLY!!!
-    return currentThread->mailID + 1; 
     // return network thread paired with this user thread
-    //return currentThread->mailID - 1; 
+    return currentThread->mailID - 1; 
     
   #endif
 }

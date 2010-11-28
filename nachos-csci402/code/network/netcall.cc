@@ -91,7 +91,7 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
 
-  postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+  postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
   parseMessage(buffer, timeStamp, requestType);
   
   // Remove the message we just received from our network thread from unAckedMessages.
@@ -125,10 +125,12 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
 // Returns the index of the start of data.
 int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
 {
+  //printf("parseMessage: %s\n", buf);
   char reqTypeStr[MaxMailSize];
   char timeStampStr[MaxMailSize];
   char c = '?';
   int i = 0;
+  int offset = 0;
   
   // Parse timeStamp.
   while (c != ':')
@@ -141,6 +143,7 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
   timeStampStr[i++] = '\0';
   timeStamp.tv_sec = atoi(timeStampStr);
   
+  offset = i;
   while (c != '!')
   {
     c = buf[i];
@@ -149,17 +152,19 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
     timeStampStr[i++] = c;
   }
   timeStampStr[i++] = '\0';
-  timeStamp.tv_usec = atoi(timeStampStr);
+  timeStamp.tv_usec = atoi(timeStampStr + offset);
   
   // Parse requestType.
+  offset = i;
   while (c != '_')
   {
     c = buf[i];
     if (c == '_')
       break;
-    reqTypeStr[i++] = c;
+    reqTypeStr[i++ - offset] = c;
   }
-  reqTypeStr[i++] = '\0'; 
+  reqTypeStr[i++ - offset] = '\0'; 
+  //printf("reqTypeStr: %s\n", reqTypeStr);
   requestType = (RequestType)atoi(reqTypeStr);
   
   return i;

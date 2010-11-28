@@ -10,7 +10,8 @@ int main()
 {
   PrintOut("===TestStartUserProgram===\n", 27);
   
-  StartUserProgram();
+  PrintOut("Exec'ing exectestprogram1\n", 26);
+  Exec("../test/teststartuserprogramsub");
   
   PrintOut("===TestStartUserProgram Completed===\n", 37);
 }

@@ -79,6 +79,7 @@ extern Timer *timer;				        // the hardware alarm clock
     extern Lock* unAckedMessagesLock;
     extern vector<UnAckedMessage*> receivedMessages;
     extern Lock* receivedMessagesLock;
+    extern int mailIDCounter;
     
     class NetThreadInfoEntry
     {
@@ -94,6 +95,7 @@ extern Timer *timer;				        // the hardware alarm clock
     };
     
     extern vector<NetThreadInfoEntry*> globalNetThreadInfo;
+    extern void NetworkThread();
   #endif
 #endif
 
