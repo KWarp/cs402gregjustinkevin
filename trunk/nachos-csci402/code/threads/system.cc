@@ -190,7 +190,7 @@ void RegServer()
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
     
-    sprintf(request, "%l:%l!%d_%d", timeStamp.tv_sec, timeStamp.tv_usec, REGNETTHREADRESPONSE, 
+    sprintf(request, "%dl:%dl!%d_%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREADRESPONSE, 
             divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
     
     outPktHdr.from = postOffice->GetID();
@@ -210,7 +210,7 @@ void RegServer()
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
   
-    sprintf(request, "%l:%l!%d_", timeStamp.tv_sec, timeStamp.tv_usec, GROUPINFO);
+    sprintf(request, "%dl:%dl!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, GROUPINFO);
     
     for (j = 0; j < ThreadsPerMessage && i < (int)globalNetThreadInfo.size(); ++j, ++i)
     {
@@ -262,13 +262,13 @@ void RegisterNetworkThread()
   Ack(inPktHdr, inMailHdr, buffer);
   
   // Message server with machineID and mailBoxID.
-  sprintf(request, "%l:%l!%d_%d-%d", timeStamp.tv_sec, timeStamp.tv_usec, REGNETTHREAD, 
+  sprintf(request, "%dl:%dl!%d_%d-%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREAD, 
           postOffice->GetID(), currentThread->mailID);
 	
   // Do error checking for length of request here?
   
   // Clear the input buffer for next time.
-	for(i = 0; i < MaxMailSize; ++i)
+	for(i = 0; i < (int)MaxMailSize; ++i)
 		buffer[i] = '\0';
   
   outPktHdr.from = postOffice->GetID();
@@ -344,6 +344,50 @@ void RegisterNetworkThread()
   }
 }
 
+// Returns true if the input message has already been received before.
+bool messageIsRedundant(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
+{
+  // Check if any messages in receivedMessage matches the new message.
+  bool found = false;
+  for (int i = 0; i < (int)receivedMessages.size(); ++i)
+  {
+    if (receivedMessages[i]->pktHdr.from == inPktHdr.from &&
+        receivedMessages[i]->pktHdr.to == inPktHdr.to &&
+        receivedMessages[i]->mailHdr.from == inMailHdr.from &&
+        receivedMessages[i]->mailHdr.to == inMailHdr.to &&
+        receivedMessages[i]->mailHdr.length == inMailHdr.length)
+    {
+      found = true;
+      for (int j = 0; j < (int)inMailHdr.length; ++j)
+      {
+        if (receivedMessages[i]->data[i] != inData[j])
+          found = false;
+      }
+    }
+    if (found)
+      break;
+  }
+  return found;
+}
+
+void updateTimeStamp(char* buffer)
+{
+  char tmpStr[MaxMailSize];
+  timeval timeStamp;
+  
+  // Get the current timeStamp.
+  gettimeofday(&timeStamp, NULL);
+  sprintf(tmpStr, "%dl:%dl!", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
+  
+  // Copy the timeStamp to buffer.
+  int i = 0;
+  while (tmpStr[i] != '!')
+  {
+    buffer[i] = tmpStr[i];
+    i++;
+  }
+}
+
 void NetworkThread()
 {
   PacketHeader inPktHdr, outPktHdr;
@@ -354,39 +398,51 @@ void NetworkThread()
   int i = 0;
   int numMessages = 0;
   char c = '?';
-  char* tmpStr[MaxMailSize];
+  char tmpStr[MaxMailSize];
   
   RegisterNetworkThread();
   
   while (true)
   {
     // Wait for a message to be received.
-    // postOffice->Receive();
+    postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
+    
+    // Signal that we have received the message.
+    Ack(inPktHdr, inMailHdr, buffer);
     
     // If we have already received and handled the message (the sender failed to receive our response Ack).
-    // if (messageIsRedundant())
+    if (messageIsRedundant(inPktHdr, inMailHdr, buffer))
     {
-      // If the message if from my UserProgram thread.
-      //  Remove message from unAckedMessages to simulate an Ack.
-      // Else if the message is from another NetworkThread (including self).
-      //  Send an Ack to the message sender.
-      
-      // Discard the redundant message.
-      // continue;
+      // Ignore the redundant message.
+      continue;
     }
     
     // Add message to receivedMessages.
+    gettimeofday(&timeStamp, NULL);
+    receivedMessages.push_back(new UnAckedMessage(timeStamp, inPktHdr, inMailHdr, buffer));
     
     // If the message is from my UserProgram thread.
+    if (inPktHdr.from == postOffice->GetID() &&
+        inMailHdr.from == currentThread->mailID + 1)
     {
-      // Remove message from unAckedMessages to simulate an Ack.
-      // Append timestamp to message.
-      // Send message to all NetworkThreads (including self).
+      // Append a new timeStamp but keep the same data.
+      updateTimeStamp(buffer);
+      
+      // Forward message to all NetworkThreads (including self).
+      for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
+      {
+        outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
+        outPktHdr.to = globalNetThreadInfo[i]->machineID;
+        outMailHdr.to = globalNetThreadInfo[i]->mailID;
+        outMailHdr.length = strlen(buffer) + 1;
+        
+        if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
+          interrupt->Halt();
+      }
     }
-    
-    // Else if the message is from another NetworkThread (including self).
+    else // if the message is from another thread (including self).
     {
-      // Send an Ack to the sender.
       // Do Total Ordering.
       // Process all the messages we can.
     }    

@@ -142,6 +142,12 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* buf)
 {
   // Add buffer to receivedMessages.
+  // If the message is from my UserProgram thread.
+  //  Remove message from unAckedMessages to simulate an Ack.
+  // Else if the message is from another NetworkThread (including self).
+  //  Send an Ack to the message sender.
+  
+  
   // if the message is from our own UserProg, delete the entry in unAckedMessages to simulate an Ack.
   // else Send an Ack
 }

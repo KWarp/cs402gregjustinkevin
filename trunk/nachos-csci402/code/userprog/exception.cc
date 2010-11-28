@@ -600,11 +600,10 @@ int DestroyMV_Syscall(int mv)
   return Request(DESTROYMV, indexBuf, getMailID());
 }
 
-int StartSimulation_Syscall()
+void StartSimulation_Syscall()
 {
   // Send a msg to this program's network thread.
   Request(STARTSIMULATION, NULL, getMailID());
-  
   // when replied to, the simulation can run
 }
 #endif
