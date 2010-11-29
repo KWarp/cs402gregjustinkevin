@@ -45,16 +45,16 @@ using namespace std;
   static Lock* printOutLock = new Lock("PrintOut Lock");
   
   #ifdef NETWORK
-	AddrSpace* processIDs[10];
-	int procIDIndex = 0;
+    AddrSpace* processIDs[10];
+    int procIDIndex = 0;
 
-	void assignMailID(AddrSpace* spaceID);
-  int getMachineID();
-	int getMailID();
-  
-  void Fork_Kernel_Thread(unsigned int functionPtr);
-  int configArg = -1;
+    void assignMailID(AddrSpace* spaceID);
+    int getMachineID();
+    int getMailID();
+
+    void Fork_Kernel_Thread(unsigned int functionPtr);
   #endif
+  int configArg = -1;
 #endif
 
 int copyin(unsigned int vaddr, int len, char *buf)
@@ -1035,11 +1035,11 @@ void ExceptionHandler(ExceptionType which)
             DEBUG('a', "StartUserProgram syscall. \n");
             StartUserProgram_Syscall();
             break;
-          case SC_GetConfigArg:
-            DEBUG('a', "GetConfigArg syscall. \n");
-            rv = GetConfigArg_Syscall();
-            break; 
         #endif
+        case SC_GetConfigArg:
+          DEBUG('a', "GetConfigArg syscall. \n");
+          rv = GetConfigArg_Syscall();
+          break; 
       #endif
     }
 

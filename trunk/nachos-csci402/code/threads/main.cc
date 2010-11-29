@@ -154,22 +154,34 @@ main(int argc, char **argv)
 		
 			
 #ifdef USER_PROGRAM
-        if (!strcmp(*argv, "-x")) {        	// run a user program
-	    ASSERT(argc > 1);
-            StartProcess(*(argv + 1));
-            argCount = 2;
-        } else if (!strcmp(*argv, "-c")) {      // test the console
-	    if (argc == 1)
-	        ConsoleTest(NULL, NULL);
-	    else {
-		ASSERT(argc > 2);
-	        ConsoleTest(*(argv + 1), *(argv + 2));
-	        argCount = 3;
-	    }
-	    interrupt->Halt();		// once we start the console, then 
-					// Nachos will loop forever waiting 
-					// for console input
-	}
+  if (!strcmp(*argv, "-x"))
+  {        	// run a user program
+    ASSERT(argc > 1);
+    StartProcess(*(argv + 1));
+    argCount = 2;
+  }
+  else if (!strcmp(*argv, "-c"))
+  {      // test the console
+    if (argc == 1)
+      ConsoleTest(NULL, NULL);
+    else
+    {
+      ASSERT(argc > 2);
+      ConsoleTest(*(argv + 1), *(argv + 2));
+      argCount = 3;
+    }
+    interrupt->Halt();		// once we start the console, then 
+    // Nachos will loop forever waiting 
+    // for console input
+  }
+  #ifdef CHANGED
+    else if(!strcmp(*argv, "-config"))
+    {
+      // argument for user programs
+      configArg = atoi(*(argv + 1));
+      printf("config arg: %d\n", configArg);
+    }
+  #endif
 #endif // USER_PROGRAM
 #ifdef FILESYS
 	if (!strcmp(*argv, "-cp")) { 		// copy from UNIX to Nachos
@@ -217,12 +229,6 @@ main(int argc, char **argv)
         totalNumNetworkThreads = atoi(*(argv + 1));
         RegServer();
       #endif
-    }
-    else if(!strcmp(*argv, "-config"))
-    {
-      // argument for user programs
-      configArg = atoi(*(argv + 1));
-      printf("config arg: %d\n", configArg);
     }
   #endif
 #endif // NETWORK

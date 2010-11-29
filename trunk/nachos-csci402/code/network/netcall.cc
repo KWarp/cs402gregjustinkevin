@@ -96,23 +96,18 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
 
-  postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-  parseMessage(buffer, &timeStamp, &requestType);
+  postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
   
   // Remove the message we just received from our network thread from unAckedMessages.
   bool found = false;
   for (int i = 0; i < (int)unAckedMessages.size(); ++i)
-  {
-    timeval unAckedMessageTime;
-    RequestType unAckedMessageRequestType = INVALIDTYPE;
-    parseMessage(unAckedMessages[i]->data, &unAckedMessageTime, &unAckedMessageRequestType);
-    
+  {    
     if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
         unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
         unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
         unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
-        unAckedMessageTime.tv_sec == timeStamp.tv_sec &&
-        unAckedMessageTime.tv_usec == timeStamp.tv_usec)
+        unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
+        unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
     {
       // Remove the message from unAckedMessages, since it has now been Acked.
       unAckedMessages.erase(unAckedMessages.begin() + i);
@@ -128,79 +123,33 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
 
 // Parses timeStamp and requestType from the data packet, buf.
 // Returns the index of the start of data.
-int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
+int parseValue(int startIndex, const char* buf, int* value)
 {
-  printf("parseMessage: %s\n", buf);
-  char reqTypeStr[MaxMailSize];
-  char timeStampStr[MaxMailSize];
+  char valueStr[MaxMailSize];
   char c = '?';
-  int i = 0;
-  int offset = 0;
-  
-  printf("z\n");
-  // Parse timeStamp seconds.
-  while (c != ':')
-  {
-    c = buf[i];
-    if (c == ':')
-      break;
-    timeStampStr[i++] = c;
-  }
-  timeStampStr[i++] = '\0';
-  
-  printf("a\n");
-  if (timeStamp != NULL)
-  {
-    #if 0 // This doesn't work.
-      timeStamp->tv_sec = atoi(timeStampStr);
-    #else
-      bcopy(timeStampStr + offset, (char*)(&timeStamp->tv_sec), sizeof(int));
-    #endif
-  }
-  printf("b\n");
-  // Parse timeStamp useconds.
-  offset = i;
-  while (c != '!')
-  {
-    c = buf[i];
-    if (c == '!')
-      break;
-    timeStampStr[i++] = c;
-  }
-  timeStampStr[i++] = '\0';
-
-  printf("c\n");  
-  if (timeStamp != NULL)
-  {
-    #if 0 // This doesn't work.
-      timeStamp->tv_usec = atoi(timeStampStr + offset);
-    #else
-      bcopy(timeStampStr + offset, (char*)(&timeStamp->tv_usec), sizeof(int));
-    #endif
-  }
-  printf("d\n");
-  
+  int i = startIndex;
+ 
+  ASSERT(i >= 0);
+ 
   // Parse requestType.
-  offset = i;
   while (c != '_')
   {
     c = buf[i];
     if (c == '_')
       break;
-    reqTypeStr[i++ - offset] = c;
+    valueStr[i++ - startIndex] = c;
   }
-  reqTypeStr[i++ - offset] = '\0'; 
+  valueStr[i++ - startIndex] = '\0'; 
   
-  printf("e\n");
-  if (requestType != NULL)
-    *requestType = (RequestType)atoi(reqTypeStr);
-  printf("f\n");
+  if (value != NULL)
+    *value = atoi(valueStr);
   
-  // i will point to the first character of data.
+  printf("parsed value: %d\n", value);
+  // i will point to the next character of data.
   return i;
 }
 
-void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
+void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* inData)
 {
   // Find the message in unAckedMessages.
   bool found = false;
@@ -210,14 +159,10 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
         unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
         unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
         unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
-        unAckedMessages[i]->mailHdr.length == inMailHdr.length)
+        unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
+        unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
     {
       found = true;
-      for (int j = 0; j < (int)inMailHdr.length; ++j)
-      {
-        if (unAckedMessages[i]->data[i] != inData[j])
-          found = false;
-      }
     }
     if (found)
     {
@@ -252,7 +197,7 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
   }
 }
 
-bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData)
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData)
 {
 	// printf("\nReady to handle a request!!!\n");
 	
@@ -260,7 +205,6 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData)
   MailHeader outMailHdr;
   
 	RequestType requestType = INVALIDTYPE;
-  timeval timeStamp;
   
 	char* localLockName = new char[32];		
 	char lockIndexBuf[MaxMailSize];
@@ -293,7 +237,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData)
 		buffer[i]='\0';
   
   // Parse timeStamp and requestType from message.
-  int i = parseMessage (msgData, &timeStamp, &requestType);
+  int i = parseValue (0, msgData, (int*)(&requestType));
 	char c = msgData[i];
 	
   // Do this because all the code below assumes we are one the char before this, and I am too lazy to change it everywhere.
