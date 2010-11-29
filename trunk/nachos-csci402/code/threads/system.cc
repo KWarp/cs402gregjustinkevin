@@ -431,6 +431,34 @@ void updateTimeStamp(char* buffer)
   }
 }
 
+bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
+{
+  bool found = false;
+  for (int i = 0; i < (int)unAckedMessages.size(); ++i)
+  {
+    timeval unAckedMessageTime;
+    RequestType unAckedMessageRequestType = INVALIDTYPE;
+    parseMessage(unAckedMessages[i]->data, unAckedMessageTime, unAckedMessageRequestType);
+    
+    if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
+        unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
+        unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
+        unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
+        unAckedMessageTime.tv_sec == timeStamp.tv_sec &&
+        unAckedMessageTime.tv_usec == timeStamp.tv_usec)
+    {
+      // Remove the message from unAckedMessages, since it has now been Acked.
+      unAckedMessages.erase(unAckedMessages.begin() + i);
+      found = true;
+      break;
+    }
+  }
+  if (!found) // Error!!! This should never happen.
+    printf("Ack message not found in unAckedMessages\n");
+    
+  return found;
+}
+
 void NetworkThread()
 {
   printf("Starting NetworkThread\n");
@@ -459,29 +487,7 @@ void NetworkThread()
     // If the packet is an Ack, process it.
     if (requestType == ACK)
     {
-      bool found = false;
-      for (i = 0; i < (int)unAckedMessages.size(); ++i)
-      {
-        timeval unAckedMessageTime;
-        RequestType unAckedMessageRequestType = INVALIDTYPE;
-        parseMessage(unAckedMessages[i]->data, unAckedMessageTime, unAckedMessageRequestType);
-        
-        if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
-            unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
-            unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
-            unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
-            unAckedMessageTime.tv_sec == timeStamp.tv_sec &&
-            unAckedMessageTime.tv_usec == timeStamp.tv_usec)
-        {
-          // Remove the message from unAckedMessages, since it has now been Acked.
-          unAckedMessages.erase(unAckedMessages.begin() + i);
-          found = true;
-          break;
-        }
-      }
-      if (!found) // Error!!! This should never happen.
-        printf("Ack message not found in unAckedMessages\n");
-        
+      processAck(inPktHdr, inMailHdr, timeStamp);
       continue;
     }
     
@@ -496,8 +502,9 @@ void NetworkThread()
     }
     
     // Add message to receivedMessages.
-    gettimeofday(&timeStamp, NULL);
-    receivedMessages.push_back(new UnAckedMessage(timeStamp, inPktHdr, inMailHdr, buffer));
+    timeval tmpTimeStamp;
+    gettimeofday(&tmpTimeStamp, NULL);
+    receivedMessages.push_back(new UnAckedMessage(tmpTimeStamp, inPktHdr, inMailHdr, buffer));
     
     // If the message is from our UserProg thread.
     if (inPktHdr.from == postOffice->GetID() &&
@@ -526,7 +533,7 @@ void NetworkThread()
       // Do Total Ordering.
       printf("NET THREAD: Do Total Ordering\n");
       // 1. Extract timestamp and member's ID.
-      parseMessage(unAckedMessages[i]->data, timeStamp, requestType);
+      // parseMessage(buffer, timeStamp, requestType);  // This is done already above.
       
       // 2. Update last timestamp, in the table, for that member.
       for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
@@ -572,6 +579,7 @@ void NetworkThread()
              msgQueue[i]->lastTimeSent.tv_usec <= earliestTimeStamp.tv_usec))
         {
           // Process message.
+          processMessage(inPktHdr, inMailHdr, buffer);
           
           // Remove the message from the queue.
           msgQueue.erase(msgQueue.begin() + i);

@@ -199,7 +199,7 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
         unAckedMessages.erase(unAckedMessages.begin() + i);
         break;
       }
-      else // if the message is from another thread (including self?).
+      else // If the message is from another thread (including self?).
       {  
         // Send an Ack to the message sender.
         timeval timeStamp;
@@ -214,9 +214,9 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
         outMailHdr.from = currentThread->mailID;
         outPktHdr.to = inPktHdr.from;
         outMailHdr.to = inMailHdr.from;
-        outMailHdr.length = strlen(buffer) + 1;
+        outMailHdr.length = strlen(request) + 1;
         
-        if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
+        if (!postOffice->Send(outPktHdr, outMailHdr, request))
           interrupt->Halt();
       }
     }
@@ -225,16 +225,16 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
   }
 }
 
-bool HandleRequest()
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData)
 {
-	printf("\nReady to handle a request!!!\n");
-
-	PacketHeader outPktHdr, inPktHdr;
-    MailHeader outMailHdr, inMailHdr;
+	// printf("\nReady to handle a request!!!\n");
 	
-	for(int i=0;i<(int)MaxMailSize;buffer[i++]='\0');	
+  PacketHeader outPktHdr;
+  MailHeader outMailHdr;
+  
 	RequestType requestType = INVALIDTYPE;
-  timeval timeStamp;	
+  timeval timeStamp;
+  
 	char* localLockName = new char[32];		
 	char lockIndexBuf[MaxMailSize];
 	char mvIndexBuf[MaxMailSize];	
@@ -257,40 +257,47 @@ bool HandleRequest()
 	int otherServerLockIndex = -1;
 	int otherServerIndex=0;
 	char client[5];
-	int clientNum;  /// Convention: clientNum = 10*(X-serverCount)+Y where X = machine id (ie inPktHdr.from) and Y = mailbox number (ie inMailHdr.from).  Y can range from [0,9]
-					/// so that means there is a maximum of 10 threads per machine id
+	int clientNum;  /// Convention: clientNum = 100 * machineID + mailID 
+                  ///   mailID can range from [0,99] so that means there is a maximum of 100 threads per machine id.
 	char* request = NULL;
-
-	postOffice->Receive(postOffice->GetID(), &inPktHdr, &inMailHdr, buffer);
   
-  int i = parseMessage(buffer, timeStamp, requestType);
-	char c = buffer[i];
+  // Fill buffer with '\0' chars.
+  for(int i = 0; i < (int)MaxMailSize; ++i)
+		buffer[i]='\0';
+  
+  // Parse timeStamp and requestType from message.
+  int i = parseMessage (msgData, timeStamp, requestType);
+	char c = msgData[i];
 	
+  // Do this because all the code below assumes we are one the char before this, and I am too lazy to change it everywhere.
+  i--;
+  
   int a, m, j, x;
-	switch(requestType)
+	switch (requestType)
 	{
     printf("requestType: %d\n", requestType);
 		case CREATELOCK:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
-			if((createDLockIndex >= 0)&&(createDLockIndex < (MAX_DLOCK-1)))
+			clientNum = 100 * inPktHdr.from + inMailHdr.from;
+			if (createDLockIndex >= 0 && createDLockIndex < (MAX_DLOCK - 1))
 			{
 				j = 0;
-				while(c!='\0') 
+				while (c != '\0')
 				{
-					c = buffer[++i];
-					if(c=='\0')
+					c = msgData[++i];
+					if (c == '\0')
 						break;
-					lockName[clientNum][j++] = c; 
+					lockName[clientNum][j++] = c;
 				}
 				lockName[clientNum][j] = '\0';
 
-				for(int k=0; k<createDLockIndex; k++)
+				for (int k = 0; k < createDLockIndex; ++k)
 				{
-					if(!strcmp(dlocks[k]->getName(), lockName[clientNum]))
+					if (!strcmp(dlocks[k]->getName(), lockName[clientNum]))
 					{
 						lockIndex = k;
 					}
 				}
+        
 				localLockIndex[clientNum]=lockIndex;
 				if (serverCount > 1)
 					CreateVerify(lockName[clientNum], CREATELOCKVERIFY, clientNum);
@@ -308,9 +315,9 @@ bool HandleRequest()
 						dlocks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
 						if(dlocks[createDLockIndex] == NULL)
 						{
-							errorOutPktHdr.to = clientNum/10+serverCount;
+							errorOutPktHdr.to = clientNum/100;
 							errorInPktHdr = inPktHdr;
-							errorOutMailHdr.to = (clientNum+10)%10;
+							errorOutMailHdr.to = (clientNum+100)%100;
 							errorInMailHdr = inMailHdr;
 							return false;
 						}
@@ -325,8 +332,8 @@ bool HandleRequest()
 					char* ack = new char [5];
 					sprintf(ack, "%i", lockIndex);
 					
-					outPktHdr.to = clientNum/10+serverCount;
-					outMailHdr.to = (clientNum+10)%10;
+					outPktHdr.to = clientNum/100;
+					outMailHdr.to = (clientNum+100)%100;
 					outMailHdr.from = postOffice->GetID();
 					outMailHdr.length = strlen(ack) + 1;
 
@@ -355,7 +362,7 @@ bool HandleRequest()
 			x=0;
 			do 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				client[x++] = c;	
@@ -364,7 +371,7 @@ bool HandleRequest()
 			clientNum = atoi(client);
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
 				if(c=='\0')
 					break;
@@ -396,9 +403,9 @@ bool HandleRequest()
 					{
 						//Handle error...
 						printf("Error in creation of %s!\n", lockName[clientNum]);
-						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorOutPktHdr.to = clientNum/100;
 						errorInPktHdr = inPktHdr;
-						errorOutMailHdr.to = (clientNum+10)%10;
+						errorOutMailHdr.to = (clientNum+100)%100;
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
@@ -420,8 +427,8 @@ bool HandleRequest()
 				char* ack = new char [5];
 				sprintf(ack, "%i", lockIndex);
 	
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 
@@ -444,7 +451,7 @@ bool HandleRequest()
 			x=0;
 			do 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				client[x++] = c;	
@@ -454,7 +461,7 @@ bool HandleRequest()
 			clientNum = atoi(client);
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='\0')
 					break;
 				localLockName[a++] = c; 
@@ -489,13 +496,13 @@ bool HandleRequest()
 			}
 			break;
 		case CREATECV:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			if((createDCVIndex >= 0)&&(createDCVIndex < (MAX_DCV-1)))
 			{
 				j = 0;
 				while(c!='\0')
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='\0')
 						break;
 					lockName[clientNum][j++] = c; 
@@ -524,9 +531,9 @@ bool HandleRequest()
 						cvs[createDCVIndex]->SetGlobalId((postOffice->GetID()*MAX_DCV)+createDCVIndex);
 						if(cvs[createDCVIndex] == NULL)
 						{
-							errorOutPktHdr.to = clientNum/10+serverCount;
+							errorOutPktHdr.to = clientNum/100;
 							errorInPktHdr = inPktHdr;
-							errorOutMailHdr.to = (clientNum+10)%10;
+							errorOutMailHdr.to = (clientNum+100)%100;
 							errorInMailHdr = inMailHdr;
 							return false;
 						}
@@ -541,8 +548,8 @@ bool HandleRequest()
 					char* ack = new char [5];
 					sprintf(ack, "%i", cvIndex);
 		
-					outPktHdr.to = clientNum/10+serverCount;
-					outMailHdr.to = (clientNum+10)%10;
+					outPktHdr.to = clientNum/100;
+					outMailHdr.to = (clientNum+100)%100;
 					outMailHdr.from = postOffice->GetID();
 					outMailHdr.length = strlen(ack) + 1;
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
@@ -569,7 +576,7 @@ bool HandleRequest()
 			x=0;
 			do 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				client[x++] = c;	
@@ -579,7 +586,7 @@ bool HandleRequest()
 			
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
 				if(c=='\0')
 					break;
@@ -609,9 +616,9 @@ bool HandleRequest()
 					cvs[createDCVIndex]->SetGlobalId((postOffice->GetID()*MAX_DCV)+createDCVIndex);
 					if(cvs[createDCVIndex] == NULL)
 					{
-						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorOutPktHdr.to = clientNum/100;
 						errorInPktHdr = inPktHdr;
-						errorOutMailHdr.to = (clientNum+10)%10;
+						errorOutMailHdr.to = (clientNum+100)%100;
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
@@ -633,8 +640,8 @@ bool HandleRequest()
 				}
 				char* ack = new char [5];
 				sprintf(ack, "%i", cvIndex);
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 
@@ -656,7 +663,7 @@ bool HandleRequest()
 			x=0;
 			do 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				client[x++] = c;	
@@ -666,7 +673,7 @@ bool HandleRequest()
 			clientNum = atoi(client);
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='\0')
 					break;
 				localLockName[a++] = c; 
@@ -697,13 +704,13 @@ bool HandleRequest()
 
 			break;
 		case CREATEMV:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			if((createDMVIndex >= 0)&&(createDMVIndex < (MAX_DMV-1)))
 			{
 				j = 0;
 				while(c!='\0')
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='\0')
 						break;
 					lockName[clientNum][j++] = c;  
@@ -734,9 +741,9 @@ bool HandleRequest()
 						mvs[createDMVIndex]->SetGlobalId((postOffice->GetID()*MAX_DMV)+createDMVIndex);
 						if(mvs[createDMVIndex] == NULL)
 						{
-							errorOutPktHdr.to = clientNum/10+serverCount;
+							errorOutPktHdr.to = clientNum/100;
 							errorInPktHdr = inPktHdr;
-							errorOutMailHdr.to = (clientNum+10)%10;
+							errorOutMailHdr.to = (clientNum+100)%100;
 							errorInMailHdr = inMailHdr;
 							return false;
 						}
@@ -751,8 +758,8 @@ bool HandleRequest()
 					char* ack = new char [5];
 					sprintf(ack, "%i", mvIndex);
 					
-					outPktHdr.to = clientNum/10+serverCount;
-					outMailHdr.to = (clientNum+10)%10;
+					outPktHdr.to = clientNum/100;
+					outMailHdr.to = (clientNum+100)%100;
 					outMailHdr.from = postOffice->GetID();
 					outMailHdr.length = strlen(ack) + 1;
 					
@@ -780,7 +787,7 @@ bool HandleRequest()
 			x=0;
 			do 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				client[x++] = c;	
@@ -790,7 +797,7 @@ bool HandleRequest()
 			
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
 				if(c=='\0')
 					break;
@@ -820,9 +827,9 @@ bool HandleRequest()
 					mvs[createDMVIndex]->SetGlobalId((postOffice->GetID()*MAX_DMV)+createDMVIndex);
 					if(mvs[createDMVIndex] == NULL)
 					{
-						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorOutPktHdr.to = clientNum/100;
 						errorInPktHdr = inPktHdr;
-						errorOutMailHdr.to = (clientNum+10)%10;
+						errorOutMailHdr.to = (clientNum+100)%100;
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
@@ -845,8 +852,8 @@ bool HandleRequest()
 				char* ack = new char [5];
 				sprintf(ack, "%i", mvIndex);
 				
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 				
@@ -868,7 +875,7 @@ bool HandleRequest()
 			x=0;
 			do 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				client[x++] = c;	
@@ -878,7 +885,7 @@ bool HandleRequest()
 			clientNum = atoi(client);
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='\0')
 					break;
 				localLockName[a++] = c; 
@@ -911,15 +918,15 @@ bool HandleRequest()
 			break;
 		case ACQUIRE:
 			printf("here\n");
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
         printf("here2\n");
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -933,7 +940,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf); 
@@ -953,14 +960,14 @@ bool HandleRequest()
 			break;
       
 		case RELEASE:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -972,7 +979,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c; 
 			}
 		
@@ -991,14 +998,14 @@ bool HandleRequest()
 			break;
 		case DESTROYLOCK:
 		
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1010,7 +1017,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf);
@@ -1028,14 +1035,14 @@ bool HandleRequest()
 			break;
 		case SETMV:
 			
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;
@@ -1045,7 +1052,7 @@ bool HandleRequest()
 			m=0; 
 			do
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				mvIndexBuf[m++] = c; 
@@ -1056,7 +1063,7 @@ bool HandleRequest()
 			i++;
 			while(c!='\0') 
 			{
-				c = buffer[i++]; 
+				c = msgData[i++]; 
 				mvValBuf[m++] = c; 
 			}
 			mvValue = atoi(mvValBuf); 
@@ -1073,14 +1080,14 @@ bool HandleRequest()
 				success = SetMV(mvIndex, mvValue, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
 			break;
 		case GETMV:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1092,7 +1099,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				mvIndexBuf[m++] = c;
 			}
 
@@ -1111,14 +1118,14 @@ bool HandleRequest()
 			
 			break;
 		case DESTROYMV:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1130,7 +1137,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				mvIndexBuf[m++] = c;
 			}
 
@@ -1148,14 +1155,14 @@ bool HandleRequest()
 				success = DestroyMV(mvIndex, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
 			break;	
 		case WAIT:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1166,7 +1173,7 @@ bool HandleRequest()
 			}
 			cvNumIndex=0;
 			do {
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 						break;
 				cvNum[cvNumIndex ++] = c;
@@ -1175,7 +1182,7 @@ bool HandleRequest()
 			cvIndex = atoi(cvNum);
 
 			while ( c!= '\0'){
-				c = buffer[++i];
+				c = msgData[++i];
 				lockNum[lockNumIndex ++] = c;
 			}
 
@@ -1196,14 +1203,14 @@ bool HandleRequest()
 			break;
 
 		case WAITCV:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1214,7 +1221,7 @@ bool HandleRequest()
 			}
 			cvNumIndex=0;
 			do {
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 						break;
 				cvNum[cvNumIndex ++] = c;
@@ -1223,7 +1230,7 @@ bool HandleRequest()
 			cvIndex = atoi(cvNum);
 
 			while ( c!= '\0'){
-				c = buffer[++i];
+				c = msgData[++i];
 				lockNum[lockNumIndex ++] = c;
 			}
 
@@ -1234,8 +1241,8 @@ bool HandleRequest()
 			{
 				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, (int)client, -1);
 				
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer); 
@@ -1247,8 +1254,8 @@ bool HandleRequest()
 				char * ack = new char [5];
 				itoa(ack,5,cvIndex);
 				
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 				
@@ -1256,8 +1263,8 @@ bool HandleRequest()
 				cvs[cvIndex%MAX_DCV]->QueueReply(reply);
 
 				sprintf(buffer,"%d_%d_%d",WAITRESPONSE, (int)client, cvIndex);
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
@@ -1265,14 +1272,14 @@ bool HandleRequest()
 
 			break;
 		case WAITRESPONSE:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1284,17 +1291,17 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0')
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				cvNum[m++] = c; 
 			}
 			cvIndex = atoi(cvNum); 
 			if (cvIndex == -1) 
 			{
 				errorOutPktHdr = outPktHdr;
-				errorOutPktHdr.to = clientNum/10+serverCount;
+				errorOutPktHdr.to = clientNum/100;
 				errorInPktHdr = inPktHdr;
 				errorOutMailHdr = outMailHdr;
-				errorOutMailHdr.to = (clientNum+10)%10;
+				errorOutMailHdr.to = (clientNum+100)%100;
 				errorInMailHdr = inMailHdr;
 				success = false;
 			}
@@ -1319,14 +1326,14 @@ bool HandleRequest()
 			break;
 			
 		case SIGNAL:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1337,7 +1344,7 @@ bool HandleRequest()
 			}
 			cvNumIndex=0;
 			do {
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 					break;
 				cvNum[cvNumIndex ++] = c;
@@ -1346,7 +1353,7 @@ bool HandleRequest()
 			cvIndex = atoi(cvNum);
 
 			while ( c!= '\0'){
-				c = buffer[++i];
+				c = msgData[++i];
 				lockNum[lockNumIndex ++] = c;
 			}
 
@@ -1369,14 +1376,14 @@ bool HandleRequest()
 			break;
 			
 		case SIGNALLOCK:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1388,7 +1395,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf); 
@@ -1396,8 +1403,8 @@ bool HandleRequest()
 			{
 				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, (int)client, -1);
 				
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
@@ -1406,8 +1413,8 @@ bool HandleRequest()
 			else //found
 			{
 				sprintf(buffer,"%d_%d_%d",SIGNALRESPONSE, (int)client, lockIndex);
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
@@ -1415,14 +1422,14 @@ bool HandleRequest()
 			}
 			break;
 		case SIGNALRESPONSE:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1434,17 +1441,17 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf); 
 			if (lockIndex == -1)
 			{
 				errorOutPktHdr = outPktHdr;
-				errorOutPktHdr.to = clientNum/10+serverCount;
+				errorOutPktHdr.to = clientNum/100;
 				errorInPktHdr = inPktHdr;
 				errorOutMailHdr = outMailHdr;
-				errorOutMailHdr.to = (clientNum+10)%10;
+				errorOutMailHdr.to = (clientNum+100)%100;
 				errorInMailHdr = inMailHdr;
 				success = false;
 			}
@@ -1454,8 +1461,8 @@ bool HandleRequest()
 				char* ack = new char [5];
 				itoa(ack,5,cvIndex);
 
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 
@@ -1470,10 +1477,10 @@ bool HandleRequest()
 					if (cvs[cvIndex]->getFirstLock() != lockIndex)
 					{
 						errorOutPktHdr = outPktHdr;
-						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorOutPktHdr.to = clientNum/100;
 						errorInPktHdr = inPktHdr;
 						errorOutMailHdr = outMailHdr;
-						errorOutMailHdr.to = (clientNum+10)%10;
+						errorOutMailHdr.to = (clientNum+100)%100;
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
@@ -1496,14 +1503,14 @@ bool HandleRequest()
 			}
 			break;
 		case BROADCAST:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1514,7 +1521,7 @@ bool HandleRequest()
 			}
 			cvNumIndex=0;
 			do {
-				c = buffer[++i];
+				c = msgData[++i];
 				if(c=='_')
 						break;
 				cvNum[cvNumIndex ++] = c;
@@ -1523,7 +1530,7 @@ bool HandleRequest()
 			cvIndex = atoi(cvNum); 
 
 			while ( c!= '\0'){
-				c = buffer[++i];
+				c = msgData[++i];
 				lockNum[lockNumIndex ++] = c;
 			}
 
@@ -1546,14 +1553,14 @@ bool HandleRequest()
 			break;
 
 		case BROADCASTLOCK:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1565,7 +1572,7 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c;
 			}
 			lockIndex = atoi(lockIndexBuf);
@@ -1573,8 +1580,8 @@ bool HandleRequest()
 			{
 				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, (int)client, -1);
 	
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
@@ -1584,8 +1591,8 @@ bool HandleRequest()
 			{
 				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, (int)client, -1);
 	
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
@@ -1594,8 +1601,8 @@ bool HandleRequest()
 			else
 			{
 				sprintf(buffer,"%d_%d_%d",BROADCASTRESPONSE, (int)client, lockIndex);
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(buffer) + 1;
 
@@ -1603,14 +1610,14 @@ bool HandleRequest()
 			}
 			break;
 		case BROADCASTRESPONSE:
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1622,17 +1629,17 @@ bool HandleRequest()
 			m=0;
 			while(c!='\0') 
 			{
-				c = buffer[++i];
+				c = msgData[++i];
 				lockIndexBuf[m++] = c;
 			}
 			lockIndex = atoi(lockIndexBuf);
 			if (lockIndex == -1)
 			{
 				errorOutPktHdr = outPktHdr;
-				errorOutPktHdr.to = clientNum/10+serverCount;
+				errorOutPktHdr.to = clientNum/100;
 				errorInPktHdr = inPktHdr;
 				errorOutMailHdr = outMailHdr;
-				errorOutMailHdr.to = (clientNum+10)%10;
+				errorOutMailHdr.to = (clientNum+100)%100;
 				errorInMailHdr = inMailHdr;
 				success = false;
 			}
@@ -1643,8 +1650,8 @@ bool HandleRequest()
 				char* ack = new char [5];
 				itoa(ack,5,cvIndex);
 
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 
@@ -1660,10 +1667,10 @@ bool HandleRequest()
 					if (cvs[cvIndex]->getFirstLock() != lockIndex)
 					{
 						errorOutPktHdr = outPktHdr;
-						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorOutPktHdr.to = clientNum/100;
 						errorInPktHdr = inPktHdr;
 						errorOutMailHdr = outMailHdr;
-						errorOutMailHdr.to = (clientNum+10)%10;
+						errorOutMailHdr.to = (clientNum+100)%100;
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
@@ -1700,14 +1707,14 @@ bool HandleRequest()
 			break;
 
 		case DESTROYCV:	
-			clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
-			if(buffer[i+1] == '_')
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
-					c = buffer[++i];
+					c = msgData[++i];
 					if(c=='_')
 						break;
 					client[m++] = c;	
@@ -1718,7 +1725,7 @@ bool HandleRequest()
 			}
 			cvNumIndex=0;
 			while ( c!= '\0'){
-				c = buffer[++i];
+				c = msgData[++i];
 				cvNum[cvNumIndex ++] = c;
 			}
 			cvIndex = atoi(cvNum); 
@@ -1736,10 +1743,10 @@ bool HandleRequest()
 				if ((cvIndex < 0)||(cvIndex > serverCount*MAX_DCV-1))
 				{
 					errorOutPktHdr = outPktHdr;
-					errorOutPktHdr.to = clientNum/10+serverCount;
+					errorOutPktHdr.to = clientNum/100;
 					errorInPktHdr = inPktHdr;
 					errorOutMailHdr = outMailHdr;
-					errorOutMailHdr.to = (clientNum+10)%10;
+					errorOutMailHdr.to = (clientNum+100)%100;
 					errorInMailHdr = inMailHdr;
 					return false;
 				}
@@ -1754,8 +1761,8 @@ bool HandleRequest()
 						char* ack = new char [4];
 						itoa(ack,4,cvIndex); 
 			
-						outPktHdr.to = clientNum/10+serverCount;
-						outMailHdr.to = (clientNum+10)%10;
+						outPktHdr.to = clientNum/100;
+						outMailHdr.to = (clientNum+100)%100;
 						outMailHdr.from = postOffice->GetID();
 						outMailHdr.length = strlen(ack) + 1;
 
@@ -1768,10 +1775,10 @@ bool HandleRequest()
 					else
 					{
 						errorOutPktHdr = outPktHdr;
-						errorOutPktHdr.to = clientNum/10+serverCount;
+						errorOutPktHdr.to = clientNum/100;
 						errorInPktHdr = inPktHdr;
 						errorOutMailHdr = outMailHdr;
-						errorOutMailHdr.to = (clientNum+10)%10;
+						errorOutMailHdr.to = (clientNum+100)%100;
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
@@ -1781,8 +1788,8 @@ bool HandleRequest()
 					outPktHdr.to = cvIndex/MAX_DCV;
 					outMailHdr.to = outPktHdr.to;
 					outMailHdr.from = inMailHdr.from;
-					outMailHdr.length = strlen(buffer) + 1;
-					success = postOffice->Send(outPktHdr, outMailHdr, buffer);
+					outMailHdr.length = strlen(msgData) + 1;
+					success = postOffice->Send(outPktHdr, outMailHdr, msgData);
 				}
 			}
 			break;	
@@ -1802,16 +1809,16 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 {
 	bool success = false;
 	if (clientNum==-2)
-		clientNum=10*(inPktHdr.from-serverCount)+inMailHdr.from;
+		clientNum=100*(inPktHdr.from)+inMailHdr.from;
 	
 	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
 	{
 		printf("Cannot acquire: Lock index [%d] out of bounds [%d, %d].\n", lockIndex, 0, (MAX_DLOCK-1));
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -1830,10 +1837,10 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 			
 			if(!dlocks[lockIndex]->getLockState()) 
 			{
-				printf("Machine %d being added to waitQueue for acquiring %s!\n", clientNum/10+serverCount, dlocks[lockIndex]->getName());
+				printf("Machine %d being added to waitQueue for acquiring %s!\n", clientNum/100, dlocks[lockIndex]->getName());
 				
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 				
@@ -1843,11 +1850,11 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 			}
 			else
 			{
-				dlocks[lockIndex]->setOwner(clientNum/10+serverCount, (clientNum+10)%10); 
+				dlocks[lockIndex]->setOwner(clientNum/100, (clientNum+100)%100); 
 				dlocks[lockIndex]->setLockState(false); 
 				
-				outPktHdr.to = clientNum/10+serverCount;
-				outMailHdr.to = (clientNum+10)%10;
+				outPktHdr.to = clientNum/100;
+				outMailHdr.to = (clientNum+100)%100;
 				outMailHdr.from = postOffice->GetID();
 				outMailHdr.length = strlen(ack) + 1;
 				
@@ -1909,10 +1916,10 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -1922,24 +1929,24 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		if(dlocks[lockIndex] == NULL) 
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
 
 		char * ack = new char [5];
 		itoa(ack,5,dlocks[lockIndex]->GetGlobalId());
-		printf("Machine %d has released %s at index %d\n", clientNum/10+serverCount, dlocks[lockIndex]->getName(), dlocks[lockIndex]->GetGlobalId());
+		printf("Machine %d has released %s at index %d\n", clientNum/100, dlocks[lockIndex]->getName(), dlocks[lockIndex]->GetGlobalId());
 
 		
 		dlocks[lockIndex]->setOwner(-1, -1); 
 		dlocks[lockIndex]->setLockState(true); 
 		
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 
@@ -1976,10 +1983,10 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -1989,10 +1996,10 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 		if(dlocks[lockIndex] == NULL) 
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
@@ -2007,8 +2014,8 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 		{
 		}
 
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 
@@ -2036,10 +2043,10 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 	if((mvIndex < 0)||(mvIndex > serverCount*MAX_DMV-1))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -2049,10 +2056,10 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 		if(mvs[mvIndex] == NULL) //If not found
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
@@ -2062,8 +2069,8 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 
 		mvs[mvIndex]->setValue(value); 
 			
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 
@@ -2101,15 +2108,15 @@ bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeade
 		{
 			printf("Cannot get: MV does not exist at index %d.\n", mvIndex);
 			itoa(ack,4,999); 		
-			outPktHdr.to = clientNum/10+serverCount;
-			outMailHdr.to = (clientNum+10)%10;
+			outPktHdr.to = clientNum/100;
+			outMailHdr.to = (clientNum+100)%100;
 			outMailHdr.from = postOffice->GetID();
 			outMailHdr.length = strlen(ack) + 1;
 			return SendReply(outPktHdr, inPktHdr, outMailHdr, inMailHdr, ack);
 		}
 
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 		
@@ -2131,10 +2138,10 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	{
 		printf("Cannot get: MV index [%d] out of bounds [%d, %d].\n", mvIndex, 0, (MAX_DMV-1));
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -2145,10 +2152,10 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		{
 			printf("Cannot get: MV does not exist at index %d.\n", mvIndex);
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
@@ -2163,8 +2170,8 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		{
 		}
 
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 
@@ -2190,20 +2197,20 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 	if((lockIndex < 0)||(lockIndex > (MAX_DLOCK-1)))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
 	else if ((cvIndex < 0)||(cvIndex > (MAX_DCV-1)))
 	{ 
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -2215,10 +2222,10 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		{
 			printf("Wait Failed: Lock does not exist at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
@@ -2226,10 +2233,10 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		{
 			printf("Wait Failed: Lock does not acquire at index %d.\n", lockIndex);
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;	
 			return false;
 		}
@@ -2237,10 +2244,10 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		{
 			printf("Wait Failed: CV does not exist at index %d.\n", cvIndex);
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
@@ -2269,8 +2276,8 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		char * ack = new char [5];
 		itoa(ack,5,cvIndex+postOffice->GetID()*MAX_DCV);
 		
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 		
@@ -2285,20 +2292,20 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		if(dlocks[lockIndex] == NULL) 
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
 		else if (dlocks[lockIndex]->getOwnerMailID() == -1)
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;	
 			return false;
 		}
@@ -2321,20 +2328,20 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
 	else if ((cvIndex < 0)||(cvIndex > serverCount*MAX_DCV-1))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -2346,30 +2353,30 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		if(dlocks[lockIndex] == NULL) 
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
 		else if (dlocks[lockIndex]->getOwnerMailID() == -1)
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
 		else if(cvs[cvIndex] == NULL)
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
@@ -2377,8 +2384,8 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		char* ack = new char [5];
 		itoa(ack,5,cvIndex);
 
-		outPktHdr.to = clientNum/10+serverCount;
-		outMailHdr.to = (clientNum+10)%10;
+		outPktHdr.to = clientNum/100;
+		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
 
@@ -2395,10 +2402,10 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 			{ 
 				
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 				return false;
 			}
@@ -2442,20 +2449,20 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 	if((lockIndex < 0)||(lockIndex > (MAX_DLOCK-1)))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
 	else if ((cvIndex < 0)||(cvIndex > (MAX_DCV-1)))
 	{
 		errorOutPktHdr = outPktHdr;
-		errorOutPktHdr.to = clientNum/10+serverCount;
+		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
 		errorOutMailHdr = outMailHdr;
-		errorOutMailHdr.to = (clientNum+10)%10;
+		errorOutMailHdr.to = (clientNum+100)%100;
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
@@ -2466,30 +2473,30 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 		if(dlocks[lockIndex] == NULL)
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
 		else if (dlocks[lockIndex]->getOwnerMailID() == -1)
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
 		else if(cvs[cvIndex] == NULL)
 		{
 			errorOutPktHdr = outPktHdr;
-			errorOutPktHdr.to = clientNum/10+serverCount;
+			errorOutPktHdr.to = clientNum/100;
 			errorInPktHdr = inPktHdr;
 			errorOutMailHdr = outMailHdr;
-			errorOutMailHdr.to = (clientNum+10)%10;
+			errorOutMailHdr.to = (clientNum+100)%100;
 			errorInMailHdr = inMailHdr;
 			return false;
 		}
