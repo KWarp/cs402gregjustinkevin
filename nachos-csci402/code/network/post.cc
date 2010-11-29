@@ -304,14 +304,11 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
       c[0] = '!';
       bcopy(c, tmpBuffer + 2 * sizeof(int) + 1, 1);
     #else
-      printf("sizeof(int): %d\n", sizeof(int));
-      printf("sizeof(long): %d\n", sizeof(long));
-      
       int i = 0;
       for (i = 0; i < (int)sizeof(int); ++i)
       {
         char* c = (char*)(&timeStamp.tv_sec);
-        tmpBuffer[i] = c[i + sizeof(int)];
+        tmpBuffer[i] = c[i];
       }
       
       tmpBuffer[i++] = ':';
@@ -319,7 +316,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
       for (int j = 0; j < (int)sizeof(int); ++j, ++i)
       {
         char* c = (char*)(&timeStamp.tv_usec);
-        tmpBuffer[i] = c[j + sizeof(int)];
+        tmpBuffer[i] = c[j];
       }
       
       tmpBuffer[i++] = '!';
