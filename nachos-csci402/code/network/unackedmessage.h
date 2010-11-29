@@ -7,9 +7,10 @@
 class UnAckedMessage
 {
  public:
-  UnAckedMessage(timeval initTimeSent, PacketHeader initPktHdr, MailHeader initMailHdr, char* initData)
+  UnAckedMessage(timeval initLastTimeSent, timeval initTimeStamp, PacketHeader initPktHdr, MailHeader initMailHdr, char* initData)
   {
-    this->lastTimeSent = initTimeSent;
+    this->lastTimeSent = initLastTimeSent;
+    this->timeStamp = initTimeStamp;
     this->pktHdr = initPktHdr;
     this->mailHdr = initMailHdr;
     
@@ -28,6 +29,7 @@ class UnAckedMessage
   MailHeader mailHdr;
   char* data;
   timeval lastTimeSent;
+  timeval timeStamp;
 };
 
 #endif

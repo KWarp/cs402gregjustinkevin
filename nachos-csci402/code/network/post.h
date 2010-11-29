@@ -30,6 +30,7 @@
 
 #include "network.h"
 #include "synchlist.h"
+#include "sys/time.h"
 
 // Mailbox address -- uniquely identifies a mailbox on a given machine.
 // A mailbox is just a place for temporary storage for messages.
@@ -50,7 +51,7 @@ class MailHeader {
 // Maximum "payload" -- real data -- that can included in a single message
 // Excluding the MailHeader and the PacketHeader
 
-#define MaxMailSize 	(MaxPacketSize - sizeof(MailHeader))
+#define MaxMailSize 	(MaxPacketSize - sizeof(MailHeader) - sizeof(timeval))
 
 
 // The following class defines the format of an incoming/outgoing 
@@ -61,12 +62,13 @@ class MailHeader {
 
 class Mail {
   public:
-     Mail(PacketHeader pktH, MailHeader mailH, char *msgData);
+     Mail(PacketHeader pktH, MailHeader mailH, timeval timeStamp, char *msgData);
 				// Initialize a mail message by
 				// concatenating the headers to the data
 
      PacketHeader pktHdr;	// Header appended by Network
      MailHeader mailHdr;	// Header appended by PostOffice
+     timeval timeStamp;
      char data[MaxMailSize];	// Payload -- message data
 };
 
@@ -80,9 +82,9 @@ class MailBox {
     MailBox();			// Allocate and initialize mail box
     ~MailBox();			// De-allocate mail box
 
-    void Put(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+    void Put(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char *data);
    				// Atomically put a message into the mailbox
-    void Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data); 
+    void Get(PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char *data); 
    				// Atomically get a message out of the 
 				// mailbox (and wait if there is no message 
 				// to get!)
@@ -107,13 +109,13 @@ class PostOffice {
 				//   get dropped by the underlying network
     ~PostOffice();		// De-allocate Post Office data
     
-    bool Send(PacketHeader pktHdr, MailHeader mailHdr, char *data, bool addTimeStamp = true);
+    bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data);
+    bool Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char *data);
     				// Send a message to a mailbox on a remote 
 				// machine.  The fromBox in the MailHeader is 
 				// the return box for ack's.
     
-    void Receive(int box, PacketHeader *pktHdr, 
-		MailHeader *mailHdr, char *data);
+    void Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char *data);
     				// Retrieve a message from "box".  Wait if
 				// there is no message in the box.
 

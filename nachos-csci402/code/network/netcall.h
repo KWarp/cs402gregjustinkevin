@@ -11,6 +11,8 @@
 #ifndef NETCALL_H
 #define NETCALL_H
 
+#include <sys/time.h>
+
 #define SERVERID 0
 #define SERVERMAILID 0
 
@@ -28,10 +30,10 @@ enum RequestType
   REGNETTHREADRESPONSE,GROUPINFO,ACK,INVALIDTYPE
 };
 
-int parseMessage(const char* buffer, timeval* timeStamp, RequestType* requestType);
+int parseValue(int startIndex, const char* buffer, int* value);
 int Request(RequestType requestType, char* data, int machineID, int mailID); //client
-void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* buffer);
-bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData);
+void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* buffer);
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData);
 void sendError();
 
 void itoa(char arr[], int size, int val);

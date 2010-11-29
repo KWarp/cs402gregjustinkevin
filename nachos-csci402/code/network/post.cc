@@ -38,12 +38,13 @@ extern "C" {
 //	"data" -- payload data
 //----------------------------------------------------------------------
 
-Mail::Mail(PacketHeader pktH, MailHeader mailH, char *msgData)
+Mail::Mail(PacketHeader pktH, MailHeader mailH, timeval timeS, char *msgData)
 {
     ASSERT(mailH.length <= MaxMailSize);
 
     pktHdr = pktH;
     mailHdr = mailH;
+    timeStamp = timeS;
     bcopy(msgData, data, mailHdr.length);
 }
 
@@ -84,10 +85,11 @@ MailBox::~MailBox()
 //----------------------------------------------------------------------
 
 static void 
-PrintHeader(PacketHeader pktHdr, MailHeader mailHdr)
+PrintHeader(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp)
 {
-    printf("From (%d, %d) to (%d, %d) bytes %d\n",
-    	    pktHdr.from, mailHdr.from, pktHdr.to, mailHdr.to, mailHdr.length);
+    printf("From (%d, %d) to (%d, %d) bytes %d time %d.%d\n",
+    	    pktHdr.from, mailHdr.from, pktHdr.to, mailHdr.to, mailHdr.length,
+          (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
 }
 
 //----------------------------------------------------------------------
@@ -104,9 +106,9 @@ PrintHeader(PacketHeader pktHdr, MailHeader mailHdr)
 //----------------------------------------------------------------------
 
 void 
-MailBox::Put(PacketHeader pktHdr, MailHeader mailHdr, char *data)
+MailBox::Put(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char *data)
 { 
-    Mail *mail = new Mail(pktHdr, mailHdr, data); 
+    Mail *mail = new Mail(pktHdr, mailHdr, timeStamp, data); 
 
     messages->Append((void *)mail);	// put on the end of the list of 
 					// arrived messages, and wake up 
@@ -126,23 +128,28 @@ MailBox::Put(PacketHeader pktHdr, MailHeader mailHdr, char *data)
 //----------------------------------------------------------------------
 
 void 
-MailBox::Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data) 
+MailBox::Get(PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char *data) 
 { 
-    DEBUG('n', "Waiting for mail in mailbox\n");
-    Mail *mail = (Mail *) messages->Remove();	// remove message from list;
-						// will wait if list is empty
+  DEBUG('n', "Waiting for mail in mailbox\n");
+  Mail *mail = (Mail *) messages->Remove();	// remove message from list;
+                                            // will wait if list is empty
 
-    *pktHdr = mail->pktHdr;
-    *mailHdr = mail->mailHdr;
-    if (DebugIsEnabled('n')) {
-	printf("Got mail from mailbox: ");
-	PrintHeader(*pktHdr, *mailHdr);
-    }
-    bcopy(mail->data, data, mail->mailHdr.length);
-					// copy the message data into
-					// the caller's buffer
-    delete mail;			// we've copied out the stuff we
-					// need, we can now discard the message
+  *pktHdr = mail->pktHdr;
+  *mailHdr = mail->mailHdr;
+  *timeStamp = mail->timeStamp;
+  
+  if (DebugIsEnabled('n'))
+  {
+    printf("Got mail from mailbox: ");
+    PrintHeader(*pktHdr, *mailHdr, *timeStamp);
+  }
+  
+  bcopy(mail->data, data, mail->mailHdr.length);
+  // copy the message data into
+  // the caller's buffer
+  
+  delete mail;			// we've copied out the stuff we
+  // need, we can now discard the message
 }
 
 //----------------------------------------------------------------------
@@ -228,28 +235,32 @@ PostOffice::~PostOffice()
 void
 PostOffice::PostalDelivery()
 {
-    PacketHeader pktHdr;
-    MailHeader mailHdr;
-    char *buffer = new char[MaxPacketSize];
+  PacketHeader pktHdr;
+  MailHeader mailHdr;
+  timeval timeStamp;
+  char *buffer = new char[MaxPacketSize];
 
-    for (;;) {
-        // first, wait for a message
-        messageAvailable->P();	
-        pktHdr = network->Receive(buffer);
-
-        mailHdr = *(MailHeader *)buffer;
-        if (DebugIsEnabled('n')) {
-	    printf("Putting mail into mailbox: ");
-	    PrintHeader(pktHdr, mailHdr);
-        }
-
-	// check that arriving message is legal!
-	ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
-	ASSERT(mailHdr.length <= MaxMailSize);
-
-	// put into mailbox
-        boxes[mailHdr.to].Put(pktHdr, mailHdr, buffer + sizeof(MailHeader));
+  for (;;)
+  {
+    // first, wait for a message
+    messageAvailable->P();	
+    pktHdr = network->Receive(buffer);
+    mailHdr = *(MailHeader *)buffer;
+    timeStamp = *(timeval *)(buffer + sizeof(MailHeader));
+    
+    if (DebugIsEnabled('n'))
+    {
+      printf("Putting mail into mailbox: ");
+      PrintHeader(pktHdr, mailHdr, timeStamp);
     }
+
+    // check that arriving message is legal!
+    ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
+    ASSERT(mailHdr.length <= MaxMailSize);
+
+    // put into mailbox
+    boxes[mailHdr.to].Put(pktHdr, mailHdr, timeStamp, buffer + sizeof(MailHeader) + sizeof(timeval));
+  }
 }
 
 //----------------------------------------------------------------------
@@ -265,90 +276,63 @@ PostOffice::PostalDelivery()
 //	"data" -- payload message data
 //----------------------------------------------------------------------
 
-bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool addTimeStamp)
+bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
+{
+  timeval timeStamp;
+  gettimeofday(&timeStamp, NULL);
+  return Send(pktHdr, mailHdr, timeStamp, data);
+}
+
+bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char* data)
 {
   if (DebugIsEnabled('n'))
   {
     printf("Post send: ");
-    PrintHeader(pktHdr, mailHdr);
+    PrintHeader(pktHdr, mailHdr, timeStamp);
   }
-
-  #ifdef CHANGED
-    if (addTimeStamp)
-      mailHdr.length += 2 * sizeof(int) + 2;
-  #endif
     
   // Make sure there's room after adding the timestamp (2 ints and 2 delimiting chars) if appropriate and header data.
-  ASSERT(mailHdr.length <= MaxMailSize);
+  ASSERT(mailHdr.length <= MaxMailSize - sizeof(timeval));
   ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
 
   // Fill in pktHdr, for the Network layer.
   pktHdr.from = netAddr;
-  pktHdr.length = mailHdr.length + sizeof(MailHeader);
 
-  #ifdef CHANGED
-    char tmpBuffer[MaxPacketSize];	// space to hold concatenated timeStamp + data
-
-    // Get the current timeStamp.
-    timeval timeStamp;
-    gettimeofday(&timeStamp, NULL);
- 
-    #if 0 // This doesn't work because it translates it into "readable" format, which can be much larger than expected.
-      sprintf(tmpBuffer, "%d:%d!%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
-    #elif 0
-      char c[1];
-      bcopy((char*)(&timeStamp.tv_sec) + sizeof(int), tmpBuffer, sizeof(int));
-      c[0] = ':';
-      bcopy(c, tmpBuffer + sizeof(int), 1);
-      bcopy((char*)(&timeStamp.tv_usec) + sizeof(int), tmpBuffer + sizeof(int) + 1, sizeof(int));
-      c[0] = '!';
-      bcopy(c, tmpBuffer + 2 * sizeof(int) + 1, 1);
-    #else
-      int i = 0;
-      for (i = 0; i < (int)sizeof(int); ++i)
-      {
-        char* c = (char*)(&timeStamp.tv_sec);
-        printf(c);
-        tmpBuffer[i] = c[i];
-      }
-      
-      tmpBuffer[i++] = ':';
-      printf(":");
-      
-      for (int j = 0; j < (int)sizeof(int); ++j, ++i)
-      {
-        char* c = (char*)(&timeStamp.tv_usec);
-        printf(c);
-        tmpBuffer[i] = c[j];
-      }
-      
-      tmpBuffer[i++] = '!';
-      printf("!\n");
-    #endif
+  // Add sent message to the list of messages that have not been acked 
+  //  so we can resend it later if necessary.
+  unAckedMessagesLock->Acquire();
   
-    // Add sent message to the list of messages that have not been acked 
-    //  so we can resend it later if necessary.
-    unAckedMessagesLock->Acquire();
-      if (addTimeStamp)
-        unAckedMessages.push_back(new UnAckedMessage(timeStamp, pktHdr, mailHdr, tmpBuffer));
-      else
-        unAckedMessages.push_back(new UnAckedMessage(timeStamp, pktHdr, mailHdr, data));
-    unAckedMessagesLock->Release();
-  #endif
+    // If we are resending the message, don't re-add it to unAckedMessages.
+    bool found = false;
+    for (int i = 0; i < (int)unAckedMessages.size(); ++i)
+    {
+      if (unAckedMessages[i]->pktHdr.to == pktHdr.to &&
+          unAckedMessages[i]->pktHdr.from == pktHdr.from &&
+          unAckedMessages[i]->mailHdr.to == mailHdr.to &&
+          unAckedMessages[i]->mailHdr.from == mailHdr.from &&
+          unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
+          unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
+      {
+        found = true;
+        timeval currentTime;
+        gettimeofday(&currentTime, NULL);
+        unAckedMessages[i]->lastTimeSent = currentTime;
+        break;
+      }
+    }
+    if (!found)
+      unAckedMessages.push_back(new UnAckedMessage(timeStamp, timeStamp, pktHdr, mailHdr, data));
+      
+  unAckedMessagesLock->Release();
 
   // Concatenate MailHeader and data.
   char buffer[MaxPacketSize];	    // space to hold concatenated mailHdr + timeStamp + data
-  bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
-  #ifdef CHANGED
-    if (addTimeStamp)
-      bcopy(tmpBuffer, buffer + sizeof(MailHeader), mailHdr.length);
-    else
-      bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
-  #else
-    bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
-  #endif
   
-  printf("PostOffice::Send buffer: %s\n", buffer);
+  pktHdr.length = mailHdr.length + sizeof(MailHeader) + sizeof(timeval);
+  bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
+  bcopy((char *) &timeStamp, buffer + sizeof(MailHeader), sizeof(timeval));
+  bcopy(data, buffer + sizeof(MailHeader) + sizeof(timeval), mailHdr.length);
+  
   // Actually send the packet.
   sendLock->Acquire();  // Only one message can be sent to the network at any one time.
     bool success = network->Send(pktHdr, buffer);
@@ -374,12 +358,11 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
 //----------------------------------------------------------------------
 
 void
-PostOffice::Receive(int box, PacketHeader *pktHdr, 
-				MailHeader *mailHdr, char* data)
+PostOffice::Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char* data)
 {
     ASSERT((box >= 0) && (box < numBoxes));
 
-    boxes[box].Get(pktHdr, mailHdr, data);
+    boxes[box].Get(pktHdr, mailHdr, timeStamp, data);
     ASSERT(mailHdr->length <= MaxMailSize);
 }
 
