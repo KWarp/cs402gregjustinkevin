@@ -192,21 +192,32 @@ main(int argc, char **argv)
 	}
 #endif // FILESYS
 #ifdef NETWORK
-        if (!strcmp(*argv, "-o")) {
-	    ASSERT(argc > 1);
-            Delay(2); 				// delay for 2 seconds
-						// to give the user time to 
-						// start up another nachos
-            MailTest(atoi(*(argv + 1)));
-            argCount = 2;
-  } else if (!strcmp(*argv, "-s")) {  // server
-            Delay(2); 				// delay for 2 seconds
-                              // to give the user time to 
-                              // start up another nachos
-            Server();
-        }
-#endif // NETWORK
+  if (!strcmp(*argv, "-o")) 
+  {
+    ASSERT(argc > 1);
+    Delay(2); 				// delay for 2 seconds
+                      // to give the user time to 
+                      // start up another nachos
+    MailTest(atoi(*(argv + 1)));
+    argCount = 2;
+  } 
+  #ifdef CHANGED
+    else if (!strcmp(*argv, "-s")) 
+    {  
+      Delay(2); 				// server delay for 2 seconds
+                        // to give the user time to 
+                        // start up another nachos
+      #if 0
+        // Project 3
+        Server();
+      #else
+        // Project 4
+        RegServer();
+      #endif
     }
+  #endif
+#endif // NETWORK
+  }
 
     currentThread->Finish();	// NOTE: if the procedure "main" 
 				// returns, then the program "nachos"
