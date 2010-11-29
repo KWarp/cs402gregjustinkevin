@@ -323,7 +323,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
       }
       
       tmpBuffer[i++] = '!';
-      printf("!");
+      printf("!\n");
     #endif
   
     // Add sent message to the list of messages that have not been acked 
@@ -347,7 +347,8 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
   #else
     bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
   #endif
-
+  
+  printf("PostOffice::Send buffer: %s\n", buffer);
   // Actually send the packet.
   sendLock->Acquire();  // Only one message can be sent to the network at any one time.
     bool success = network->Send(pktHdr, buffer);
