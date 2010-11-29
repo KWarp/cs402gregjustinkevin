@@ -265,49 +265,67 @@ PostOffice::PostalDelivery()
 //	"data" -- payload message data
 //----------------------------------------------------------------------
 
-bool
-PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
+bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool addTimeStamp)
 {
-    char* buffer = new char[MaxPacketSize];	// space to hold concatenated
-						// mailHdr + data
+  if (DebugIsEnabled('n'))
+  {
+    printf("Post send: ");
+    PrintHeader(pktHdr, mailHdr);
+  }
 
-    if (DebugIsEnabled('n')) {
-	printf("Post send: ");
-	PrintHeader(pktHdr, mailHdr);
-    }
-
+  // Make sure there's room after adding the timestamp (2 ints and 2 delimiting chars) and header data.
+  if (addTimeStamp)
+  {
+    ASSERT(mailHdr.length <= (MaxMailSize - (2 * sizeof(int)) - 2));
+  }
+  else
+  {
     ASSERT(mailHdr.length <= MaxMailSize);
-    ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
-    
-    // fill in pktHdr, for the Network layer
-    pktHdr.from = netAddr;
-    pktHdr.length = mailHdr.length + sizeof(MailHeader);
+  }
+  ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
 
+  // Fill in pktHdr, for the Network layer.
+  pktHdr.from = netAddr;
+  pktHdr.length = mailHdr.length + sizeof(MailHeader);
+
+  #ifdef CHANGED
+    char tmpBuffer[MaxPacketSize];	// space to hold concatenated timeStamp + data
+
+    // Get the current timeStamp.
+    timeval timeStamp;
+    gettimeofday(&timeStamp, NULL);
+ 
+    sprintf(tmpBuffer, "%d:%d!%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
+  
     // Add sent message to the list of messages that have not been acked 
     //  so we can resend it later if necessary.
-    #ifdef CHANGED
-      unAckedMessagesLock->Acquire();
-        timeval timeStamp;
-        gettimeofday(&timeStamp, NULL);
+    unAckedMessagesLock->Acquire();
+      if (addTimeStamp)
+        unAckedMessages.push_back(new UnAckedMessage(timeStamp, pktHdr, mailHdr, tmpBuffer));
+      else
         unAckedMessages.push_back(new UnAckedMessage(timeStamp, pktHdr, mailHdr, data));
-      unAckedMessagesLock->Release();
-    #endif
-    
-    // concatenate MailHeader and data
-    bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
+    unAckedMessagesLock->Release();
+  #endif
+
+  // Concatenate MailHeader and data.
+  char buffer[MaxPacketSize];	    // space to hold concatenated mailHdr + timeStamp + data
+  bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
+  #ifdef CHANGED
+    if (addTimeStamp)
+      bcopy(tmpBuffer, buffer + sizeof(MailHeader), mailHdr.length);
+    else
+      bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
+  #else
     bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
+  #endif
 
-    sendLock->Acquire();   		// only one message can be sent
-					// to the network at any one time
+  // Actually send the packet.
+  sendLock->Acquire();  // Only one message can be sent to the network at any one time.
     bool success = network->Send(pktHdr, buffer);
-    messageSent->P();			// wait for interrupt to tell us
-					// ok to send the next message
-    sendLock->Release();
+    messageSent->P();	  // Wait for interrupt to tell us ok to send the next message.
+  sendLock->Release();
 
-    delete [] buffer;			// we've sent the message, so
-          // we can delete our buffer
-    
-    return success;
+  return success;
 }
 
 //----------------------------------------------------------------------

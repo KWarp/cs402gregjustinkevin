@@ -71,10 +71,9 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
 {
   // Send an Ack to the message sender.
   timeval timeStamp;
-  gettimeofday(&timeStamp, NULL);
   
   char request[MaxMailSize];
-  sprintf(request, "%d:%d!%d_%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, requestType, data);
+  sprintf(request, "%d_%s", requestType, data);
   
 	for(int i = 0; i < (int)MaxMailSize; ++i)
 		buffer[i]='\0';
@@ -92,7 +91,7 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
     interrupt->Halt();
 
   postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-  parseMessage(buffer, timeStamp, requestType);
+  parseMessage(buffer, &timeStamp, &requestType);
   
   // Remove the message we just received from our network thread from unAckedMessages.
   bool found = false;
@@ -100,7 +99,7 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
   {
     timeval unAckedMessageTime;
     RequestType unAckedMessageRequestType = INVALIDTYPE;
-    parseMessage(unAckedMessages[i]->data, unAckedMessageTime, unAckedMessageRequestType);
+    parseMessage(unAckedMessages[i]->data, &unAckedMessageTime, &unAckedMessageRequestType);
     
     if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
         unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
@@ -123,7 +122,7 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
 
 // Parses timeStamp and requestType from the data packet, buf.
 // Returns the index of the start of data.
-int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
+int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
 {
   //printf("parseMessage: %s\n", buf);
   char reqTypeStr[MaxMailSize];
@@ -132,7 +131,7 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
   int i = 0;
   int offset = 0;
   
-  // Parse timeStamp.
+  // Parse timeStamp seconds.
   while (c != ':')
   {
     c = buf[i];
@@ -141,8 +140,11 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
     timeStampStr[i++] = c;
   }
   timeStampStr[i++] = '\0';
-  timeStamp.tv_sec = atoi(timeStampStr);
   
+  if (timeStamp != NULL)
+    timeStamp->tv_sec = atoi(timeStampStr);
+    
+  // Parse timeStamp useconds.
   offset = i;
   while (c != '!')
   {
@@ -152,7 +154,9 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
     timeStampStr[i++] = c;
   }
   timeStampStr[i++] = '\0';
-  timeStamp.tv_usec = atoi(timeStampStr + offset);
+  
+  if (timeStamp != NULL)
+    timeStamp->tv_usec = atoi(timeStampStr + offset);
   
   // Parse requestType.
   offset = i;
@@ -164,9 +168,11 @@ int parseMessage(const char* buf, timeval& timeStamp, RequestType& requestType)
     reqTypeStr[i++ - offset] = c;
   }
   reqTypeStr[i++ - offset] = '\0'; 
-  //printf("reqTypeStr: %s\n", reqTypeStr);
-  requestType = (RequestType)atoi(reqTypeStr);
   
+  if (requestType != NULL)
+    *requestType = (RequestType)atoi(reqTypeStr);
+  
+  // i will point to the first character of data.
   return i;
 }
 
@@ -202,11 +208,8 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
       else // If the message is from another thread (including self?).
       {  
         // Send an Ack to the message sender.
-        timeval timeStamp;
-        gettimeofday(&timeStamp, NULL);
-        
         char request[MaxMailSize];
-        sprintf(request, "%d:%d!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, ACK);
+        sprintf(request, "%d_", ACK);
         
         PacketHeader outPktHdr;
         MailHeader outMailHdr;
@@ -266,7 +269,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData)
 		buffer[i]='\0';
   
   // Parse timeStamp and requestType from message.
-  int i = parseMessage (msgData, timeStamp, requestType);
+  int i = parseMessage (msgData, &timeStamp, &requestType);
 	char c = msgData[i];
 	
   // Do this because all the code below assumes we are one the char before this, and I am too lazy to change it everywhere.
@@ -329,7 +332,9 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData)
 					{		
 						lockIndex=dlocks[localLockIndex[clientNum]]->GetGlobalId();
 					}
-					char* ack = new char [5];
+					char ack[MaxMailSize];
+          
+          
 					sprintf(ack, "%i", lockIndex);
 					
 					outPktHdr.to = clientNum/100;
