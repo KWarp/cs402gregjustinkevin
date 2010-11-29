@@ -10,8 +10,12 @@ int main()
 {
   PrintOut("===TestStartUserProgram===\n", 27);
   
-  PrintOut("Exec'ing exectestprogram1\n", 26);
+  PrintOut("Exec'ing teststartuserprogramsub 1\n", 35);
   Exec("../test/teststartuserprogramsub");
-  
+
+  PrintOut("Exec'ing teststartuserprogramsub 2\n", 35);
+  Exec("../test/teststartuserprogramsub");
+
   PrintOut("===TestStartUserProgram Completed===\n", 37);
+  Exit(0);
 }

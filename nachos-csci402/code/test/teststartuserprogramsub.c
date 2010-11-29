@@ -13,4 +13,5 @@ int main()
   StartUserProgram();
   
   PrintOut("===TestStartUserProgramSub Completed===\n", 40);
+  Exit(0);
 }
