@@ -308,20 +308,22 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
       for (i = 0; i < (int)sizeof(int); ++i)
       {
         char* c = (char*)(&timeStamp.tv_sec);
+        printf(c);
         tmpBuffer[i] = c[i];
       }
       
       tmpBuffer[i++] = ':';
+      printf(":");
       
       for (int j = 0; j < (int)sizeof(int); ++j, ++i)
       {
         char* c = (char*)(&timeStamp.tv_usec);
+        printf(c);
         tmpBuffer[i] = c[j];
       }
       
       tmpBuffer[i++] = '!';
-      
-      printf("i: %d\n", i);
+      printf("!");
     #endif
   
     // Add sent message to the list of messages that have not been acked 
