@@ -537,7 +537,7 @@ void NetworkThread()
       // Do Total Ordering.
       printf("NET THREAD: Do Total Ordering\n");
       // 1. Extract timestamp and member's ID.
-      // parseMessage(buffer, timeStamp, requestType);  // This is done already above.
+      // parseMessage(buffer, &timeStamp, &requestType);  // This is done already above.
       
       // 2. Update last timestamp, in the table, for that member.
       for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
