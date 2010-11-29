@@ -273,8 +273,11 @@ void RegisterNetworkThread()
   // Wait for StartSimulation message from UserProgram.
   while (requestType != STARTUSERPROGRAM)
   {
+    printf("0\n");
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
+    printf("1\n");
     parseMessage(buffer, NULL, &requestType);
+    printf("2\n");
   }
   printf("NET THREAD: Recieved STARTUSERPROGRAM\n");
   

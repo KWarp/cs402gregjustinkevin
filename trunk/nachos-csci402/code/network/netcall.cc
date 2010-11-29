@@ -90,6 +90,8 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
     outPktHdr.to = machineID;
     outMailHdr.to = mailID;
     outMailHdr.length = strlen(request) + 1;
+    
+  printf("Request: %s\n", request);
 
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
@@ -128,13 +130,14 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
 // Returns the index of the start of data.
 int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
 {
-  //printf("parseMessage: %s\n", buf);
+  printf("parseMessage: %s\n", buf);
   char reqTypeStr[MaxMailSize];
   char timeStampStr[MaxMailSize];
   char c = '?';
   int i = 0;
   int offset = 0;
   
+  printf("z\n");
   // Parse timeStamp seconds.
   while (c != ':')
   {
@@ -145,6 +148,7 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
   }
   timeStampStr[i++] = '\0';
   
+  printf("a\n");
   if (timeStamp != NULL)
   {
     #if 0 // This doesn't work.
@@ -153,7 +157,7 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
       bcopy(timeStampStr + offset, (char*)(&timeStamp->tv_sec), sizeof(int));
     #endif
   }
-  
+  printf("b\n");
   // Parse timeStamp useconds.
   offset = i;
   while (c != '!')
@@ -164,7 +168,8 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
     timeStampStr[i++] = c;
   }
   timeStampStr[i++] = '\0';
-  
+
+  printf("c\n");  
   if (timeStamp != NULL)
   {
     #if 0 // This doesn't work.
@@ -173,6 +178,7 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
       bcopy(timeStampStr + offset, (char*)(&timeStamp->tv_usec), sizeof(int));
     #endif
   }
+  printf("d\n");
   
   // Parse requestType.
   offset = i;
@@ -185,8 +191,10 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
   }
   reqTypeStr[i++ - offset] = '\0'; 
   
+  printf("e\n");
   if (requestType != NULL)
     *requestType = (RequestType)atoi(reqTypeStr);
+  printf("f\n");
   
   // i will point to the first character of data.
   return i;

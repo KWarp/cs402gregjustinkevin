@@ -33,7 +33,7 @@ CFLAGS = -G 0 -c $(INCDIR)
 
 all: halt matmult sort testfiles testfork testexec exectestprogram1 exectestprogram2 testnetsyscalls \
       syscalltest testsynchmanager testtwomatmult testtwosort simulation testmultisim \
-      teststartuserprogram teststartuserprogramsub
+      teststartuserprogram teststartuserprogramsub testp4syscalls testp4syscallssub
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -141,6 +141,18 @@ teststartuserprogramsub.o: teststartuserprogramsub.c
 teststartuserprogramsub: teststartuserprogramsub.o start.o
 	$(LD) $(LDFLAGS) start.o teststartuserprogramsub.o -o teststartuserprogramsub.coff
 	../bin/coff2noff teststartuserprogramsub.coff teststartuserprogramsub    
+
+testp4syscalls.o: testp4syscalls.c
+	$(CC) $(CFLAGS) -c testp4syscalls.c
+testp4syscalls: testp4syscalls.o start.o
+	$(LD) $(LDFLAGS) start.o testp4syscalls.o -o testp4syscalls.coff
+	../bin/coff2noff testp4syscalls.coff testp4syscalls  
+  
+testp4syscallssub.o: testp4syscallssub.c
+	$(CC) $(CFLAGS) -c testp4syscallssub.c
+testp4syscallssub: testp4syscallssub.o start.o
+	$(LD) $(LDFLAGS) start.o testp4syscallssub.o -o testp4syscallssub.coff
+	../bin/coff2noff testp4syscallssub.coff testp4syscallssub    
   
 clean:
 	rm -f *.o *.coff
