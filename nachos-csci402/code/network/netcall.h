@@ -28,7 +28,7 @@ enum RequestType
   REGNETTHREADRESPONSE,GROUPINFO,ACK,INVALIDTYPE
 };
 
-int parseMessage(const char* buffer, timeval& timeStamp, RequestType& requestType);
+int parseMessage(const char* buffer, timeval* timeStamp, RequestType* requestType);
 int Request(RequestType requestType, char* data, int machineID, int mailID); //client
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* buffer);
 bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData);

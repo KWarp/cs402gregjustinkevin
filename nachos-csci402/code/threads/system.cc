@@ -111,9 +111,9 @@ static void MsgResendInterruptHandler(int dummy)
     {
       if (currentTime - unAckedMessages[i]->lastTimeSent.tv_sec > ResendTimeout)
       {
-        // Resend the message.
+        // Resend the message (addTimeStamp = false).
         postOffice->Send(unAckedMessages[i]->pktHdr, unAckedMessages[i]->mailHdr, 
-                         unAckedMessages[i]->data);
+                         unAckedMessages[i]->data, false);
         
         // The line above will add another message to the end of unAckedMessages with 
         //  lastTimeSent updated and with the same data. Therefore, we need to remove the entry at this index.
@@ -135,7 +135,6 @@ void RegServer()
   MailHeader inMailHdr, outMailHdr;
   char buffer[MaxMailSize];
   RequestType requestType = INVALIDTYPE;
-  timeval timeStamp;
   int i = 0;
   int j = 0;
   int machineID = 0;
@@ -160,7 +159,7 @@ void RegServer()
     while (requestType != REGNETTHREAD)
     {
       postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-      i = parseMessage(buffer, timeStamp, requestType);
+      i = parseMessage(buffer, NULL, &requestType);
     }
     printf("SERVER: Received REGNETTHREAD message, send ACK\n");
     Ack(inPktHdr, inMailHdr, buffer);
@@ -209,7 +208,7 @@ void RegServer()
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
     
-    sprintf(request, "%d:%d!%d_%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREADRESPONSE, 
+    sprintf(request, "%d_%d", REGNETTHREADRESPONSE, 
             divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
     
     outPktHdr.from = postOffice->GetID();
@@ -231,7 +230,7 @@ void RegServer()
     for(j = 0; j < (int)MaxMailSize; ++j)
       request[j] = '\0';
   
-    sprintf(request, "%d:%d!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, GROUPINFO);
+    sprintf(request, "%d_", GROUPINFO);
 
     for (j = 0; j < ThreadsPerMessage && i < (int)globalNetThreadInfo.size(); ++j, ++i)
       sprintf(request + strlen(request), "%1d%02d", globalNetThreadInfo[i]->machineID, globalNetThreadInfo[i]->mailID);
@@ -263,7 +262,6 @@ void RegisterNetworkThread()
   MailHeader inMailHdr, outMailHdr;
   char buffer[MaxMailSize];
   RequestType requestType = INVALIDTYPE;
-  timeval timeStamp;
   int i = 0;
   int j = 0;
   int numMessages = 0;
@@ -276,7 +274,7 @@ void RegisterNetworkThread()
   while (requestType != STARTUSERPROGRAM)
   {
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-    parseMessage(buffer, timeStamp, requestType);
+    parseMessage(buffer, NULL, &requestType);
   }
   printf("NET THREAD: Recieved STARTUSERPROGRAM\n");
   
@@ -286,8 +284,7 @@ void RegisterNetworkThread()
   printf("NET THREAD: Message server with machineID and mailBoxID\n");
   
   // Message server with machineID and mailBoxID.
-  sprintf(request, "%d:%d!%d_%d-%d", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, REGNETTHREAD, 
-          postOffice->GetID(), currentThread->mailID);
+  sprintf(request, "%d_%d-%d", REGNETTHREAD, postOffice->GetID(), currentThread->mailID);
 	
   // Do error checking for length of request here?
   
@@ -312,7 +309,7 @@ void RegisterNetworkThread()
   while (requestType != REGNETTHREADRESPONSE)
   {
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-    i = parseMessage(buffer, timeStamp, requestType);
+    i = parseMessage(buffer, NULL, &requestType);
   }
   
   Ack(inPktHdr, inMailHdr, buffer);
@@ -346,7 +343,7 @@ void RegisterNetworkThread()
     while (requestType != GROUPINFO)
     {
       postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-      i = parseMessage(buffer, timeStamp, requestType);
+      i = parseMessage(buffer, NULL, &requestType);
     }
     printf("NET THREAD: Received message %d of %d\n", msgNum+1, numMessages);
     printf("NET THREAD: buffer %s\n", buffer);
@@ -381,7 +378,7 @@ void RegisterNetworkThread()
   
   // Reply to my user thread stating that it can proceed
   printf("NET THREAD: Reply to my user thread\n");
-  sprintf(request, "%d:%d!%d_", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, STARTUSERPROGRAM);
+  sprintf(request, "%d_", STARTUSERPROGRAM);
   
   outPktHdr.from = postOffice->GetID();
   outMailHdr.from = currentThread->mailID;
@@ -445,7 +442,7 @@ bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
   {
     timeval unAckedMessageTime;
     RequestType unAckedMessageRequestType = INVALIDTYPE;
-    parseMessage(unAckedMessages[i]->data, unAckedMessageTime, unAckedMessageRequestType);
+    parseMessage(unAckedMessages[i]->data, &unAckedMessageTime, &unAckedMessageRequestType);
     
     if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
         unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
@@ -489,7 +486,7 @@ void NetworkThread()
   {
     // Wait for a message to be received.
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
-    parseMessage(buffer, timeStamp, requestType);
+    parseMessage(buffer, &timeStamp, &requestType);
     printf("NET THREAD: recieved message: %s\n", buffer);
     // If the packet is an Ack, process it.
     if (requestType == ACK)
@@ -531,7 +528,7 @@ void NetworkThread()
         outMailHdr.to = globalNetThreadInfo[i]->mailID;
         outMailHdr.length = strlen(buffer) + 1;
         
-        if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
+        if (!postOffice->Send(outPktHdr, outMailHdr, buffer, false))
           interrupt->Halt();
       }
     }
