@@ -119,8 +119,6 @@ static void MsgResendInterruptHandler(int dummy)
   unAckedMessagesLock->Release();
 }
 
-
-
 void RegServer()
 {
   printf("===Starting Registration Server===\n");
@@ -136,7 +134,7 @@ void RegServer()
   char c = '?';
   char tmpStr[MaxMailSize];
   char request[MaxMailSize];
-  static const int ThreadsPerMessage = 5; 
+  static const int ThreadsPerMessage = 8; 
   
   // verify that I'm the server
   ASSERT(postOffice->GetID() == RegistrationServerMachineID);
