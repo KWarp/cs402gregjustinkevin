@@ -1,6 +1,6 @@
 /*    
- *  launchcustomer.c
- *	Launches the customer for the restaurant simulation
+ *  launchordertaker.c
+ *	Launches the ordertaker for the restaurant simulation
  *	
  */
  
@@ -13,13 +13,13 @@ int main()
   
   configParam = GetConfigArg();
   
-  PrintOut("Will Exec customer ", 19);
+  PrintOut("Will Exec ordertaker ", 21);
   PrintNumber(configParam);
   PrintOut(" times\n", 7);
   
   for(i=0; i < configParam; i++)
   {
-    Exec("../test/customer");  
+    Exec("../test/ordertaker");  
   }
 
   Exit(0);

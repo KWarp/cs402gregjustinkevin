@@ -33,7 +33,8 @@ CFLAGS = -G 0 -c $(INCDIR)
 
 all: halt matmult sort testfiles testfork testexec exectestprogram1 exectestprogram2 testnetsyscalls \
       syscalltest testsynchmanager testtwomatmult testtwosort simulation testmultisim \
-      teststartuserprogram teststartuserprogramsub testp4syscalls testp4syscallssub
+      teststartuserprogram teststartuserprogramsub testp4syscalls testp4syscallssub \
+      customer ordertaker manager cook launchcustomer launchordertaker launchmanager
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -153,6 +154,48 @@ testp4syscallssub.o: testp4syscallssub.c
 testp4syscallssub: testp4syscallssub.o start.o
 	$(LD) $(LDFLAGS) start.o testp4syscallssub.o -o testp4syscallssub.coff
 	../bin/coff2noff testp4syscallssub.coff testp4syscallssub    
+  
+customer.o: customer.c
+	$(CC) $(CFLAGS) -c customer.c
+customer: customer.o start.o
+	$(LD) $(LDFLAGS) start.o customer.o -o customer.coff
+	../bin/coff2noff customer.coff customer  
+  
+ordertaker.o: ordertaker.c
+	$(CC) $(CFLAGS) -c ordertaker.c
+ordertaker: ordertaker.o start.o
+	$(LD) $(LDFLAGS) start.o ordertaker.o -o ordertaker.coff
+	../bin/coff2noff ordertaker.coff ordertaker  
+  
+manager.o: manager.c
+	$(CC) $(CFLAGS) -c manager.c
+manager: manager.o start.o
+	$(LD) $(LDFLAGS) start.o manager.o -o manager.coff
+	../bin/coff2noff manager.coff manager  
+  
+cook.o: cook.c
+	$(CC) $(CFLAGS) -c cook.c
+cook: cook.o start.o
+	$(LD) $(LDFLAGS) start.o cook.o -o cook.coff
+	../bin/coff2noff cook.coff cook  
+  
+launchcustomer.o: launchcustomer.c
+	$(CC) $(CFLAGS) -c launchcustomer.c
+launchcustomer: launchcustomer.o start.o
+	$(LD) $(LDFLAGS) start.o launchcustomer.o -o launchcustomer.coff
+	../bin/coff2noff launchcustomer.coff launchcustomer  
+  
+launchordertaker.o: launchordertaker.c
+	$(CC) $(CFLAGS) -c launchordertaker.c
+launchordertaker: launchordertaker.o start.o
+	$(LD) $(LDFLAGS) start.o launchordertaker.o -o launchordertaker.coff
+	../bin/coff2noff launchordertaker.coff launchordertaker  
+  
+launchmanager.o: launchmanager.c
+	$(CC) $(CFLAGS) -c launchmanager.c
+launchmanager: launchmanager.o start.o
+	$(LD) $(LDFLAGS) start.o launchmanager.o -o launchmanager.coff
+	../bin/coff2noff launchmanager.coff launchmanager  
   
 clean:
 	rm -f *.o *.coff
