@@ -142,8 +142,14 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
   timeStampStr[i++] = '\0';
   
   if (timeStamp != NULL)
-    timeStamp->tv_sec = atoi(timeStampStr);
-    
+  {
+    #if 0 // This doesn't work.
+      timeStamp->tv_sec = atoi(timeStampStr);
+    #else
+      bcopy(timeStampStr + offset, (char*)(&timeStamp->tv_sec), sizeof(int));
+    #endif
+  }
+  
   // Parse timeStamp useconds.
   offset = i;
   while (c != '!')
@@ -156,7 +162,13 @@ int parseMessage(const char* buf, timeval* timeStamp, RequestType* requestType)
   timeStampStr[i++] = '\0';
   
   if (timeStamp != NULL)
-    timeStamp->tv_usec = atoi(timeStampStr + offset);
+  {
+    #if 0 // This doesn't work.
+      timeStamp->tv_usec = atoi(timeStampStr + offset);
+    #else
+      bcopy(timeStampStr + offset, (char*)(&timeStamp->tv_usec), sizeof(int));
+    #endif
+  }
   
   // Parse requestType.
   offset = i;
