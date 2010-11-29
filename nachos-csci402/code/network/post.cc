@@ -295,7 +295,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
  
     #if 0 // This doesn't work because it translates it into "readable" format, which can be much larger than expected.
       sprintf(tmpBuffer, "%d:%d!%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
-    #else
+    #elif 0
       char c[1];
       bcopy((char*)(&timeStamp.tv_sec) + sizeof(int), tmpBuffer, sizeof(int));
       c[0] = ':';
@@ -303,6 +303,28 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
       bcopy((char*)(&timeStamp.tv_usec) + sizeof(int), tmpBuffer + sizeof(int) + 1, sizeof(int));
       c[0] = '!';
       bcopy(c, tmpBuffer + 2 * sizeof(int) + 1, 1);
+    #else
+      printf("sizeof(int): %d\n", sizeof(int));
+      printf("sizeof(long): %d\n", sizeof(long));
+      
+      int i = 0;
+      for (i = 0; i < (int)sizeof(int); ++i)
+      {
+        char* c = (char*)(&timeStamp.tv_sec);
+        tmpBuffer[i] = c[i + sizeof(int)];
+      }
+      
+      tmpBuffer[i++] = ':';
+      
+      for (int j = 0; j < (int)sizeof(int); ++j, ++i)
+      {
+        char* c = (char*)(&timeStamp.tv_usec);
+        tmpBuffer[i] = c[j + sizeof(int)];
+      }
+      
+      tmpBuffer[i++] = '!';
+      
+      printf("i: %d\n", i);
     #endif
   
     // Add sent message to the list of messages that have not been acked 
