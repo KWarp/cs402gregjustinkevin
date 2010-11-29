@@ -53,6 +53,7 @@
   #define SC_GetMV 25
   #define SC_DestroyMV 26
   #define SC_StartUserProgram 27
+  #define SC_GetConfigArg 28
 #endif
 
 #define MAXFILENAME 256
@@ -189,6 +190,8 @@ int RandomNumber(int count);
 
 /* Block the network thread */
 void StartUserProgram();
+
+int GetConfigArg();
 
 #endif /* CHANGED */
 
