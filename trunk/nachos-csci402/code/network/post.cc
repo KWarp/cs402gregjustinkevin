@@ -273,15 +273,13 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
     PrintHeader(pktHdr, mailHdr);
   }
 
-  // Make sure there's room after adding the timestamp (2 ints and 2 delimiting chars) and header data.
-  if (addTimeStamp)
-  {
-    ASSERT(mailHdr.length <= (MaxMailSize - (2 * sizeof(int)) - 2));
-  }
-  else
-  {
-    ASSERT(mailHdr.length <= MaxMailSize);
-  }
+  #ifdef CHANGED
+    if (addTimeStamp)
+      mailHdr.length += 2 * sizeof(int) + 2;
+  #endif
+    
+  // Make sure there's room after adding the timestamp (2 ints and 2 delimiting chars) if appropriate and header data.
+  ASSERT(mailHdr.length <= MaxMailSize);
   ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
 
   // Fill in pktHdr, for the Network layer.
