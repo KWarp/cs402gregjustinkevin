@@ -96,6 +96,7 @@ extern Timer *timer;				        // the hardware alarm clock
     
     extern vector<NetThreadInfoEntry*> globalNetThreadInfo;
     extern void NetworkThread();
+    extern void RegServer();
   #endif
 #endif
 

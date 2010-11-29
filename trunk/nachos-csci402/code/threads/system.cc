@@ -126,8 +126,10 @@ static void MsgResendInterruptHandler(int dummy)
 }
 
 int totalNumNetworkThreads = 10;
+
 void RegServer()
 {
+  printf("===Starting Registration Server===\n");
   PacketHeader inPktHdr, outPktHdr;
   MailHeader inMailHdr, outMailHdr;
   char buffer[MaxMailSize];
@@ -142,15 +144,23 @@ void RegServer()
   char request[MaxMailSize];
   static const int ThreadsPerMessage = 5; 
   
+  // verify that I'm the server
+  ASSERT(postOffice->GetID() == RegistrationServerMachineID);
+  ASSERT(currentThread->mailID == RegistrationServerMailID);
+  
   while ((int)globalNetThreadInfo.size() < totalNumNetworkThreads)
   {
+    printf("SERVER: Wait for a REGNETTHREAD message\n");
     // Wait for a REGNETTHREAD message.
     while (requestType != REGNETTHREAD)
     {
+      printf("0\n");
       postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
+      printf("1\n");
       i = parseMessage(buffer, timeStamp, requestType);
+      printf("2\n");
     }
-    
+    printf("SERVER: Received REGNETTHREAD message, send ack and parse data\n");
     Ack(inPktHdr, inMailHdr, buffer);
 
     // Parse machineID.
@@ -186,7 +196,8 @@ void RegServer()
     globalNetThreadInfo.push_back(entry);
     
     // Respond to the network thread with the number of messages it will receive containing globalNetThreadInfo.
-    
+    printf("SERVER: Respond to the network thread with the number of messages to expect\n");
+ 
     // Clear the output buffer.
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
@@ -285,6 +296,7 @@ void RegisterNetworkThread()
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
   
+  printf("NET THREAD request: %s\n", request);
   printf("NET THREAD: Wait for an Ack message from Registration Server\n");
   // Wait for an Ack message from Registration Server.
   // The Ack will contain numMessages.
