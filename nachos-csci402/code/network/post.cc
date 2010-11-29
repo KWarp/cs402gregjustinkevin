@@ -293,7 +293,17 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
     timeval timeStamp;
     gettimeofday(&timeStamp, NULL);
  
-    sprintf(tmpBuffer, "%d:%d!%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
+    #if 0 // This doesn't work because it translates it into "readable" format, which can be much larger than expected.
+      sprintf(tmpBuffer, "%d:%d!%s", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
+    #else
+      char c[1];
+      bcopy((char*)(&timeStamp.tv_sec) + sizeof(int), tmpBuffer, sizeof(int));
+      c[0] = ':';
+      bcopy(c, tmpBuffer + sizeof(int), 1);
+      bcopy((char*)(&timeStamp.tv_usec) + sizeof(int), tmpBuffer + sizeof(int) + 1, sizeof(int));
+      c[0] = '!';
+      bcopy(c, tmpBuffer + 2 * sizeof(int) + 1, 1);
+    #endif
   
     // Add sent message to the list of messages that have not been acked 
     //  so we can resend it later if necessary.
