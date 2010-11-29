@@ -14,7 +14,7 @@
 #define SERVERID 0
 #define SERVERMAILID 0
 
-#define MAX_CLIENTS 200
+#define MAX_CLIENTS 1000
 #define MAX_DLOCK 100 
 #define MAX_DMV 500 
 #define MAX_DCV 100 
@@ -31,7 +31,7 @@ enum RequestType
 int parseMessage(const char* buffer, timeval& timeStamp, RequestType& requestType);
 int Request(RequestType requestType, char* data, int machineID, int mailID); //client
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, char* buffer);
-bool HandleRequest(); //server
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, char* msgData);
 void sendError();
 
 void itoa(char arr[], int size, int val);

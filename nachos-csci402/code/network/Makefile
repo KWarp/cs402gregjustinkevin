@@ -2978,11 +2978,6 @@ swapfile.o: ../userprog/swapfile.cc ../userprog/swapfile.h \
 netcall.o: ../network/netcall.cc ../network/netcall.h \
    ../threads/utility.h ../threads/copyright.h \
    /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/include/stdio.h 
-server.o: ../network/server.cc \
-  ../threads/copyright.h ../threads/system.h ../threads/copyright.h \
-  ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \
-  ../threads/copyright.h \
-  /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/include/stdio.h 
   
    
 # DEPENDENCIES MUST END AT END OF FILE
