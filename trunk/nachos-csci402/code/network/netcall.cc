@@ -132,10 +132,10 @@ int parseValue(int startIndex, const char* buf, int* value)
   ASSERT(i >= 0);
  
   // Parse requestType.
-  while (c != '_')
+  while (c != '_' && c != '\0')
   {
     c = buf[i];
-    if (c == '_')
+    if (c == '_' || c == '\0')
       break;
     valueStr[i++ - startIndex] = c;
   }
@@ -144,7 +144,7 @@ int parseValue(int startIndex, const char* buf, int* value)
   if (value != NULL)
     *value = atoi(valueStr);
   
-  printf("parsed value: %d\n", value);
+  printf("parsed value: %d\n", *value);
   // i will point to the next character of data.
   return i;
 }
