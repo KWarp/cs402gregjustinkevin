@@ -1,6 +1,10 @@
 #include "netcall.h"
 #include <sys/time.h>
 
+extern "C" {
+	int bcopy(char *, char *, int);
+};
+
 Message::Message(PacketHeader pHdr, MailHeader mHdr, char *d)
 {
 	pktHdr = pHdr;
