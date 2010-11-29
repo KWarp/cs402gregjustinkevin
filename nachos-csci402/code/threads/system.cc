@@ -67,6 +67,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     static const int RegistrationServerMachineID = 0;
     static const int RegistrationServerMailID = 0;
     int mailIDCounter = 0;
+    int totalNumNetworkThreads = -1;
   #endif
 #endif
 
@@ -125,7 +126,7 @@ static void MsgResendInterruptHandler(int dummy)
   unAckedMessagesLock->Release();
 }
 
-int totalNumNetworkThreads = 2;
+
 
 void RegServer()
 {
@@ -147,6 +148,9 @@ void RegServer()
   // verify that I'm the server
   ASSERT(postOffice->GetID() == RegistrationServerMachineID);
   ASSERT(currentThread->mailID == RegistrationServerMailID);
+  
+  // verify critical args
+  ASSERT(totalNumNetworkThreads > 0 && totalNumNetworkThreads < 100);
   
   while ((int)globalNetThreadInfo.size() < totalNumNetworkThreads)
   {
@@ -221,7 +225,7 @@ void RegServer()
   
   // Message all the threads with globalNetThreadInfo.
   printf("SERVER: Message all the threads with globalNetThreadInfo\n");
-  for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
+  for (i = 0; i < (int)globalNetThreadInfo.size(); )
   {
     // Clear the output buffer.
     for(j = 0; j < (int)MaxMailSize; ++j)
@@ -232,7 +236,6 @@ void RegServer()
     for (j = 0; j < ThreadsPerMessage && i < (int)globalNetThreadInfo.size(); ++j, ++i)
       sprintf(request + strlen(request), "%1d%02d", globalNetThreadInfo[i]->machineID, globalNetThreadInfo[i]->mailID);
     
-    printf("SERVER: %s\n", request);
     // Send the all the threads who are waiting.
     for (j = 0; j < (int)globalNetThreadInfo.size(); ++j)
     {
@@ -241,6 +244,9 @@ void RegServer()
       outPktHdr.to = globalNetThreadInfo[j]->machineID;
       outMailHdr.to = globalNetThreadInfo[j]->mailID;
       outMailHdr.length = strlen(request) + 1;
+      
+      printf("SERVER: Sending to machineID: %d, mailID: %d\n", outPktHdr.to, outMailHdr.to);
+      printf("SERVER: %s\n", request);
       
       if (!postOffice->Send(outPktHdr, outMailHdr, request))
         interrupt->Halt();
@@ -333,16 +339,17 @@ void RegisterNetworkThread()
   
   printf("NET THREAD: Wait for %d messages from server\n", numMessages);
   // Wait for all of the messages.
-  for (i = 0; i < numMessages; ++i)
+  for (int msgNum = 0; msgNum < numMessages; ++msgNum)
   {
-    int msgNum = i + 1;
+    i = 0;
+    requestType = INVALIDTYPE;
     while (requestType != GROUPINFO)
     {
       postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, buffer);
       i = parseMessage(buffer, timeStamp, requestType);
     }
-    printf("NET THREAD: Received message %d of %d\n", msgNum, numMessages);
-   
+    printf("NET THREAD: Received message %d of %d\n", msgNum+1, numMessages);
+    printf("NET THREAD: buffer %s\n", buffer);
     Ack(inPktHdr, inMailHdr, buffer);
 
     int machineID, mailID;
@@ -357,8 +364,8 @@ void RegisterNetworkThread()
         
       tmpStr[0] = buffer[i];
       tmpStr[1] = '\0';
-      tmpStr[2] = buffer[i + 2];
-      tmpStr[3] = buffer[i + 3];
+      tmpStr[2] = buffer[i + 1];
+      tmpStr[3] = buffer[i + 2];
       tmpStr[4] = '\0';
       
       machineID = atoi(tmpStr);
@@ -367,9 +374,9 @@ void RegisterNetworkThread()
       globalNetThreadInfo.push_back(entry);
     
       i += 3;
+      printf("NET THREAD: parsed machineID: %d, mailID: %d\n", machineID, mailID); 
     }
-    printf("NET THREAD: buffer %s\n", buffer);
-    printf("NET THREAD: parsed machineID: %d, mailID: %d\n", machineID, mailID);    
+   
   }
   
   // Reply to my user thread stating that it can proceed
@@ -762,7 +769,7 @@ void Initialize(int argc, char **argv)
   #endif
 
   #ifdef NETWORK
-    postOffice = new PostOffice(netname, rely, 10);
+    postOffice = new PostOffice(netname, rely, 100);
   #endif
 }
 

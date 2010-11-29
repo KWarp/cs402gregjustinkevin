@@ -53,6 +53,7 @@ using namespace std;
 	int getMailID();
   
   void Fork_Kernel_Thread(unsigned int functionPtr);
+  int configArg = -1;
   #endif
 #endif
 
@@ -279,6 +280,15 @@ void Close_Syscall(int fd)
 }
 
 #ifdef CHANGED
+
+/*
+ * Read the config integer
+ */
+int GetConfigArg_Syscall()
+{
+  return configArg;
+}
+
 /*
  * Implementations of Syscalls for Project 2
  */
@@ -1025,7 +1035,10 @@ void ExceptionHandler(ExceptionType which)
             DEBUG('a', "StartUserProgram syscall. \n");
             StartUserProgram_Syscall();
             break;
-            
+          case SC_GetConfigArg:
+            DEBUG('a', "GetConfigArg syscall. \n");
+            rv = GetConfigArg_Syscall();
+            break; 
         #endif
       #endif
     }

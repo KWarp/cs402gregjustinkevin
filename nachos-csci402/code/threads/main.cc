@@ -69,6 +69,7 @@ extern void Server();
 #ifdef CHANGED
   extern void TestSuite(void);
   extern void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
+  extern int configArg;
 #endif
 
 //----------------------------------------------------------------------
@@ -212,8 +213,16 @@ main(int argc, char **argv)
         Server();
       #else
         // Project 4
+        ASSERT(argc > 3);
+        totalNumNetworkThreads = atoi(*(argv + 1));
         RegServer();
       #endif
+    }
+    else if(!strcmp(*argv, "-config"))
+    {
+      // argument for user programs
+      configArg = atoi(*(argv + 1));
+      printf("config arg: %d\n", configArg);
     }
   #endif
 #endif // NETWORK

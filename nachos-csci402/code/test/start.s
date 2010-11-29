@@ -247,6 +247,14 @@ StartUserProgram:
 	syscall
 	j	$31
 	.end StartUserProgram
+  
+ 	.globl GetConfigArg
+	.ent	GetConfigArg
+GetConfigArg:
+	addiu $2,$0,SC_GetConfigArg
+	syscall
+	j	$31
+	.end GetConfigArg 
 
 	.globl PrintOut
 	.ent	PrintOut  
