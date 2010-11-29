@@ -292,7 +292,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
   }
     
   // Make sure there's room after adding the timestamp (2 ints and 2 delimiting chars) if appropriate and header data.
-  ASSERT(mailHdr.length <= MaxMailSize - sizeof(timeval));
+  ASSERT(mailHdr.length <= MaxMailSize);
   ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);
 
   // Fill in pktHdr, for the Network layer.
