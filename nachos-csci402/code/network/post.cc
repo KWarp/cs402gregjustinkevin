@@ -276,14 +276,14 @@ PostOffice::PostalDelivery()
 //	"data" -- payload message data
 //----------------------------------------------------------------------
 
-bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
+bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool doAck)
 {
   timeval timeStamp;
   gettimeofday(&timeStamp, NULL);
-  return Send(pktHdr, mailHdr, timeStamp, data);
+  return Send(pktHdr, mailHdr, timeStamp, data, doAck);
 }
 
-bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char* data)
+bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char* data, bool doAck)
 {
   if (DebugIsEnabled('n'))
   {
@@ -306,6 +306,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
     bool found = false;
     for (int i = 0; i < (int)unAckedMessages.size(); ++i)
     {
+      // If we are resending the message, update its lastTimeSent value and don't re-add it to unAckedMessages.
       if (unAckedMessages[i]->pktHdr.to == pktHdr.to &&
           unAckedMessages[i]->pktHdr.from == pktHdr.from &&
           unAckedMessages[i]->mailHdr.to == mailHdr.to &&
@@ -321,7 +322,12 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
       }
     }
     if (!found)
-      unAckedMessages.push_back(new UnAckedMessage(timeStamp, timeStamp, pktHdr, mailHdr, data));
+    {
+      // Only tell the system to resend if we want to require an Ack.
+      // doAck will be false when the message we are sending is an ACK message.
+      if (doAck)
+        unAckedMessages.push_back(new UnAckedMessage(timeStamp, timeStamp, pktHdr, mailHdr, data));
+    }
       
   unAckedMessagesLock->Release();
 

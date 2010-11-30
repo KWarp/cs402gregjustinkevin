@@ -109,8 +109,8 @@ class PostOffice {
 				//   get dropped by the underlying network
     ~PostOffice();		// De-allocate Post Office data
     
-    bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data);
-    bool Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char *data);
+    bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool doAck = true);
+    bool Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char *data, bool doAck = true);
     				// Send a message to a mailbox on a remote 
 				// machine.  The fromBox in the MailHeader is 
 				// the return box for ack's.
