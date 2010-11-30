@@ -186,7 +186,7 @@ void RegServer()
     // Respond to the network thread with the number of messages it will receive containing globalNetThreadInfo.
     printf("SERVER: Tell network thread to expect %d messages\n", divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
  
-    // Clear the output buffer.
+    // Clear the output request.
     for(i = 0; i < (int)MaxMailSize; ++i)
       request[i] = '\0';
     
@@ -199,7 +199,12 @@ void RegServer()
     outMailHdr.to = inMailHdr.from;
     outMailHdr.length = strlen(request) + 1;
     
+    printf("SERVER sending REGNETTHREADRESPONSE: From (%d, %d) to (%d, %d) bytes %d, time %d.%d\n",
+         outPktHdr.from, outMailHdr.from, 
+         outPktHdr.to, outMailHdr.to, outMailHdr.length,
+         (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
     printf("SERVER: %s\n", request);
+    
     if (!postOffice->Send(outPktHdr, outMailHdr, request))
       interrupt->Halt();
   }
@@ -208,7 +213,7 @@ void RegServer()
   printf("SERVER: Message all the threads with globalNetThreadInfo\n");
   for (i = 0; i < (int)globalNetThreadInfo.size(); )
   {
-    // Clear the output buffer.
+    // Clear the output request.
     for(j = 0; j < (int)MaxMailSize; ++j)
       request[j] = '\0';
   
@@ -235,10 +240,20 @@ void RegServer()
   }
   
   // Wait in case any packets were dropped and need to be resent.
-  printf("Waiting for all sent messages to be received\n");
+  printf("SERVER: Waiting for all sent messages to be received\n");
   unAckedMessagesLock->Acquire();
   while (unAckedMessages.size() > 0)
   {
+    requestType = INVALIDTYPE;
+    while (requestType != ACK)
+    {
+      postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
+      parseValue(0, buffer, (int*)(&requestType));
+      
+      // Manually process any ACKs we receive.
+      if (requestType == ACK)
+        processAck(inPktHdr, inMailHdr, timeStamp);
+    }
     unAckedMessagesLock->Release();
       for (i = 0; i < 10; ++i)
         currentThread->Yield();
@@ -276,9 +291,9 @@ void RegisterNetworkThread()
     if (requestType == ACK)
       processAck(inPktHdr, inMailHdr, timeStamp);
   }
-  printf("NET THREAD: Recieved STARTUSERPROGRAM\n");
   
   // Ack that we got the message by removing it from unAckedMessages.
+  printf("NET THREAD: Sending ack for STARTUSERPROGRAM\n");
   Ack(inPktHdr, inMailHdr, timeStamp, buffer);
 
   printf("NET THREAD: Message server with machineID and mailBoxID\n");
@@ -316,6 +331,7 @@ void RegisterNetworkThread()
       processAck(inPktHdr, inMailHdr, timeStamp);
   }
   
+  printf("NET THREAD: Sending ack for REGNETTHREADRESPONSE\n");
   Ack(inPktHdr, inMailHdr, timeStamp, buffer);
   
   printf("NET THREAD: Parse numMessages\n");
@@ -355,9 +371,10 @@ void RegisterNetworkThread()
     }
     
     printf("NET THREAD: Received message %d of %d\n", msgNum+1, numMessages);
-    printf("NET THREAD: buffer %s\n", buffer);
+    printf("NET THREAD: Sending ack for GROUPINFO\n");
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
 
+    printf("NET THREAD: buffer %s\n", buffer);
     int machineID, mailID;
     
     // Parse machineID and mailID.
@@ -446,7 +463,7 @@ void updateTimeStamp(char* buffer)
 
 bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
 {
-  printf("processing ACK: From (%d, %d) to (%d, %d) bytes %d time %d.%d\n",
+  printf("processing ACK: From (%d, %d) to (%d, %d) bytes %d, time %d.%d\n",
          inPktHdr.from, inMailHdr.from, 
          inPktHdr.to, inMailHdr.to, inMailHdr.length,
          (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
@@ -469,7 +486,7 @@ bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
       }
     }
     if (!found) // Error!!! This should never happen.
-      printf("Ack message not found in unAckedMessages in processAck!!!\n");
+      printf("processAck: Ack message not found in unAckedMessages!!!\n");
   unAckedMessagesLock->Release();
   
   return found;
@@ -497,27 +514,33 @@ void NetworkThread()
   while (true)
   {
     // Wait for a message to be received.
+    requestType = INVALIDTYPE;
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
     parseValue(0, buffer, (int*)(&requestType));
     printf("NET THREAD: recieved message: %s\n", buffer);
     // If the packet is an Ack, process it.
     if (requestType == ACK)
     {
+      printf("NET THREAD: processing received ACK\n");
       processAck(inPktHdr, inMailHdr, timeStamp);
       continue;
     }
     
     // Signal that we have received the message.
+    printf("NET THREAD: send ACK response\n");
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+    printf("NET THREAD: done sending ACK\n");
     
     // If we have already received and handled the message (the sender failed to receive our response Ack).
     if (messageIsRedundant(inPktHdr, inMailHdr, buffer))
     {
       // Do not process the redundant message.
+      printf("NET THREAD: not processing redundant message: %s\n", buffer);
       continue;
     }
     
     // Add message to receivedMessages.
+    printf("NET THREAD: Add message to receivedMessages\n");
     timeval tmpTimeStamp;
     gettimeofday(&tmpTimeStamp, NULL);
     receivedMessages.push_back(new UnAckedMessage(tmpTimeStamp, tmpTimeStamp, inPktHdr, inMailHdr, buffer));
@@ -722,8 +745,8 @@ void Initialize(int argc, char **argv)
     
   #ifdef CHANGED
     #ifdef NETWORK
-      // printf("Commented out msgResendTimer\n");
-      msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
+       printf("Commented out msgResendTimer\n");
+      //msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
     #endif
   #endif
 
