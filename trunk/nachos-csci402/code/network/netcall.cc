@@ -193,6 +193,11 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* i
     outMailHdr.to = inMailHdr.from;
     outMailHdr.length = strlen(request) + 1;
     
+    printf("Sending ACK: From (%d, %d) to (%d, %d) bytes %d, time %d.%d\n",
+         outPktHdr.from, outMailHdr.from, 
+         outPktHdr.to, outMailHdr.to, outMailHdr.length,
+         (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
+    
     if (!postOffice->Send(outPktHdr, outMailHdr, request, false))
       interrupt->Halt();
   }
