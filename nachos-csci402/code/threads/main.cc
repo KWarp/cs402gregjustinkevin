@@ -179,7 +179,7 @@ main(int argc, char **argv)
     {
       // argument for user programs
       configArg = atoi(*(argv + 1));
-      printf("config arg: %d\n", configArg);
+      //printf("config arg: %d\n", configArg);
     }
   #endif
 #endif // USER_PROGRAM
