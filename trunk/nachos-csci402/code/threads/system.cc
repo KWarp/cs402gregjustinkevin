@@ -114,6 +114,12 @@ static void MsgResendInterruptHandler(int dummy)
         // Resend the message (addTimeStamp = false).
         postOffice->Send(unAckedMessages[i]->pktHdr, unAckedMessages[i]->mailHdr, 
                          unAckedMessages[i]->timeStamp, unAckedMessages[i]->data);
+        
+        printf("Resending: From (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
+              unAckedMessages[i]->pktHdr.from, unAckedMessages[i]->mailHdr.from, 
+              unAckedMessages[i]->pktHdr.to, unAckedMessages[i]->mailHdr.to, unAckedMessages[i]->mailHdr.length,
+              (int)unAckedMessages[i]->timeStamp.tv_sec, (int)unAckedMessages[i]->timeStamp.tv_usec,
+              unAckedMessages[i]->data);
       }
     }
   unAckedMessagesLock->Release();
@@ -152,6 +158,10 @@ void RegServer()
     {
       postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
       i = parseValue(0, buffer, (int*)(&requestType));
+      
+      // Manually process any ACKs we receive.
+      if (requestType == ACK)
+        processAck(inPktHdr, inMailHdr, timeStamp);
     }
     printf("SERVER: Received REGNETTHREAD message, send ACK\n");
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
@@ -223,6 +233,19 @@ void RegServer()
         interrupt->Halt();
     }
   }
+  
+  // Wait in case any packets were dropped and need to be resent.
+  printf("Waiting for all sent messages to be received\n");
+  unAckedMessagesLock->Acquire();
+  while (unAckedMessages.size() > 0)
+  {
+    unAckedMessagesLock->Release();
+      for (i = 0; i < 10; ++i)
+        currentThread->Yield();
+    unAckedMessagesLock->Acquire();
+  }
+  unAckedMessagesLock->Release();
+  
   printf("=== RegServer() Complete ===\n");
   interrupt->Halt();
 }
@@ -248,6 +271,10 @@ void RegisterNetworkThread()
   {
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
     parseValue(0, buffer, (int*)(&requestType));
+    
+    // Manually process any ACKs we receive.
+    if (requestType == ACK)
+      processAck(inPktHdr, inMailHdr, timeStamp);
   }
   printf("NET THREAD: Recieved STARTUSERPROGRAM\n");
   
@@ -283,6 +310,10 @@ void RegisterNetworkThread()
   {
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
     i = parseValue(0, buffer, (int*)(&requestType));
+    
+    // Manually process any ACKs we receive.
+    if (requestType == ACK)
+      processAck(inPktHdr, inMailHdr, timeStamp);
   }
   
   Ack(inPktHdr, inMailHdr, timeStamp, buffer);
@@ -317,7 +348,12 @@ void RegisterNetworkThread()
     {
       postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
       i = parseValue(0, buffer, (int*)(&requestType));
+      
+      // Manually process any ACKs we receive.
+      if (requestType == ACK)
+        processAck(inPktHdr, inMailHdr, timeStamp);
     }
+    
     printf("NET THREAD: Received message %d of %d\n", msgNum+1, numMessages);
     printf("NET THREAD: buffer %s\n", buffer);
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
@@ -410,25 +446,32 @@ void updateTimeStamp(char* buffer)
 
 bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
 {
-  bool found = false;
-  for (int i = 0; i < (int)unAckedMessages.size(); ++i)
-  {    
-    if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
-        unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
-        unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
-        unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
-        unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
-        unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
-    {
-      // Remove the message from unAckedMessages, since it has now been Acked.
-      unAckedMessages.erase(unAckedMessages.begin() + i);
-      found = true;
-      break;
+  printf("processing ACK: From (%d, %d) to (%d, %d) bytes %d time %d.%d\n",
+         inPktHdr.from, inMailHdr.from, 
+         inPktHdr.to, inMailHdr.to, inMailHdr.length,
+         (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
+
+  unAckedMessagesLock->Acquire();
+    bool found = false;
+    for (int i = 0; i < (int)unAckedMessages.size(); ++i)
+    {    
+      if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
+          unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
+          unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
+          unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
+          unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
+          unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
+      {
+        // Remove the message from unAckedMessages, since it has now been Acked.
+        unAckedMessages.erase(unAckedMessages.begin() + i);
+        found = true;
+        break;
+      }
     }
-  }
-  if (!found) // Error!!! This should never happen.
-    printf("Ack message not found in unAckedMessages\n");
-    
+    if (!found) // Error!!! This should never happen.
+      printf("Ack message not found in unAckedMessages in processAck!!!\n");
+  unAckedMessagesLock->Release();
+  
   return found;
 }
 
@@ -679,8 +722,8 @@ void Initialize(int argc, char **argv)
     
   #ifdef CHANGED
     #ifdef NETWORK
-      printf("Commented out msgResendTimer\n");
-      //msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
+      // printf("Commented out msgResendTimer\n");
+      msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
     #endif
   #endif
 
