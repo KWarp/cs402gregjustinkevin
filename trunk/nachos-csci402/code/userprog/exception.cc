@@ -53,6 +53,7 @@ using namespace std;
     int getMailID();
 
     void Fork_Kernel_Thread(unsigned int functionPtr);
+    void PrintUserHeader();
   #endif
   int configArg = -1;
 #endif
@@ -341,8 +342,14 @@ void Acquire_Syscall(int index)
 #else
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
-        
-	Request(ACQUIRE, indexBuf, getMachineID(), getMailID());
+  
+  PrintUserHeader();
+  printf("Acquire_Syscall\n");
+	
+  Request(ACQUIRE, indexBuf, getMachineID(), getMailID());
+  
+  PrintUserHeader();
+  printf("Exiting Acquire_Syscall\n");
 #endif
 }
 
@@ -392,7 +399,7 @@ void Exec_Syscall(unsigned int executableFileName)
     
     // Open the executable file.
     buf[len] = '\0';
-    printf("%s\n", buf);
+    //printf("%s\n", buf);
     OpenFile* executable = fileSystem->Open(buf);
     if (executable == NULL)
     {
@@ -409,8 +416,8 @@ void Exec_Syscall(unsigned int executableFileName)
       
       netThread->mailID = mailIDCounter++;
       userThread->mailID = mailIDCounter++;
-      printf("netThread->mailID: %d\n", netThread->mailID);
-      printf("userThread->mailID: %d\n", userThread->mailID);
+      //printf("netThread->mailID: %d\n", netThread->mailID);
+      //printf("userThread->mailID: %d\n", userThread->mailID);
       
     #else
       Thread* thread = new Thread("Exec'd Process Thread");
@@ -634,13 +641,15 @@ int DestroyMV_Syscall(int mv)
 void StartUserProgram_Syscall()
 {
   // Send a msg to this program's network thread.
-  printf("USER: StartUserProgram_Syscall\n");
+  PrintUserHeader();
+  printf("StartUserProgram_Syscall\n");
   char* data = new char[1];
   data[1] = '\0';
   Request(STARTUSERPROGRAM, data, getMachineID(), getMailID());
   // when replied to, the simulation can run
   
-  printf("USER: Finished StartUserProgram_Syscall\n");
+  PrintUserHeader();
+  printf("Finished StartUserProgram_Syscall\n");
 }
 #endif
 
@@ -904,6 +913,12 @@ int getMailID()
     
   #endif
 }
+
+void PrintUserHeader()
+{
+  printf("USER THREAD[%d,%d]: ", postOffice->GetID(), currentThread->mailID);
+}
+
 #endif /* NETWORK */
 
 #endif /* CHANGED */

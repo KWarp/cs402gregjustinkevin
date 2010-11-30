@@ -146,13 +146,14 @@ int parseValue(int startIndex, const char* buf, int* value)
   if (value != NULL)
     *value = atoi(valueStr);
   
-  printf("parsed value: %d\n", *value);
+  //printf("parsed value: %d\n", *value);
   // i will point to the next character of data.
   return i;
 }
 
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* inData)
 {
+  #if 0
   // If the message is from our UserProg thread.
   if (inPktHdr.from == postOffice->GetID() &&
       inMailHdr.from == currentThread->mailID + 1)
@@ -201,6 +202,7 @@ void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* i
     if (!postOffice->Send(outPktHdr, outMailHdr, request, false))
       interrupt->Halt();
   }
+  #endif
 }
 
 bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData)
@@ -248,11 +250,11 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 	
   // Do this because all the code below assumes we are one the char before this, and I am too lazy to change it everywhere.
   i--;
+  printf("requestType: %d\n", requestType);
   
   int a, m, j, x;
 	switch (requestType)
 	{
-    printf("requestType: %d\n", requestType);
 		case CREATELOCK:
 			clientNum = 100 * inPktHdr.from + inMailHdr.from;
 			if (createDLockIndex >= 0 && createDLockIndex < (MAX_DLOCK - 1))
@@ -304,7 +306,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					}
 					else
 					{		
-						lockIndex=dlocks[localLockIndex[clientNum]]->GetGlobalId();
+						lockIndex = dlocks[localLockIndex[clientNum]]->GetGlobalId();
 					}
 					char ack[MaxMailSize];
           
@@ -312,18 +314,19 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					sprintf(ack, "%i", lockIndex);
 					
 					outPktHdr.to = clientNum/100;
-					outMailHdr.to = (clientNum+100)%100;
-					outMailHdr.from = postOffice->GetID();
-					outMailHdr.length = strlen(ack) + 1;
-
+          outMailHdr.to = (clientNum+100)%100 + 1; // +1 to reach user thread
+          outMailHdr.from = postOffice->GetID();
+          outMailHdr.length = strlen(ack) + 1;
+          
+          printf("Sending CREATELOCK response: %s\n", ack);
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
           
 					if ( !success ) 
 					{
 					  interrupt->Halt();
 					}
-					verifyResponses[clientNum]=0;
-					localLockIndex[clientNum]=-1;
+					verifyResponses[clientNum] = 0;
+					localLockIndex[clientNum] = -1;
 					fflush(stdout);
 				}
 			}
@@ -923,7 +926,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf); 
-			printf("here5\n");
+			printf("lockIndex/MAX_DLOCK != postOffice->GetID(): %d != %d\n", lockIndex/MAX_DLOCK, postOffice->GetID());
 			if(lockIndex/MAX_DLOCK != postOffice->GetID())
 			{
 				sprintf(buffer,"%d__%d_%s",ACQUIRE, clientNum, lockIndexBuf);
