@@ -323,10 +323,12 @@ int CreateLock_Syscall(int vaddr, int len)
   PrintUserHeader();
   printf("CreateLock_Syscall\n");
 
-	return Request(CREATELOCK, name, getMachineID(), getMailID());
+	int i = Request(CREATELOCK, name, getMachineID(), getMailID());
   
   PrintUserHeader();
-  printf("CreateLock_Syscall\n");
+  printf("Exiting CreateLock_Syscall\n");
+  
+  return i;
 #endif
 }
 

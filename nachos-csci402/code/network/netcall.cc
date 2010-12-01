@@ -190,7 +190,22 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
 
-  postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
+  RequestType receiveRequestType = REQUESTWAITING;
+  
+  // ACKs can occur here, keep waiting for anything else
+  while(receiveRequestType == REQUESTWAITING || receiveRequestType == ACK)
+  {
+    postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
+    parseValue(0, buffer, (int*)(&receiveRequestType));
+    
+    if (requestType == ACK)
+    {
+      printf("Request: Processing ACK %s\n", buffer);
+      processAck(inPktHdr, inMailHdr, timeStamp);
+    }
+  }
+  
+  printf("Request receiveRequestType: %d, msg: %s\n", receiveRequestType, buffer);
   
   Ack(inPktHdr, inMailHdr, timeStamp, buffer);
   
@@ -1875,7 +1890,10 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
     printf("INVALIDTYPE... should not get here\n");
     ASSERT(false);
     break;
-    
+  case REQUESTWAITING:
+    printf("REQUESTWAITING... should not get here\n");
+    ASSERT(false);
+    break;  
     
   }
 
