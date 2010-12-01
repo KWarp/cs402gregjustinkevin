@@ -22,6 +22,7 @@
 #ifdef CHANGED
   #include <sys/time.h>
   #include "system.h"
+  #include "netcall.h"
 #endif
 
 extern "C" {
@@ -285,6 +286,8 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data, bool 
 
 bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp, char* data, bool doAck)
 {
+  char tmp[MaxMailSize];
+  
   if (DebugIsEnabled('n'))
   {
     printf("Post send: ");
@@ -303,7 +306,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
   unAckedMessagesLock->Acquire();
   
     // If we are resending the message, don't re-add it to unAckedMessages.
-    bool found = false;
+    bool foundInUnAckedMessages = false;
     for (int i = 0; i < (int)unAckedMessages.size(); ++i)
     {
       // If we are resending the message, update its lastTimeSent value and don't re-add it to unAckedMessages.
@@ -314,30 +317,79 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
           unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
           unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
       {
-        found = true;
+        foundInUnAckedMessages = true;
         timeval currentTime;
         gettimeofday(&currentTime, NULL);
         unAckedMessages[i]->lastTimeSent = currentTime;
         break;
       }
     }
-    if (!found)
+    
+    // If we are resending the message, we don't want to update the threadCounter.
+    if (!foundInUnAckedMessages)
     {
+      bool foundInSendCounters = false;
+      int counter = 0;
+
+      // If the message is an Ack, make counter a special char because an Ack can be lost and not resent.
+      if (!doAck)
+      {
+        DEBUG_PACKET_LOSS( printf("Sending Ack\n"); )
+        counter = -1;
+      }
+      else
+      {      
+        for (int i = 0; i < (int)currentThread->sendCounters.size(); ++i)
+        {
+          // Look and see if we have sent anything to this thread before.
+          if (currentThread->sendCounters[i]->machineID == pktHdr.to &&
+              currentThread->sendCounters[i]->mailID == mailHdr.to)
+          {
+            foundInSendCounters = true;
+            counter = ++currentThread->sendCounters[i]->counter;          
+            break;
+          }
+        }
+        
+        // If we didn't find a counter for this thread, add it for next time.
+        if (!foundInSendCounters)
+        {
+          DEBUG_PACKET_LOSS( printf("Sending to (%d, %d) for the first time\n", pktHdr.to, mailHdr.to); )
+          currentThread->sendCounters.push_back(new ThreadCounterEntry(pktHdr.to, mailHdr.to));
+        }
+      }
+
+      // Insert the counter (which will be 0 if we just created it) in front of the data.
+      sprintf(tmp, "%d_%s", counter, data);
+      
+      // Update the message length.
+      mailHdr.length = strlen(tmp) + 1;
+      ASSERT(mailHdr.length < MaxMailSize);
+      
       // Only tell the system to resend if we want to require an Ack.
       // doAck will be false when the message we are sending is an ACK message.
       if (doAck)
-        unAckedMessages.push_back(new UnAckedMessage(timeStamp, timeStamp, pktHdr, mailHdr, data));
+        unAckedMessages.push_back(new UnAckedMessage(timeStamp, timeStamp, pktHdr, mailHdr, tmp));
     }
+    else
+    {
+      // Do not insert the counter in front of the data in this case.
+      sprintf(tmp, "%s", data);
       
+      // Update the message length.
+      mailHdr.length = strlen(tmp) + 1;
+      ASSERT(mailHdr.length < MaxMailSize);
+    }
+    
   unAckedMessagesLock->Release();
-
+  
   // Concatenate MailHeader and data.
   char buffer[MaxPacketSize];	    // space to hold concatenated mailHdr + timeStamp + data
   
   pktHdr.length = mailHdr.length + sizeof(MailHeader) + sizeof(timeval);
   bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
   bcopy((char *) &timeStamp, buffer + sizeof(MailHeader), sizeof(timeval));
-  bcopy(data, buffer + sizeof(MailHeader) + sizeof(timeval), mailHdr.length);
+  bcopy(tmp, buffer + sizeof(MailHeader) + sizeof(timeval), mailHdr.length);
   
   // Actually send the packet.
   sendLock->Acquire();  // Only one message can be sent to the network at any one time.
@@ -362,6 +414,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
 //	Note that the MailHeader + data looks just like normal payload
 //	data to the Network.
 //
+//  Assumes data is of size MaxMailSize.
 //
 //	"box" -- mailbox ID in which to look for message
 //	"pktHdr" -- address to put: source, destination machine ID's
@@ -369,12 +422,77 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
 //	"data" -- address to put: payload message data
 //----------------------------------------------------------------------
 
-void
-PostOffice::Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char* data)
+void PostOffice::Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char* data)
 {
   ASSERT((box >= 0) && (box < numBoxes));
 
-  boxes[box].Get(pktHdr, mailHdr, timeStamp, data);
+  int success = false;
+  while (!success)
+  {
+    char buffer[MaxMailSize];
+    boxes[box].Get(pktHdr, mailHdr, timeStamp, buffer);
+    
+    int counter = -1;
+    int index = parseValue(0, buffer, &counter);
+    
+    // Copy everything after the threadCounter to data.
+    for (int j = 0; j < (int)MaxMailSize - index; ++j)
+      data[j] = buffer[j + index];
+    
+    bool found = false;
+    // We don't care about finding the receiveCounter if the message is an Ack (counter == -1).
+    if (counter >= 0)
+    {
+      for (int i = 0; i < (int)currentThread->receiveCounters.size(); ++i)
+      {
+        // Look and see if we have received anything from this thread before.
+        if (currentThread->receiveCounters[i]->machineID == pktHdr->from &&
+            currentThread->receiveCounters[i]->mailID == mailHdr->from)
+        {
+          found = true;
+          success = true;
+          
+          // If the counter value is valid (i.e. we are not processing messages our of order due to packet loss).
+          // If the counter value is NOT valid, we ignore the message and wait for it to be resent (so we receive it in order).
+          if (currentThread->receiveCounters[i]->counter + 1 == counter)
+          {
+            DEBUG_PACKET_LOSS( printf("Received valid receiveCounter from (%d, %d) expected %d actual %d\n", pktHdr->from, mailHdr->from, currentThread->receiveCounters[i]->counter + 1, counter); )
+            currentThread->receiveCounters[i]->counter++;
+          }
+          // This would happen (most likely) when we sent an Ack that wasn't received, so now this message was resent to us.
+          // In this case, we don't want to do anything here, but we want to return so the function calling receive can resend another Ack.
+          else
+          {
+            DEBUG_PACKET_LOSS( printf("Invalid found receiveCounter from (%d, %d) expected %d actual %d\n", pktHdr->from, mailHdr->from, currentThread->receiveCounters[i]->counter + 1, counter); )
+          }
+          break;
+        }
+      }
+    }
+
+    // If this is the first message we have received from this thread.
+    if (!found)
+    {      
+      // counter must be 0 or we have received this message out of order and we should discard it.
+      if (counter == 0)
+      {
+        DEBUG_PACKET_LOSS( printf("Receiving from (%d, %d) for the first time\n", pktHdr->from, mailHdr->from); )
+        success = true;
+        
+        // Create an entry for the thread.
+        currentThread->receiveCounters.push_back(new ThreadCounterEntry(pktHdr->from, mailHdr->from));
+      }
+      else if (counter < 0) // If the message is an Ack.
+      {
+        DEBUG_PACKET_LOSS( printf("Receiving Ack\n"); )
+        success = true;
+      }
+      else
+      {
+        DEBUG_PACKET_LOSS( printf("Invalid notfound receiveCounter from (%d, %d) expected 0 actual %d\n", pktHdr->from, mailHdr->from, counter); )
+      }
+    }
+  }
   
   #if 0 // For debugging.
     printf("Receiving from (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",

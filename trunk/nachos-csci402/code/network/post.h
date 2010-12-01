@@ -32,6 +32,8 @@
 #include "synchlist.h"
 #include "sys/time.h"
 
+#define DEBUG_PACKET_LOSS(x) ;  // Define as x to enable.
+
 // Mailbox address -- uniquely identifies a mailbox on a given machine.
 // A mailbox is just a place for temporary storage for messages.
 typedef int MailBoxAddress;

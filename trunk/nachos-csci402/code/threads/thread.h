@@ -55,6 +55,23 @@
     #ifndef MailBoxAddress
       typedef int MailBoxAddress;
     #endif
+    
+    class ThreadCounterEntry
+    {
+     public:
+      ThreadCounterEntry(int initMachineID, int initMailID)
+      {
+        machineID = initMachineID;
+        mailID = initMailID;
+        counter = 0;
+      }
+      
+      int machineID;
+      int mailID;
+      int counter;
+    };
+    
+    #include <vector>
   #endif
 #endif
 
@@ -118,6 +135,10 @@ class Thread {
     #ifdef CHANGED
       #ifdef NETWORK
         MailBoxAddress mailID;
+
+        // Used for lost packet resending. Prevents receiving messages out of order when one is lost.
+        vector<ThreadCounterEntry*> receiveCounters;
+        vector<ThreadCounterEntry*> sendCounters;
       #endif
     #endif
 
