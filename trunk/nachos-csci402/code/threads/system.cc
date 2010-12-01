@@ -562,7 +562,7 @@ void NetworkThread()
     
     // Add message to receivedMessages.
     PrintNetThreadHeader();
-    printf("Add message to receivedMessages\n");
+    printf("Add message to receivedMessages: %s\n", buffer);
     receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
     
     // If the message is from our UserProg thread.
@@ -613,8 +613,8 @@ void NetworkThread()
         }
       }
       
-      PrintNetThreadHeader();
-      printf("msgQueue.size(): %d\n", (int)msgQueue.size());
+      //PrintNetThreadHeader();
+      //printf("msgQueue.size(): %d\n", (int)msgQueue.size());
       // 3. Insert the message into msgQueue in timestamp order.
       for (i = 0; i < (int)msgQueue.size(); ++i)
       {
@@ -639,9 +639,9 @@ void NetworkThread()
       
       // 4. Extract the earliest timestamp value from the table.
       timeval earliestTimeStamp = localNetThreadInfo->at(0)->timeStamp;
-      PrintNetThreadHeader();
-      printf("Initial earliest TimeStamp:   %d.%d\n", 
-          (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
+      //PrintNetThreadHeader();
+      //printf("Initial earliest TimeStamp:   %d.%d\n", 
+      //    (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
       for (i = 1; i < (int)localNetThreadInfo->size(); ++i)
       {
         if (localNetThreadInfo->at(i)->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
@@ -651,10 +651,10 @@ void NetworkThread()
           earliestTimeStamp = localNetThreadInfo->at(i)->timeStamp;
         }
       }
-      PrintNetThreadHeader();
-      printf("Extracted earliest timestamp: %d.%d \n", (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
-      PrintNetThreadHeader();
-      printf("My timestamp: %d.%d \n", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
+      //PrintNetThreadHeader();
+      //printf("Extracted earliest timestamp: %d.%d \n", (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
+      //PrintNetThreadHeader();
+      //printf("My timestamp: %d.%d \n", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
       
       // 5. Process any message, in timestamp order, with a timestamp <=
       //    value from step 4.
