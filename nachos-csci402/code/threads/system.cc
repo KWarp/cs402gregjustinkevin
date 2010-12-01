@@ -62,7 +62,6 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     vector<UnAckedMessage*> receivedMessages;
     Lock* receivedMessagesLock;
     
-    
     // Hard-coded network location of the registration server.
     static const int RegistrationServerMachineID = 0;
     static const int RegistrationServerMailID = 0;
@@ -244,7 +243,6 @@ void RegServer()
   
   // Wait in case any packets were dropped and need to be resent.
   printf("SERVER: Waiting for all GROUPINFO messages to be ACKed\n");
-  unAckedMessagesLock->Acquire();
   while (unAckedMessages.size() > 0)
   {
     requestType = INVALIDTYPE;
@@ -257,12 +255,7 @@ void RegServer()
       if (requestType == ACK)
         processAck(inPktHdr, inMailHdr, timeStamp);
     }
-    unAckedMessagesLock->Release();
-      for (i = 0; i < 10; ++i)
-        currentThread->Yield();
-    unAckedMessagesLock->Acquire();
   }
-  unAckedMessagesLock->Release();
   
   printf("=== RegServer() Complete ===\n");
   interrupt->Halt();
@@ -306,9 +299,7 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
   
   // Message server with machineID and mailBoxID.
   sprintf(request, "%d_%d_%d", REGNETTHREAD, postOffice->GetID(), currentThread->mailID);
-	
-  // Do error checking for length of request here?
-  
+
   // Clear the input buffer for next time.
 	for(i = 0; i < (int)MaxMailSize; ++i)
 		buffer[i] = '\0';
@@ -485,37 +476,6 @@ void updateTimeStamp(char* buffer)
   }
 }
 
-bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
-{
-  printf("processing ACK: From (%d, %d) to (%d, %d) bytes %d, time %d.%d\n",
-         inPktHdr.from, inMailHdr.from, 
-         inPktHdr.to, inMailHdr.to, inMailHdr.length,
-         (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
-
-  unAckedMessagesLock->Acquire();
-    bool found = false;
-    for (int i = 0; i < (int)unAckedMessages.size(); ++i)
-    {    
-      if (unAckedMessages[i]->pktHdr.from == inPktHdr.from &&
-          unAckedMessages[i]->pktHdr.to == inPktHdr.to &&
-          unAckedMessages[i]->mailHdr.from == inMailHdr.from &&
-          unAckedMessages[i]->mailHdr.to == inMailHdr.to &&
-          unAckedMessages[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
-          unAckedMessages[i]->timeStamp.tv_usec == timeStamp.tv_usec)
-      {
-        // Remove the message from unAckedMessages, since it has now been Acked.
-        unAckedMessages.erase(unAckedMessages.begin() + i);
-        found = true;
-        break;
-      }
-    }
-    if (!found) // Error!!! This should never happen.
-      printf("processAck: Ack message not found in unAckedMessages!!!\n");
-  unAckedMessagesLock->Release();
-  
-  return found;
-}
-
 void NetworkThread()
 {
   printf("Starting NetworkThread\n");
@@ -547,14 +507,13 @@ void NetworkThread()
     // Wait for a message to be received.
     requestType = INVALIDTYPE;
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
+
     parseValue(0, buffer, (int*)(&requestType));
     PrintNetThreadHeader();
     printf("recieved message: %s\n", buffer);
     // If the packet is an Ack, process it.
     if (requestType == ACK)
     {
-      PrintNetThreadHeader();
-      printf("processing received ACK\n");
       processAck(inPktHdr, inMailHdr, timeStamp);
       continue;
     }
@@ -633,9 +592,9 @@ void NetworkThread()
       // 3. Insert the message into msgQueue in timestamp order.
       for (i = 0; i < (int)msgQueue.size(); ++i)
       {
-        if (msgQueue[i]->lastTimeSent.tv_sec > timeStamp.tv_sec ||
-            (msgQueue[i]->lastTimeSent.tv_sec == timeStamp.tv_sec &&
-             msgQueue[i]->lastTimeSent.tv_usec > timeStamp.tv_usec))
+        if (msgQueue[i]->timeStamp.tv_sec > timeStamp.tv_sec ||
+            (msgQueue[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
+             msgQueue[i]->timeStamp.tv_usec > timeStamp.tv_usec))
         {
           PrintNetThreadHeader();
           printf("Insert the message into msgQueue\n");
@@ -644,8 +603,8 @@ void NetworkThread()
         }
       }
       // occurs when msgQueue is empty, 
-      // or when timestamp is greater than all lastTimeSent
-      if(i == (int)msgQueue.size())
+      // or when timestamp is greater than all timeStamp
+      if (i == (int)msgQueue.size())
       {
         PrintNetThreadHeader();
         printf("Insert the message into msgQueue EDGE CASE\n");
@@ -677,9 +636,9 @@ void NetworkThread()
       printf("Process messages in timestamp order\n");      
       for (i = 0; i < (int)msgQueue.size(); ++i)
       {
-        if (msgQueue[i]->lastTimeSent.tv_sec < earliestTimeStamp.tv_sec ||
-            (msgQueue[i]->lastTimeSent.tv_sec == earliestTimeStamp.tv_sec &&
-             msgQueue[i]->lastTimeSent.tv_usec <= earliestTimeStamp.tv_usec))
+        if (msgQueue[i]->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
+            (msgQueue[i]->timeStamp.tv_sec == earliestTimeStamp.tv_sec &&
+             msgQueue[i]->timeStamp.tv_usec <= earliestTimeStamp.tv_usec))
         {
           // Process message.
           PrintNetThreadHeader();
@@ -818,8 +777,8 @@ void Initialize(int argc, char **argv)
     
   #ifdef CHANGED
     #ifdef NETWORK
-       printf("Commented out msgResendTimer\n");
-      //msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
+      // printf("Commented out msgResendTimer\n");
+      msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
     #endif
   #endif
 

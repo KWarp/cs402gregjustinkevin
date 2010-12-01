@@ -162,7 +162,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles)
     // Read data from just the code and initData sections.
     unsigned int vpn = 0;
     for (; vpn < (unsigned int)(divRoundUp(noffH.code.size + noffH.initData.size, PageSize)); ++vpn)
-    {      
+    {
       #ifdef USE_TLB
         pageTable[vpn].virtualPage  = vpn;
         pageTable[vpn].physicalPage = -1;

@@ -33,6 +33,7 @@ enum RequestType
 int parseValue(int startIndex, const char* buffer, int* value);
 int Request(RequestType requestType, char* data, int machineID, int mailID); //client
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* buffer);
+bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp);
 bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData);
 void sendError();
 
