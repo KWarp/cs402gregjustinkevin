@@ -77,8 +77,6 @@ extern Timer *timer;				        // the hardware alarm clock
     #include "../network/unackedmessage.h"
     extern vector<UnAckedMessage*> unAckedMessages;
     extern Lock* unAckedMessagesLock;
-    extern vector<UnAckedMessage*> receivedMessages;
-    extern Lock* receivedMessagesLock;
     extern int mailIDCounter;
     extern int totalNumNetworkThreads;
     

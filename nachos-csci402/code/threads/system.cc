@@ -59,8 +59,6 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     vector<UnAckedMessage*> unAckedMessages;
     Lock* unAckedMessagesLock;
     Timer* msgResendTimer;
-    vector<UnAckedMessage*> receivedMessages;
-    Lock* receivedMessagesLock;
     
     // Hard-coded network location of the registration server.
     static const int RegistrationServerMachineID = 0;
@@ -126,6 +124,25 @@ static void MsgResendInterruptHandler(int dummy)
   unAckedMessagesLock->Release();
 }
 
+// Returns true if the input message has already been received before.
+bool messageIsRedundant(vector<UnAckedMessage*> *receivedMessages, PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
+{
+  // Check if any messages in receivedMessage matches the new message.
+  for (int i = 0; i < (int)receivedMessages->size(); ++i)
+  {
+    if (receivedMessages->at(i)->pktHdr.from == inPktHdr.from &&
+        receivedMessages->at(i)->pktHdr.to == inPktHdr.to &&
+        receivedMessages->at(i)->mailHdr.from == inMailHdr.from &&
+        receivedMessages->at(i)->mailHdr.to == inMailHdr.to &&
+        receivedMessages->at(i)->timeStamp.tv_sec == timeStamp.tv_sec &&
+        receivedMessages->at(i)->timeStamp.tv_usec == timeStamp.tv_usec)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 void RegServer()
 {
   printf("===Starting Registration Server===\n");
@@ -143,6 +160,7 @@ void RegServer()
   char request[MaxMailSize];
   static const int ThreadsPerMessage = 8; 
   vector<NetThreadInfoEntry*> serverNetThreadInfo;
+  vector<UnAckedMessage*> *receivedMessages = new vector<UnAckedMessage*>();
   
   // verify that I'm the server
   ASSERT(postOffice->GetID() == RegistrationServerMachineID);
@@ -164,9 +182,14 @@ void RegServer()
       // Manually process any ACKs we receive.
       if (requestType == ACK)
         processAck(inPktHdr, inMailHdr, timeStamp);
+      else
+      {
+        Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+        if (!messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
+          receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
+      }
     }
-    printf("SERVER: Received REGNETTHREAD message, send ACK\n");
-    Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+    printf("SERVER: Received REGNETTHREAD message\n");
 
     // Parse machineID.
     i = parseValue(i, buffer, (int*)(&machineID));
@@ -220,7 +243,7 @@ void RegServer()
       request[j] = '\0';
   
     sprintf(request, "%d_", GROUPINFO);
-
+    
     for (j = 0; j < ThreadsPerMessage && i < (int)serverNetThreadInfo.size(); ++j, ++i)
       sprintf(request + strlen(request), "%1d%02d", serverNetThreadInfo[i]->machineID, serverNetThreadInfo[i]->mailID);
     
@@ -254,15 +277,38 @@ void RegServer()
       // Manually process any ACKs we receive.
       if (requestType == ACK)
         processAck(inPktHdr, inMailHdr, timeStamp);
+      else
+      {
+        Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+        if (!messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
+          receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
+      }
     }
   }
   
   printf("=== RegServer() Complete ===\n");
-  interrupt->Halt();
+  // interrupt->Halt(); // Don't do this if doing extra credit! We need to resend any acks if they were dropped.
+  
+  // Wait around in case any of our Acks were dropped.
+  while (true)
+  {
+    postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
+    parseValue(0, buffer, (int*)(&requestType));
+    
+    // Manually process any ACKs we receive.
+    if (requestType == ACK)
+      processAck(inPktHdr, inMailHdr, timeStamp); // This shouldn't happen by the time we get here.
+    else
+    {
+      Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+      if (!messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
+        receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
+    }
+  }
 }
 
 // Register with the Registration Server before we start processing messages.
-void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
+void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo, vector<UnAckedMessage*> *receivedMessages)
 {
   PacketHeader inPktHdr, outPktHdr;
   MailHeader inMailHdr, outMailHdr;
@@ -287,12 +333,13 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
     // Manually process any ACKs we receive.
     if (requestType == ACK)
       processAck(inPktHdr, inMailHdr, timeStamp);
+    else
+    {
+      Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+      if (!messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
+        receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
+    }
   }
-  
-  // Ack that we got the message by removing it from unAckedMessages.
-  PrintNetThreadHeader();
-  printf("Sending ack for STARTUSERPROGRAM\n");
-  Ack(inPktHdr, inMailHdr, timeStamp, buffer);
 
   PrintNetThreadHeader();
   printf("Message server with machineID and mailBoxID\n");
@@ -328,11 +375,13 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
     // Manually process any ACKs we receive.
     if (requestType == ACK)
       processAck(inPktHdr, inMailHdr, timeStamp);
+    else
+    {
+      Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+      if (!messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
+        receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
+    }
   }
-  
-  PrintNetThreadHeader();
-  printf("Sending ack for REGNETTHREADRESPONSE\n");
-  Ack(inPktHdr, inMailHdr, timeStamp, buffer);
   
   PrintNetThreadHeader();
   printf("Parse numMessages\n");
@@ -371,16 +420,20 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
       // Manually process any ACKs we receive.
       if (requestType == ACK)
         processAck(inPktHdr, inMailHdr, timeStamp);
+      else
+      {
+        Ack(inPktHdr, inMailHdr, timeStamp, buffer);
+        if (!messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
+          receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
+      }
     }
     
     PrintNetThreadHeader();
     printf("Received message %d of %d\n", msgNum+1, numMessages);
     PrintNetThreadHeader();
-    printf("Sending ack for GROUPINFO\n");
-    Ack(inPktHdr, inMailHdr, timeStamp, buffer);
-
     PrintNetThreadHeader();
     printf("buffer %s\n", buffer);
+    
     int machineID, mailID;
     
     // Parse machineID and mailID.
@@ -406,7 +459,6 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
       PrintNetThreadHeader();
       printf("parsed machineID: %d, mailID: %d\n", machineID, mailID); 
     }
-   
   }
   
   // serverCount corresponds to the number of PostOffice instances we expect
@@ -430,32 +482,6 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
   
-}
-
-// Returns true if the input message has already been received before.
-bool messageIsRedundant(PacketHeader inPktHdr, MailHeader inMailHdr, char* inData)
-{
-  // Check if any messages in receivedMessage matches the new message.
-  bool found = false;
-  for (int i = 0; i < (int)receivedMessages.size(); ++i)
-  {
-    if (receivedMessages[i]->pktHdr.from == inPktHdr.from &&
-        receivedMessages[i]->pktHdr.to == inPktHdr.to &&
-        receivedMessages[i]->mailHdr.from == inMailHdr.from &&
-        receivedMessages[i]->mailHdr.to == inMailHdr.to &&
-        receivedMessages[i]->mailHdr.length == inMailHdr.length)
-    {
-      found = true;
-      for (int j = 0; j < (int)inMailHdr.length; ++j)
-      {
-        if (receivedMessages[i]->data[i] != inData[j])
-          found = false;
-      }
-    }
-    if (found)
-      break;
-  }
-  return found;
 }
 
 void updateTimeStamp(char* buffer)
@@ -488,29 +514,31 @@ void NetworkThread()
   int i = 0;
   
   // must be local to each network thread
-  vector<NetThreadInfoEntry*> *localNetThreadInfo;
+  vector<NetThreadInfoEntry*> *localNetThreadInfo = new vector<NetThreadInfoEntry*>();
+  vector<UnAckedMessage*> *receivedMessages = new vector<UnAckedMessage*>();
   vector<UnAckedMessage*> msgQueue;
   
-  // pass by reference
-  localNetThreadInfo = new vector<NetThreadInfoEntry*>();
-  RegisterNetworkThread(localNetThreadInfo);
+  RegisterNetworkThread(localNetThreadInfo, receivedMessages);
   
   PrintNetThreadHeader();
   printf("Entering while(true) loop\n");
   while (true)
   {
-  
     // Clear the input buffer for next time.
     for(i = 0; i < (int)MaxMailSize; ++i)
       buffer[i] = '\0';
   
     // Wait for a message to be received.
+    PrintNetThreadHeader();
+    printf("Waiting for message to be received\n");
+    
     requestType = INVALIDTYPE;
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
 
     parseValue(0, buffer, (int*)(&requestType));
     PrintNetThreadHeader();
     printf("recieved message: %s\n", buffer);
+    
     // If the packet is an Ack, process it.
     if (requestType == ACK)
     {
@@ -522,7 +550,7 @@ void NetworkThread()
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
     
     // If we have already received and handled the message (the sender failed to receive our response Ack).
-    if (messageIsRedundant(inPktHdr, inMailHdr, buffer))
+    if (messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
     {
       // Do not process the redundant message.
       PrintNetThreadHeader();
@@ -533,9 +561,7 @@ void NetworkThread()
     // Add message to receivedMessages.
     PrintNetThreadHeader();
     printf("Add message to receivedMessages\n");
-    timeval tmpTimeStamp;
-    gettimeofday(&tmpTimeStamp, NULL);
-    receivedMessages.push_back(new UnAckedMessage(tmpTimeStamp, tmpTimeStamp, inPktHdr, inMailHdr, buffer));
+    receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
     
     // If the message is from our UserProg thread.
     if (inPktHdr.from == postOffice->GetID() &&
@@ -643,7 +669,7 @@ void NetworkThread()
           // Process message.
           PrintNetThreadHeader();
           printf("Process message: %s\n", buffer);
-          processMessage(inPktHdr, inMailHdr, timeStamp, buffer);
+          // processMessage(inPktHdr, inMailHdr, timeStamp, buffer);
           
           // Remove the message from the queue.
           msgQueue.erase(msgQueue.begin() + i);
@@ -697,7 +723,6 @@ void Initialize(int argc, char **argv)
     
     #ifdef CHANGED
       unAckedMessagesLock = new Lock("UnAckedMessages Lock");
-      receivedMessagesLock = new Lock("ReceivedMessages Lock");
     #endif
   #endif
     
