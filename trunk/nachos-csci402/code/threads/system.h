@@ -98,8 +98,6 @@ extern Timer *timer;				        // the hardware alarm clock
     extern vector<NetThreadInfoEntry*> globalNetThreadInfo;
     extern void NetworkThread();
     extern void RegServer();
-    
-    bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp);
   #endif
 #endif
 

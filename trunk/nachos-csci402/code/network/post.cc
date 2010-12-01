@@ -345,11 +345,17 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
     messageSent->P();	  // Wait for interrupt to tell us ok to send the next message.
   sendLock->Release();
 
+  #if 0 // For debugging
+    printf("Sending from (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
+          pktHdr.from, mailHdr.from, pktHdr.to, mailHdr.to, mailHdr.length,
+          (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
+  #endif
+
   return success;
 }
 
 //----------------------------------------------------------------------
-// PostOffice::Send
+// PostOffice::Receive
 // 	Retrieve a message from a specific box if one is available, 
 //	otherwise wait for a message to arrive in the box.
 //
@@ -366,10 +372,17 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
 void
 PostOffice::Receive(int box, PacketHeader *pktHdr, MailHeader *mailHdr, timeval *timeStamp, char* data)
 {
-    ASSERT((box >= 0) && (box < numBoxes));
+  ASSERT((box >= 0) && (box < numBoxes));
 
-    boxes[box].Get(pktHdr, mailHdr, timeStamp, data);
-    ASSERT(mailHdr->length <= MaxMailSize);
+  boxes[box].Get(pktHdr, mailHdr, timeStamp, data);
+  
+  #if 0 // For debugging.
+    printf("Receiving from (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
+          pktHdr->from, mailHdr->from, pktHdr->to, mailHdr->to, mailHdr->length,
+          (int)timeStamp->tv_sec, (int)timeStamp->tv_usec, data);
+  #endif
+  
+  ASSERT(mailHdr->length <= MaxMailSize);
 }
 
 //----------------------------------------------------------------------
