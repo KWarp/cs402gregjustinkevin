@@ -61,7 +61,7 @@ Timer *timer;				          // the hardware timer device, for invoking context sw
     Timer* msgResendTimer;
     vector<UnAckedMessage*> receivedMessages;
     Lock* receivedMessagesLock;
-    vector<NetThreadInfoEntry*> globalNetThreadInfo;
+    
     
     // Hard-coded network location of the registration server.
     static const int RegistrationServerMachineID = 0;
@@ -143,6 +143,7 @@ void RegServer()
   char tmpStr[MaxMailSize];
   char request[MaxMailSize];
   static const int ThreadsPerMessage = 8; 
+  vector<NetThreadInfoEntry*> serverNetThreadInfo;
   
   // verify that I'm the server
   ASSERT(postOffice->GetID() == RegistrationServerMachineID);
@@ -151,7 +152,7 @@ void RegServer()
   // verify critical args
   ASSERT(totalNumNetworkThreads > 0 && totalNumNetworkThreads < 100);
   
-  while ((int)globalNetThreadInfo.size() < totalNumNetworkThreads)
+  while ((int)serverNetThreadInfo.size() < totalNumNetworkThreads)
   {
     printf("SERVER: Wait for a REGNETTHREAD message\n");
     // Wait for a REGNETTHREAD message.
@@ -181,11 +182,11 @@ void RegServer()
     for(i = 0; i < (int)MaxMailSize; ++i)
       buffer[i] = '\0';
     
-    // Add the network thread that just messaged us to globalNetThreadInfo.
+    // Add the network thread that just messaged us to serverNetThreadInfo.
     NetThreadInfoEntry* entry = new NetThreadInfoEntry(machineID, mailID);
-    globalNetThreadInfo.push_back(entry);
+    serverNetThreadInfo.push_back(entry);
     
-    // Respond to the network thread with the number of messages it will receive containing globalNetThreadInfo.
+    // Respond to the network thread with the number of messages it will receive containing serverNetThreadInfo.
     printf("SERVER: Tell network thread to expect %d messages\n", divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
  
     // Clear the output request.
@@ -211,9 +212,9 @@ void RegServer()
       interrupt->Halt();
   }
   
-  // Message all the threads with globalNetThreadInfo.
-  printf("SERVER: Message all the threads with globalNetThreadInfo\n");
-  for (i = 0; i < (int)globalNetThreadInfo.size(); )
+  // Message all the threads with serverNetThreadInfo.
+  printf("SERVER: Message all the threads with serverNetThreadInfo\n");
+  for (i = 0; i < (int)serverNetThreadInfo.size(); )
   {
     // Clear the output request.
     for(j = 0; j < (int)MaxMailSize; ++j)
@@ -221,16 +222,16 @@ void RegServer()
   
     sprintf(request, "%d_", GROUPINFO);
 
-    for (j = 0; j < ThreadsPerMessage && i < (int)globalNetThreadInfo.size(); ++j, ++i)
-      sprintf(request + strlen(request), "%1d%02d", globalNetThreadInfo[i]->machineID, globalNetThreadInfo[i]->mailID);
+    for (j = 0; j < ThreadsPerMessage && i < (int)serverNetThreadInfo.size(); ++j, ++i)
+      sprintf(request + strlen(request), "%1d%02d", serverNetThreadInfo[i]->machineID, serverNetThreadInfo[i]->mailID);
     
     // Send the all the threads who are waiting.
-    for (j = 0; j < (int)globalNetThreadInfo.size(); ++j)
+    for (j = 0; j < (int)serverNetThreadInfo.size(); ++j)
     {
       outPktHdr.from = postOffice->GetID();
       outMailHdr.from = currentThread->mailID;
-      outPktHdr.to = globalNetThreadInfo[j]->machineID;
-      outMailHdr.to = globalNetThreadInfo[j]->mailID;
+      outPktHdr.to = serverNetThreadInfo[j]->machineID;
+      outMailHdr.to = serverNetThreadInfo[j]->mailID;
       outMailHdr.length = strlen(request) + 1;
       
       printf("SERVER: Sending to machineID: %d, mailID: %d\n", outPktHdr.to, outMailHdr.to);
@@ -268,7 +269,7 @@ void RegServer()
 }
 
 // Register with the Registration Server before we start processing messages.
-void RegisterNetworkThread()
+void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo)
 {
   PacketHeader inPktHdr, outPktHdr;
   MailHeader inMailHdr, outMailHdr;
@@ -408,7 +409,7 @@ void RegisterNetworkThread()
       machineID = atoi(tmpStr);
       mailID = atoi(&tmpStr[2]);
       NetThreadInfoEntry* entry = new NetThreadInfoEntry(machineID, mailID);
-      globalNetThreadInfo.push_back(entry);
+      localNetThreadInfo->push_back(entry);
     
       i += 3;
       PrintNetThreadHeader();
@@ -418,8 +419,11 @@ void RegisterNetworkThread()
   }
   
   // serverCount corresponds to the number of PostOffice instances we expect
-  // alt: we might need to set this to globalNetThreadInfo.size()
+  // alt: we might need to set this to localNetThreadInfo->size()
   //serverCount = 4; 
+  
+  PrintNetThreadHeader();
+  printf("localNetThreadInfo->size(): %d\n", localNetThreadInfo->size());
   
   // Reply to my user thread stating that it can proceed
   PrintNetThreadHeader();
@@ -522,9 +526,14 @@ void NetworkThread()
   RequestType requestType = INVALIDTYPE;
   timeval timeStamp;
   int i = 0;
+  
+  // must be local to each network thread
+  vector<NetThreadInfoEntry*> *localNetThreadInfo;
   vector<UnAckedMessage*> msgQueue;
   
-  RegisterNetworkThread();
+  // pass by reference
+  localNetThreadInfo = new vector<NetThreadInfoEntry*>();
+  RegisterNetworkThread(localNetThreadInfo);
   
   PrintNetThreadHeader();
   printf("Entering while(true) loop\n");
@@ -581,13 +590,15 @@ void NetworkThread()
       
       PrintNetThreadHeader();
       printf("Forward message to all Network Threads (including self)\n");
+      PrintNetThreadHeader();
+      printf("localNetThreadInfo->size(): %d\n", (int)localNetThreadInfo->size());
       // Forward message to all NetworkThreads (including self).
-      for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
+      for (i = 0; i < (int)localNetThreadInfo->size(); ++i)
       {
         outPktHdr.from = postOffice->GetID();
         outMailHdr.from = currentThread->mailID;
-        outPktHdr.to = globalNetThreadInfo[i]->machineID;
-        outMailHdr.to = globalNetThreadInfo[i]->mailID;
+        outPktHdr.to = localNetThreadInfo->at(i)->machineID;
+        outMailHdr.to = localNetThreadInfo->at(i)->mailID;
         outMailHdr.length = strlen(buffer) + 1;
         
         if (!postOffice->Send(outPktHdr, outMailHdr, timeStamp, buffer))
@@ -603,16 +614,16 @@ void NetworkThread()
       // This is already done above.
       
       // 2. Update last timestamp, in the table, for that member.
-      for (i = 0; i < (int)globalNetThreadInfo.size(); ++i)
+      for (i = 0; i < (int)localNetThreadInfo->size(); ++i)
       {
-        if (inPktHdr.from  == globalNetThreadInfo[i]->machineID &&
-            inMailHdr.from == globalNetThreadInfo[i]->mailID)
+        if (inPktHdr.from  == localNetThreadInfo->at(i)->machineID &&
+            inMailHdr.from == localNetThreadInfo->at(i)->mailID)
         {
           PrintNetThreadHeader();
           printf("Update timestamp for (%d, %d) to %d.%d\n", 
-              globalNetThreadInfo[i]->machineID, globalNetThreadInfo[i]->mailID,
+              localNetThreadInfo->at(i)->machineID, localNetThreadInfo->at(i)->mailID,
               (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
-          globalNetThreadInfo[i]->timeStamp = timeStamp;
+          localNetThreadInfo->at(i)->timeStamp = timeStamp;
           break;
         }
       }
@@ -642,17 +653,17 @@ void NetworkThread()
       }
       
       // 4. Extract the earliest timestamp value from the table.
-      timeval earliestTimeStamp = globalNetThreadInfo[0]->timeStamp;
+      timeval earliestTimeStamp = localNetThreadInfo->at(0)->timeStamp;
       PrintNetThreadHeader();
       printf("Initial earliest TimeStamp:   %d.%d\n", 
           (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
-      for (i = 1; i < (int)globalNetThreadInfo.size(); ++i)
+      for (i = 1; i < (int)localNetThreadInfo->size(); ++i)
       {
-        if (globalNetThreadInfo[i]->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
-            (globalNetThreadInfo[i]->timeStamp.tv_sec == earliestTimeStamp.tv_sec &&
-             globalNetThreadInfo[i]->timeStamp.tv_usec < earliestTimeStamp.tv_usec))
+        if (localNetThreadInfo->at(i)->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
+            (localNetThreadInfo->at(i)->timeStamp.tv_sec == earliestTimeStamp.tv_sec &&
+             localNetThreadInfo->at(i)->timeStamp.tv_usec < earliestTimeStamp.tv_usec))
         {
-          earliestTimeStamp = globalNetThreadInfo[i]->timeStamp;
+          earliestTimeStamp = localNetThreadInfo->at(i)->timeStamp;
         }
       }
       PrintNetThreadHeader();
