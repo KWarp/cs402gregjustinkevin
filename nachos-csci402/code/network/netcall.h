@@ -21,6 +21,8 @@
 #define MAX_DMV 500 
 #define MAX_DCV 100 
 
+#define MAX_NUM_GLOBAL_IDS 1000
+
 enum RequestType
 {
 	CREATELOCK,ACQUIRE,RELEASE,DESTROYLOCK,CREATECV,SIGNAL,BROADCAST,WAIT,DESTROYCV,
@@ -34,7 +36,7 @@ int parseValue(int startIndex, const char* buffer, int* value);
 int Request(RequestType requestType, char* data, int machineID, int mailID); //client
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* buffer);
 bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp);
-bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData);
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, vector<NetThreadInfoEntry*> *localNetThreadInfo);
 void sendError();
 
 void itoa(char arr[], int size, int val);
@@ -48,7 +50,7 @@ bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMail
 bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
 bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
 bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-void CreateVerify(char* data, int, int);
+void CreateVerify(char* data, int requestType, int client, vector<NetThreadInfoEntry*> *localNetThreadInfo);
 int CreateMVVerify(char* data);
 
 class Message
@@ -62,8 +64,8 @@ public:
 };
 
 #ifdef CHANGED
-#define FREE true;
-#define BUSY false;
+#define FREE true
+#define BUSY false
 #endif
 
 class DistributedLock 

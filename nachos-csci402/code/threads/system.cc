@@ -463,7 +463,7 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo, vect
   
   // serverCount corresponds to the number of PostOffice instances we expect
   // alt: we might need to set this to localNetThreadInfo->size()
-  //serverCount = 4; 
+  serverCount = (int)localNetThreadInfo->size(); 
   
   PrintNetThreadHeader();
   printf("localNetThreadInfo->size(): %d\n", localNetThreadInfo->size());
@@ -529,19 +529,21 @@ void NetworkThread()
       buffer[i] = '\0';
   
     // Wait for a message to be received.
-    PrintNetThreadHeader();
-    printf("Waiting for message to be received\n");
+    //PrintNetThreadHeader();
+    //printf("Waiting for message to be received\n");
     
     requestType = INVALIDTYPE;
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
 
     parseValue(0, buffer, (int*)(&requestType));
-    PrintNetThreadHeader();
-    printf("recieved message: %s\n", buffer);
+    //PrintNetThreadHeader();
+    //printf("received message: %s\n", buffer);
     
     // If the packet is an Ack, process it.
     if (requestType == ACK)
     {
+      //PrintNetThreadHeader();
+      //printf("processAck from (%d, %d) \n", inPktHdr.from, inMailHdr.from);
       processAck(inPktHdr, inMailHdr, timeStamp);
       continue;
     }
@@ -553,8 +555,8 @@ void NetworkThread()
     if (messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
     {
       // Do not process the redundant message.
-      PrintNetThreadHeader();
-      printf("not processing redundant message: %s\n", buffer);
+      //PrintNetThreadHeader();
+      //printf("not processing redundant message: %s\n", buffer);
       continue;
     }
     
@@ -575,8 +577,6 @@ void NetworkThread()
       
       PrintNetThreadHeader();
       printf("Forward message to all Network Threads (including self)\n");
-      PrintNetThreadHeader();
-      printf("localNetThreadInfo->size(): %d\n", (int)localNetThreadInfo->size());
       // Forward message to all NetworkThreads (including self).
       for (i = 0; i < (int)localNetThreadInfo->size(); ++i)
       {
@@ -669,7 +669,7 @@ void NetworkThread()
           // Process message.
           PrintNetThreadHeader();
           printf("Process message: %s\n", buffer);
-          // processMessage(inPktHdr, inMailHdr, timeStamp, buffer);
+          processMessage(inPktHdr, inMailHdr, timeStamp, buffer, localNetThreadInfo);
           
           // Remove the message from the queue.
           msgQueue.erase(msgQueue.begin() + i);
@@ -802,8 +802,8 @@ void Initialize(int argc, char **argv)
     
   #ifdef CHANGED
     #ifdef NETWORK
-      // printf("Commented out msgResendTimer\n");
-      msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
+      printf("Commented out msgResendTimer\n");
+      //msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
     #endif
   #endif
 
@@ -829,6 +829,7 @@ void Initialize(int argc, char **argv)
   #endif
 
   #ifdef CHANGED
+
     #ifdef USE_TLB
       currentTLBIndex = 0;
       ipt = new IPTEntry[NumPhysPages];

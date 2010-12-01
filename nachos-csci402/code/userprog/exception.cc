@@ -319,7 +319,14 @@ int CreateLock_Syscall(int vaddr, int len)
 #ifndef NETWORK
 	return synchManager->CreateLock(name);
 #else
+  
+  PrintUserHeader();
+  printf("CreateLock_Syscall\n");
+
 	return Request(CREATELOCK, name, getMachineID(), getMailID());
+  
+  PrintUserHeader();
+  printf("CreateLock_Syscall\n");
 #endif
 }
 
@@ -330,8 +337,14 @@ void DestroyLock_Syscall(int index)
 #else
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
-        
+  
+  PrintUserHeader();
+  printf("DestroyLock_Syscall\n");
+  
 	Request(DESTROYLOCK, indexBuf, getMachineID(), getMailID());
+  
+  PrintUserHeader();
+  printf("Exiting DestroyLock_Syscall\n");
 #endif
 }
 
@@ -360,8 +373,14 @@ void Release_Syscall(int index)
 #else
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
+  
+  PrintUserHeader();
+  printf("Release_Syscall\n");
         
 	Request(RELEASE, indexBuf, getMachineID(), getMailID());
+  
+  PrintUserHeader();
+  printf("Exiting Release_Syscall\n");
 #endif
 }
 
@@ -544,7 +563,12 @@ int CreateCondition_Syscall(int vaddr, int len)
 #ifndef NETWORK
 	return synchManager->CreateCondition(name);
 #else
-	return Request(CREATECV, name, getMachineID(), getMailID());
+	PrintUserHeader();
+  printf("CreateCondition_Syscall\n");
+  int i = Request(CREATECV, name, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting CreateCondition_Syscall\n");
+  return i;
 #endif
 }
 
@@ -556,7 +580,11 @@ void DestroyCondition_Syscall(int index)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d",index);
         
+  PrintUserHeader();
+  printf("DestroyCondition_Syscall\n");
 	Request(DESTROYCV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting DestroyCondition_Syscall\n");
 #endif
 }
 
@@ -567,7 +595,12 @@ void Signal_Syscall(int cv, int lock)
 #else
 	char* indexBuf = new char[16];
     sprintf(indexBuf,"%d_%d", cv, lock);
+    
+  PrintUserHeader();
+  printf("Signal_Syscall\n");
 	Request(SIGNAL, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting Signal_Syscall\n");
 #endif
 }
 
@@ -578,7 +611,12 @@ void Wait_Syscall(int cv, int lock)
 #else
 	char* indexBuf = new char[16];
     sprintf(indexBuf,"%d_%d", cv, lock);
+    
+  PrintUserHeader();
+  printf("Wait_Syscall\n");
 	Request(WAIT, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting Wait_Syscall\n");
 #endif
 }
 
@@ -589,7 +627,12 @@ void Broadcast_Syscall(int cv, int lock)
 #else
 	char* indexBuf = new char[16];
     sprintf(indexBuf,"%d_%d", cv, lock);
+    
+  PrintUserHeader();
+  printf("Broadcast_Syscall\n");
 	Request(BROADCAST, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting Broadcast_Syscall\n");
 #endif
 }
 
@@ -610,8 +653,13 @@ int CreateMV_Syscall(int vaddr, int len)
 		delete[] name;
 		return -1;
   }
-
-	return Request(CREATEMV, name, getMachineID(), getMailID());
+  
+  PrintUserHeader();
+  printf("CreateMV_Syscall\n");
+	int i = Request(CREATEMV, name, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting CreateMV_Syscall\n");
+  return i;
 }
 
 int SetMV_Syscall(int mv, int value)
@@ -619,7 +667,12 @@ int SetMV_Syscall(int mv, int value)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d_%d", mv, value);
   
-  return Request(SETMV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("SetMV_Syscall\n");
+  int i = Request(SETMV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting SetMV_Syscall\n");
+  return i;
 }
 
 int GetMV_Syscall(int mv)
@@ -627,7 +680,12 @@ int GetMV_Syscall(int mv)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d", mv);
   
-  return Request(GETMV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("GetMV_Syscall\n");
+  int i = Request(GETMV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting GetMV_Syscall\n");
+  return i;
 }
 
 int DestroyMV_Syscall(int mv)
@@ -635,19 +693,24 @@ int DestroyMV_Syscall(int mv)
 	char* indexBuf = new char[16];
 	sprintf(indexBuf,"%d", mv);
   
-  return Request(DESTROYMV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("DestroyMV_Syscall\n");
+  int i =  Request(DESTROYMV, indexBuf, getMachineID(), getMailID());
+  PrintUserHeader();
+  printf("Exiting DestroyMV_Syscall\n");
+  return i;
 }
 
 void StartUserProgram_Syscall()
 {
   // Send a msg to this program's network thread.
-  PrintUserHeader();
-  printf("StartUserProgram_Syscall\n");
   char* data = new char[1];
   data[1] = '\0';
+
+  PrintUserHeader();
+  printf("StartUserProgram_Syscall\n");
   Request(STARTUSERPROGRAM, data, getMachineID(), getMailID());
-  // when replied to, the simulation can run
-  
+  // when replied to, the simulation can run 
   PrintUserHeader();
   printf("Finished StartUserProgram_Syscall\n");
 }

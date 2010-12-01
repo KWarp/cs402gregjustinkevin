@@ -13,10 +13,9 @@ int main(int argc, char **argv)
 {
   StartUserProgram();
   LockTest();
-  /*
-  MVTest();
-  CVTest();
-  */
+  /*MVTest();*/
+  /*CVTest();*/
+  
   Exit(0);
 }
 

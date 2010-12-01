@@ -225,9 +225,18 @@ int parseValue(int startIndex, const char* buf, int* value)
   return i;
 }
 
-bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData)
+int uniqueGlobalID()
 {
-	// printf("\nReady to handle a request!!!\n");
+  // (machineID * total Net Threads) + mailID
+  return (postOffice->GetID()*100) + currentThread->mailID;
+}
+
+
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, 
+    vector<NetThreadInfoEntry*> *localNetThreadInfo)
+{
+	printf("Processing Message from (%d, %d), time %d.%d, msg: %s\n", inPktHdr.from, inMailHdr.from, 
+      (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, msgData);
 	
   PacketHeader outPktHdr;
   MailHeader outMailHdr;
@@ -260,6 +269,8 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
                   ///   mailID can range from [0,99] so that means there is a maximum of 100 threads per machine id.
 	char* request = NULL;
   
+  ASSERT(serverCount == (int)localNetThreadInfo->size());
+  
   // Fill buffer with '\0' chars.
   for(int i = 0; i < (int)MaxMailSize; ++i)
 		buffer[i]='\0';
@@ -270,12 +281,12 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 	
   // Do this because all the code below assumes we are one the char before this, and I am too lazy to change it everywhere.
   i--;
-  printf("requestType: %d\n", requestType);
   
   int a, m, j, x;
 	switch (requestType)
 	{
 		case CREATELOCK:
+      printf("CREATELOCK\n");
 			clientNum = 100 * inPktHdr.from + inMailHdr.from;
 			if (createDLockIndex >= 0 && createDLockIndex < (MAX_DLOCK - 1))
 			{
@@ -297,12 +308,14 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					}
 				}
         
-				localLockIndex[clientNum]=lockIndex;
+				localLockIndex[clientNum] = lockIndex;
 				if (serverCount > 1)
-					CreateVerify(lockName[clientNum], CREATELOCKVERIFY, clientNum);
+        {
+					// must always verify if more than 1 net thread
+          CreateVerify(lockName[clientNum], CREATELOCKVERIFY, clientNum, localNetThreadInfo);
+        }
 				else
 				{
-			
 					if(localLockIndex[clientNum] == -1)
 					{
 						for(i=0;lockName[clientNum][i]!='\0';i++)
@@ -311,7 +324,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 							localLockName[i+1]= '\0';
 						}
 						dlocks[createDLockIndex] = new DistributedLock(localLockName); 
-						dlocks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
+						dlocks[createDLockIndex]->SetGlobalId((uniqueGlobalID()*MAX_DLOCK)+createDLockIndex);
 						if(dlocks[createDLockIndex] == NULL)
 						{
 							errorOutPktHdr.to = clientNum/100;
@@ -335,7 +348,8 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					
 					outPktHdr.to = clientNum/100;
           outMailHdr.to = (clientNum+100)%100 + 1; // +1 to reach user thread
-          outMailHdr.from = postOffice->GetID();
+          outPktHdr.from = postOffice->GetID();
+          outMailHdr.from = currentThread->mailID;
           outMailHdr.length = strlen(ack) + 1;
           
           printf("Sending CREATELOCK response: %s\n", ack);
@@ -361,7 +375,9 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 			
 		case CREATELOCKANSWER:
-			x=0;
+			printf("CREATELOCKANSWER\n");
+      x = 0;
+      a = 0;
 			do 
 			{
 				c = msgData[++i];
@@ -379,6 +395,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					break;
 			}
 			verifyResponses[clientNum]++;
+      // if all server threads have responded to my request
 			if (verifyResponses[clientNum]==serverCount-1)
 			{
 				for (i=0; i< serverCount-1; i++)
@@ -400,7 +417,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						localLockName[i+1]= '\0';
 					}
 					dlocks[createDLockIndex] = new DistributedLock(localLockName); 
-					dlocks[createDLockIndex]->SetGlobalId((postOffice->GetID()*MAX_DLOCK)+createDLockIndex);
+					dlocks[createDLockIndex]->SetGlobalId((uniqueGlobalID()*MAX_DLOCK)+createDLockIndex);
 					if(dlocks[createDLockIndex] == NULL)
 					{
 						//Handle error...
@@ -428,12 +445,16 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 				char* ack = new char [5];
 				sprintf(ack, "%i", lockIndex);
-	
-				outPktHdr.to = clientNum/100;
-				outMailHdr.to = (clientNum+100)%100;
-				outMailHdr.from = postOffice->GetID();
+        
+        // communicate to my paired user thread
+				outPktHdr.to = postOffice->GetID();
+				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+				outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
 				outMailHdr.length = strlen(ack) + 1;
-
+        
+        printf("Sending CREATELOCKANSWER from (%d, %d) to (%d, %d), msg: %s\n", 
+          outPktHdr.from, outMailHdr.from, outPktHdr.to, outMailHdr.to, ack);
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 				if ( !success ) 
@@ -445,12 +466,12 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				fflush(stdout);
 			}
 			break;
-		case CREATELOCKVERIFY:
-			
-			printf("Verifying Lock\n");
+		case CREATELOCKVERIFY:	
+			printf("CREATELOCKVERIFY\n");
 			lockIndex=-1;
 			request = new char [MaxMailSize];
-			x=0;
+			x = 0;
+      a = 0;
 			do 
 			{
 				c = msgData[++i];
@@ -458,7 +479,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					break;
 				client[x++] = c;	
 			}while(c!='_');
-
+      
 			client[x]='\0';
 			clientNum = atoi(client);
 			while(c!='\0')
@@ -466,10 +487,10 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				c = msgData[++i];
 				if(c=='\0')
 					break;
-				localLockName[a++] = c; 
+				localLockName[a++] = c;       
 			}
 			localLockName[a] = '\0';
-			
+      
 			for(int k=0; k<createDLockIndex; k++)
 			{
 				if(!strcmp(dlocks[k]->getName(), localLockName))
@@ -483,8 +504,10 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			outMailHdr.to = inMailHdr.from;
 			outMailHdr.from = postOffice->GetID();
 			
+      
 			if (lockIndex==-1) 
 			{	
+        printf("Lock named %s not found\n", localLockName);
 				sprintf(request,"%d_%d_%d",CREATELOCKANSWER, clientNum, -1);
 				outMailHdr.length = strlen(request) + 1;
 
@@ -498,6 +521,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;
 		case CREATECV:
+      printf("CREATECV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			if((createDCVIndex >= 0)&&(createDCVIndex < (MAX_DCV-1)))
 			{
@@ -519,7 +543,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 				localLockIndex[clientNum]=cvIndex;
 				if(serverCount>1)
-					CreateVerify(lockName[clientNum], CREATECVVERIFY, clientNum);
+					CreateVerify(lockName[clientNum], CREATECVVERIFY, clientNum, localNetThreadInfo);
 				else
 				{
 					if(localLockIndex[clientNum] == -1) 
@@ -530,7 +554,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 							localLockName[i+1]= '\0';
 						}
 						cvs[createDCVIndex] = new DistributedCV(localLockName); 
-						cvs[createDCVIndex]->SetGlobalId((postOffice->GetID()*MAX_DCV)+createDCVIndex);
+						cvs[createDCVIndex]->SetGlobalId((uniqueGlobalID()*MAX_DCV)+createDCVIndex);
 						if(cvs[createDCVIndex] == NULL)
 						{
 							errorOutPktHdr.to = clientNum/100;
@@ -575,6 +599,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;	
 		case CREATECVANSWER:
+      printf("CREATECVANSWER\n");
 			x=0;
 			do 
 			{
@@ -615,7 +640,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						localLockName[i+1]= '\0';
 					}
 					cvs[createDCVIndex] = new DistributedCV(localLockName); 
-					cvs[createDCVIndex]->SetGlobalId((postOffice->GetID()*MAX_DCV)+createDCVIndex);
+					cvs[createDCVIndex]->SetGlobalId((uniqueGlobalID()*MAX_DCV)+createDCVIndex);
 					if(cvs[createDCVIndex] == NULL)
 					{
 						errorOutPktHdr.to = clientNum/100;
@@ -642,9 +667,12 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 				char* ack = new char [5];
 				sprintf(ack, "%i", cvIndex);
-				outPktHdr.to = clientNum/100;
-				outMailHdr.to = (clientNum+100)%100;
-				outMailHdr.from = postOffice->GetID();
+        
+        // communicate to my paired user thread
+				outPktHdr.to = postOffice->GetID();
+				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+				outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
 				outMailHdr.length = strlen(ack) + 1;
 
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
@@ -659,6 +687,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;
 		case CREATECVVERIFY:
+      printf("CREATECVVERIFY\n");
 			lockIndex=-1;
 			
 			request = new char [MaxMailSize];
@@ -706,6 +735,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 
 			break;
 		case CREATEMV:
+      printf("CREATEMV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			if((createDMVIndex >= 0)&&(createDMVIndex < (MAX_DMV-1)))
 			{
@@ -729,7 +759,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 				localLockIndex[clientNum]=mvIndex;
 				if (serverCount>1)
-					CreateVerify(lockName[clientNum], CREATEMVVERIFY, clientNum);
+					CreateVerify(lockName[clientNum], CREATEMVVERIFY, clientNum, localNetThreadInfo);
 				else
 				{
 					if(localLockIndex[clientNum] == -1) 
@@ -740,7 +770,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 							localLockName[i+1]= '\0';
 						}
 						mvs[createDMVIndex] = new DistributedMV(localLockName); 
-						mvs[createDMVIndex]->SetGlobalId((postOffice->GetID()*MAX_DMV)+createDMVIndex);
+						mvs[createDMVIndex]->SetGlobalId((uniqueGlobalID()*MAX_DMV)+createDMVIndex);
 						if(mvs[createDMVIndex] == NULL)
 						{
 							errorOutPktHdr.to = clientNum/100;
@@ -759,12 +789,15 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					}
 					char* ack = new char [5];
 					sprintf(ack, "%i", mvIndex);
+          
+          // communicate to my paired user thread
+          outPktHdr.to = postOffice->GetID();
+          outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+          outPktHdr.from = postOffice->GetID();
+          outMailHdr.from = currentThread->mailID;
+          outMailHdr.length = strlen(ack) + 1;
 					
-					outPktHdr.to = clientNum/100;
-					outMailHdr.to = (clientNum+100)%100;
-					outMailHdr.from = postOffice->GetID();
-					outMailHdr.length = strlen(ack) + 1;
-					
+          printf("Sending CREATEMV response: %s\n", ack);
 					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 					if ( !success ) 
@@ -786,6 +819,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;
 		case CREATEMVANSWER:
+      printf("CREATEMVANSWER\n");
 			x=0;
 			do 
 			{
@@ -826,7 +860,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						localLockName[i+1]= '\0';
 					}
 					mvs[createDMVIndex] = new DistributedMV(localLockName); 
-					mvs[createDMVIndex]->SetGlobalId((postOffice->GetID()*MAX_DMV)+createDMVIndex);
+					mvs[createDMVIndex]->SetGlobalId((uniqueGlobalID()*MAX_DMV)+createDMVIndex);
 					if(mvs[createDMVIndex] == NULL)
 					{
 						errorOutPktHdr.to = clientNum/100;
@@ -853,10 +887,12 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 				char* ack = new char [5];
 				sprintf(ack, "%i", mvIndex);
-				
-				outPktHdr.to = clientNum/100;
-				outMailHdr.to = (clientNum+100)%100;
-				outMailHdr.from = postOffice->GetID();
+        
+        // communicate to my paired user thread
+				outPktHdr.to = postOffice->GetID();
+				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+				outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
 				outMailHdr.length = strlen(ack) + 1;
 				
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
@@ -872,6 +908,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 
 			break;
 		case CREATEMVVERIFY:
+      printf("CREATEMVVERIFY\n");
 			mvIndex=-1;
 			request = new char [MaxMailSize];
 			x=0;
@@ -919,12 +956,11 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			
 			break;
 		case ACQUIRE:
-			printf("here\n");
+			printf("ACQUIRE\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
-        printf("here2\n");
 				i++;
 				do 
 				{
@@ -933,12 +969,10 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						break;
 					client[m++] = c;	
 				}while(c!='_');
-        printf("here3\n");
         
 				client[m]='\0';
 				clientNum = atoi(client);
 			}
-      printf("here4\n");
 			m=0;
 			while(c!='\0')
 			{
@@ -946,22 +980,23 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf); 
-			printf("lockIndex/MAX_DLOCK != postOffice->GetID(): %d != %d\n", lockIndex/MAX_DLOCK, postOffice->GetID());
-			if(lockIndex/MAX_DLOCK != postOffice->GetID())
+			//printf("lockIndex/MAX_DLOCK != uniqueGlobalID(): %d != %d\n", lockIndex/MAX_DLOCK, uniqueGlobalID());
+			if(lockIndex/MAX_DLOCK != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s",ACQUIRE, clientNum, lockIndexBuf);
 				outPktHdr.to = lockIndex/MAX_DLOCK;
-				outMailHdr.to = outPktHdr.to;
+				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
+        
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
 			}
 			else
 				success = Acquire(lockIndex, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
-      printf("here6\n");
 			break;
       
 		case RELEASE:
+      printf("RELEASE\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -986,20 +1021,22 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 		
 			lockIndex = atoi(lockIndexBuf); 
-			if(lockIndex/MAX_DLOCK != postOffice->GetID())
+			if(lockIndex/MAX_DLOCK != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s",RELEASE, clientNum, lockIndexBuf);
 				outPktHdr.to = lockIndex/MAX_DLOCK;
-				outMailHdr.to = outPktHdr.to;
+				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread;
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
+        
+        printf("Sending RELEASE response: %s\n", buffer);
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
 			}
 			else
 				success = Release(lockIndex, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
 			break;
 		case DESTROYLOCK:
-		
+      printf("DESTROYLOCK\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1023,7 +1060,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				lockIndexBuf[m++] = c; 
 			}
 			lockIndex = atoi(lockIndexBuf);
-			if(lockIndex/MAX_DLOCK != postOffice->GetID())
+			if(lockIndex/MAX_DLOCK != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s",DESTROYLOCK, clientNum, lockIndexBuf);
 				outPktHdr.to = lockIndex/MAX_DLOCK;
@@ -1036,7 +1073,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				success = DestroyLock(lockIndex, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
 			break;
 		case SETMV:
-			
+			printf("SETMV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1069,19 +1106,22 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				mvValBuf[m++] = c; 
 			}
 			mvValue = atoi(mvValBuf); 
-			if(mvIndex/MAX_DMV != postOffice->GetID())
+			if(mvIndex/MAX_DMV != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s_%s",SETMV, clientNum, mvIndexBuf, mvValBuf);
 				outPktHdr.to = mvIndex/MAX_DMV;
-				outMailHdr.to = outPktHdr.to;
+				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread;
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
+                
+        printf("Sending SETMV response: %s\n", buffer);
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
 			}
 			else
 				success = SetMV(mvIndex, mvValue, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
 			break;
 		case GETMV:
+      printf("GETMV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1106,13 +1146,15 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 
 			mvIndex = atoi(mvIndexBuf); 
-			if(mvIndex/MAX_DMV != postOffice->GetID())
+			if(mvIndex/MAX_DMV != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s",GETMV, clientNum, mvIndexBuf);
 				outPktHdr.to = mvIndex/MAX_DMV;
-				outMailHdr.to = outPktHdr.to;
+				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread;
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
+        
+        printf("Sending GETMV response: %s\n", buffer);
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
 			}
 			else
@@ -1120,6 +1162,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			
 			break;
 		case DESTROYMV:
+      printf("DESTROYMV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1144,19 +1187,22 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 
 			mvIndex = atoi(mvIndexBuf);
-			if(mvIndex/MAX_DMV != postOffice->GetID())
+			if(mvIndex/MAX_DMV != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s",DESTROYMV, clientNum, mvIndexBuf);
 				outPktHdr.to = mvIndex/MAX_DMV;
-				outMailHdr.to = outPktHdr.to;
+				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread;
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
+        
+        printf("Sending DESTROYMV response: %s\n", buffer);
 			}
 			else
 				success = DestroyMV(mvIndex, outPktHdr, inPktHdr, outMailHdr, inMailHdr, clientNum);
 			break;	
 		case WAIT:
+      printf("WAIT\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1191,7 +1237,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			lockIndex = atoi(lockNum); 
 			lockNumIndex = 0;
 			cvNumIndex = 0;
-			if(lockIndex/MAX_DLOCK != postOffice->GetID())
+			if(lockIndex/MAX_DLOCK != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s_%s",SIGNAL, clientNum, cvNum,lockNum);
 				outPktHdr.to = lockIndex/MAX_DLOCK;
@@ -1205,6 +1251,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 
 		case WAITCV:
+      printf("WAITCV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1274,6 +1321,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 
 			break;
 		case WAITRESPONSE:
+      printf("WAITRESPONSE\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1328,6 +1376,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 			
 		case SIGNAL:
+      printf("SIGNAL\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1363,11 +1412,11 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			lockNumIndex = 0;
 			cvNumIndex = 0;
 			
-			if(cvIndex/MAX_DCV != postOffice->GetID())
+			if(cvIndex/MAX_DCV != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s_%s",SIGNAL, clientNum, cvNum,lockNum);
 				outPktHdr.to = cvIndex/MAX_DCV;
-				outMailHdr.to = outPktHdr.to;
+				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread;
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, buffer);
@@ -1378,6 +1427,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 			
 		case SIGNALLOCK:
+      printf("SIGNALLOCK\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1424,6 +1474,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;
 		case SIGNALRESPONSE:
+      printf("SIGNALRESPONSE\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1505,6 +1556,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;
 		case BROADCAST:
+      printf("BROADCAST\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1540,7 +1592,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			lockNumIndex = 0;
 			cvNumIndex = 0;
 			
-			if(cvIndex/MAX_DCV != postOffice->GetID())
+			if(cvIndex/MAX_DCV != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s_%s",BROADCAST, clientNum, cvNum,lockNum);
 				outPktHdr.to = cvIndex/MAX_DCV;
@@ -1555,6 +1607,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 
 		case BROADCASTLOCK:
+      printf("BROADCASTLOCK\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1612,6 +1665,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			break;
 		case BROADCASTRESPONSE:
+      printf("BROADCASTRESPONSE\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1709,6 +1763,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 
 		case DESTROYCV:	
+      printf("DESTROYCV\n");
 			clientNum=100*(inPktHdr.from)+inMailHdr.from;
 			m=0; 
 			if(msgData[i+1] == '_')
@@ -1731,7 +1786,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				cvNum[cvNumIndex ++] = c;
 			}
 			cvIndex = atoi(cvNum); 
-			if(cvIndex/MAX_DCV != postOffice->GetID())
+			if(cvIndex/MAX_DCV != uniqueGlobalID())
 			{
 				sprintf(buffer,"%d__%d_%s",DESTROYCV, clientNum, cvNum);
 				outPktHdr.to = cvIndex/MAX_DCV;
@@ -1742,7 +1797,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			else
 			{
-				if ((cvIndex < 0)||(cvIndex > serverCount*MAX_DCV-1))
+				if ((cvIndex < 0)||(cvIndex > MAX_NUM_GLOBAL_IDS*MAX_DCV-1))
 				{
 					errorOutPktHdr = outPktHdr;
 					errorOutPktHdr.to = clientNum/100;
@@ -1752,7 +1807,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					errorInMailHdr = inMailHdr;
 					return false;
 				}
-				else if(cvIndex/MAX_DCV== postOffice->GetID())
+				else if(cvIndex/MAX_DCV== uniqueGlobalID())
 				{
 					cvIndex=cvIndex%MAX_DCV;
 					if (cvs[cvIndex] != NULL){
@@ -1795,7 +1850,34 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 			}
 			break;	
-	}
+	
+  case STARTUSERPROGRAM:
+    printf("STARTUSERPROGRAM... should not get here\n");
+    ASSERT(false);
+    break;
+  case REGNETTHREAD:
+    printf("REGNETTHREAD... should not get here\n");
+    ASSERT(false);
+    break;
+  case REGNETTHREADRESPONSE:
+    printf("REGNETTHREADRESPONSE... should not get here\n");
+    ASSERT(false);
+    break;
+  case GROUPINFO:
+    printf("GROUPINFO... should not get here\n");
+    ASSERT(false);
+    break;
+  case ACK:
+    printf("ACK... should not get here\n");
+    ASSERT(false);
+    break;
+  case INVALIDTYPE:
+    printf("INVALIDTYPE... should not get here\n");
+    ASSERT(false);
+    break;
+    
+    
+  }
 
 	if (!success)
 	{ 
@@ -1813,9 +1895,9 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	if (clientNum==-2)
 		clientNum=100*(inPktHdr.from)+inMailHdr.from;
 	
-	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
+	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*MAX_DLOCK-1))
 	{
-		printf("Cannot acquire: Lock index [%d] out of bounds [%d, %d].\n", lockIndex, 0, (MAX_DLOCK-1));
+		printf("Cannot acquire: Lock index [%d] out of bounds [%d, %d].\n", lockIndex, 0, MAX_NUM_GLOBAL_IDS*(MAX_DLOCK-1));
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
@@ -1824,7 +1906,7 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if(lockIndex/MAX_DLOCK == postOffice->GetID())
+	else if(lockIndex/MAX_DLOCK == uniqueGlobalID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		if(dlocks[lockIndex] == NULL)
@@ -1856,10 +1938,12 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 				dlocks[lockIndex]->setLockState(false); 
 				
 				outPktHdr.to = clientNum/100;
-				outMailHdr.to = (clientNum+100)%100;
-				outMailHdr.from = postOffice->GetID();
+				outMailHdr.to = (clientNum+100)%100 + 1; // +1 to reach user thread
+        outPktHdr.from = postOffice->GetID();
+				outMailHdr.from = currentThread->mailID;
 				outMailHdr.length = strlen(ack) + 1;
-				
+             
+				printf("Sending Acquire response: %s\n", ack);
 				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 				if ( !success ) 
@@ -1884,29 +1968,34 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 	}
 }
 
-void CreateVerify(char* data, int requestType, int client)
+void CreateVerify(char* data, int requestType, int client, vector<NetThreadInfoEntry*> *localNetThreadInfo)
 {
 	char* request = new char [MaxMailSize];
 	sprintf(request,"%d_%d_%s",requestType, client, data);
 	
 	PacketHeader outPktHdr;
 	MailHeader outMailHdr;
-
-	outMailHdr.from = postOffice->GetID();
+  
+  outPktHdr.from = postOffice->GetID();
+	outMailHdr.from = currentThread->mailID;
 	outMailHdr.length = strlen(request) + 1; 
+  
 	for (int i = 0; i< serverCount; i++)
 	{
-		if (i != outMailHdr.from)	
+		if (localNetThreadInfo->at(i)->machineID != outPktHdr.from ||
+        localNetThreadInfo->at(i)->mailID != outMailHdr.from)	
 		{
-			outPktHdr.to = i;		
-		 	outMailHdr.to = i;
+			outPktHdr.to = localNetThreadInfo->at(i)->machineID;		
+		 	outMailHdr.to = localNetThreadInfo->at(i)->mailID;
+      
+      printf("CreateVerify Send: outPktHdr.to: %d, outMailHdr.to: %d, request: %s\n", outPktHdr.to, outMailHdr.to, request);
 			bool success = postOffice->Send(outPktHdr, outMailHdr, request); 
 
 			 if ( !success ) {
   				interrupt->Halt();
 			 }
 			 else
-				 printf("Verify send successful\n");
+				 printf("CreateVerify Send successful\n");
 		}
 	}
 	verifyResponses[client]=0;
@@ -1915,8 +2004,9 @@ void CreateVerify(char* data, int requestType, int client)
 bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
-	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
+	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK)-1))
 	{
+    printf("Cannot release: Lock index [%d] out of bounds [%d, %d].\n", lockIndex, 0, MAX_NUM_GLOBAL_IDS*(MAX_DLOCK-1));
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
@@ -1925,7 +2015,7 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if(lockIndex/MAX_DLOCK == postOffice->GetID())
+	else if(lockIndex/MAX_DLOCK == uniqueGlobalID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		if(dlocks[lockIndex] == NULL) 
@@ -1946,11 +2036,12 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		
 		dlocks[lockIndex]->setOwner(-1, -1); 
 		dlocks[lockIndex]->setLockState(true); 
-		
-		outPktHdr.to = clientNum/100;
-		outMailHdr.to = (clientNum+100)%100;
-		outMailHdr.from = postOffice->GetID();
-		outMailHdr.length = strlen(ack) + 1;
+    
+    outPktHdr.to = clientNum/100;
+    outMailHdr.to = (clientNum+100)%100 + 1; // +1 to reach user thread
+    outPktHdr.from = postOffice->GetID();
+    outMailHdr.from = currentThread->mailID;
+    outMailHdr.length = strlen(ack) + 1;
 
 		success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
@@ -1982,8 +2073,9 @@ bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
-	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
+	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK)-1))
 	{
+    printf("Cannot destroy: Lock index [%d] out of bounds [%d, %d].\n", lockIndex, 0, MAX_NUM_GLOBAL_IDS*(MAX_DLOCK-1));
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
@@ -1992,7 +2084,7 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if(lockIndex/MAX_DLOCK == postOffice->GetID())
+	else if(lockIndex/MAX_DLOCK == uniqueGlobalID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		if(dlocks[lockIndex] == NULL) 
@@ -2017,9 +2109,10 @@ bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, M
 		}
 
 		outPktHdr.to = clientNum/100;
-		outMailHdr.to = (clientNum+100)%100;
-		outMailHdr.from = postOffice->GetID();
-		outMailHdr.length = strlen(ack) + 1;
+    outMailHdr.to = (clientNum+100)%100 + 1; // +1 to reach user thread
+    outPktHdr.from = postOffice->GetID();
+    outMailHdr.from = currentThread->mailID;
+    outMailHdr.length = strlen(ack) + 1;
 
 		success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
@@ -2042,8 +2135,9 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 {
 	bool success = false;
 	
-	if((mvIndex < 0)||(mvIndex > serverCount*MAX_DMV-1))
+	if((mvIndex < 0)||(mvIndex > MAX_NUM_GLOBAL_IDS*MAX_DMV-1))
 	{
+    printf("Cannot set: MV index [%d] out of bounds [%d, %d].\n", mvIndex, 0, MAX_NUM_GLOBAL_IDS*(MAX_DMV-1));
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
@@ -2052,7 +2146,7 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if (mvIndex/MAX_DMV == postOffice->GetID())
+	else if (mvIndex/MAX_DMV == uniqueGlobalID())
 	{
 		mvIndex=mvIndex%MAX_DMV;
 		if(mvs[mvIndex] == NULL) //If not found
@@ -2066,16 +2160,21 @@ bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr
 			return false;
 		}
 
-		char * ack = new char [32];
-		sprintf(ack, "Machine %d has set MV[%d] = %d!", postOffice->GetID(), mvs[mvIndex]->GetGlobalId(), value);
-
+		char * ack = new char [24];
+    
+    for(int i = 0; i < 24; i++)
+      ack[i] = '\0';
+      
+		sprintf(ack, "SetMV[%d] = %d", mvs[mvIndex]->GetGlobalId(), value); 
+      
 		mvs[mvIndex]->setValue(value); 
 			
 		outPktHdr.to = clientNum/100;
-		outMailHdr.to = (clientNum+100)%100;
+		outMailHdr.to = (clientNum+100)%100 + 1; // +1 to reach user thread
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
-
+    
+    printf("Sending SetMV response: %s\n", ack);
 		success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 		if ( !success ) 
@@ -2098,17 +2197,17 @@ bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeade
 	bool success = false;
 	char* ack = new char [4];
 	
-	if((mvIndex < 0)||(mvIndex > serverCount*MAX_DMV-1))
+	if((mvIndex < 0)||(mvIndex > MAX_NUM_GLOBAL_IDS*MAX_DMV-1))
 	{
 		itoa(ack,4,999);
 		return SendReply(outPktHdr, inPktHdr, outMailHdr, inMailHdr, ack);
 	}
-	else if (mvIndex/MAX_DMV == postOffice->GetID())
+	else if (mvIndex/MAX_DMV == uniqueGlobalID())
 	{
 		mvIndex=mvIndex%MAX_DMV;
 		if(mvs[mvIndex] == NULL)
 		{
-			printf("Cannot get: MV does not exist at index %d.\n", mvIndex);
+      printf("Cannot get: MV index [%d] out of bounds [%d, %d].\n", mvIndex, 0, MAX_NUM_GLOBAL_IDS*(MAX_DMV-1));
 			itoa(ack,4,999); 		
 			outPktHdr.to = clientNum/100;
 			outMailHdr.to = (clientNum+100)%100;
@@ -2136,9 +2235,9 @@ bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeade
 bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
-	if((mvIndex < 0)||(mvIndex > serverCount*MAX_DMV-1))
+	if((mvIndex < 0)||(mvIndex > MAX_NUM_GLOBAL_IDS*MAX_DMV-1))
 	{
-		printf("Cannot get: MV index [%d] out of bounds [%d, %d].\n", mvIndex, 0, (MAX_DMV-1));
+		printf("Cannot destroy: MV index [%d] out of bounds [%d, %d].\n", mvIndex, 0, MAX_NUM_GLOBAL_IDS*(MAX_DMV-1));
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
 		errorInPktHdr = inPktHdr;
@@ -2147,7 +2246,7 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if (mvIndex/MAX_DMV == postOffice->GetID())
+	else if (mvIndex/MAX_DMV == uniqueGlobalID())
 	{
 		mvIndex=mvIndex%MAX_DMV;
 		if(mvs[mvIndex] == NULL)
@@ -2176,7 +2275,8 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 		outMailHdr.to = (clientNum+100)%100;
 		outMailHdr.from = postOffice->GetID();
 		outMailHdr.length = strlen(ack) + 1;
-
+    
+    printf("Sending DestroyMV response: %s\n", ack);
 		success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
 		if ( !success ) 
@@ -2196,7 +2296,7 @@ bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
 	bool success;
 	
-	if((lockIndex < 0)||(lockIndex > (MAX_DLOCK-1)))
+	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK-1)))
 	{
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
@@ -2206,7 +2306,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if ((cvIndex < 0)||(cvIndex > (MAX_DCV-1)))
+	else if ((cvIndex < 0)||(cvIndex > MAX_NUM_GLOBAL_IDS*(MAX_DCV-1)))
 	{ 
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
@@ -2216,7 +2316,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	if (lockIndex/MAX_DLOCK == postOffice->GetID() && cvIndex/MAX_DCV == postOffice->GetID())
+	if (lockIndex/MAX_DLOCK == uniqueGlobalID() && cvIndex/MAX_DCV == uniqueGlobalID())
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
@@ -2258,7 +2358,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		dlocks[lockIndex]->setLockState(true);
 		
 		if (cvs[cvIndex]->isQueueEmpty())
-			cvs[cvIndex]-> setFirstLock(lockIndex+postOffice->GetID()*MAX_DLOCK);
+			cvs[cvIndex]-> setFirstLock(lockIndex+uniqueGlobalID()*MAX_DLOCK);
 			
 		
 		if(!dlocks[lockIndex]->isQueueEmpty())
@@ -2276,7 +2376,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		}
 		
 		char * ack = new char [5];
-		itoa(ack,5,cvIndex+postOffice->GetID()*MAX_DCV);
+		itoa(ack,5,cvIndex+uniqueGlobalID()*MAX_DCV);
 		
 		outPktHdr.to = clientNum/100;
 		outMailHdr.to = (clientNum+100)%100;
@@ -2287,7 +2387,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		cvs[cvIndex]->QueueReply(reply);
 		return true;
 	}
-	else if (lockIndex/MAX_DLOCK == postOffice->GetID() && cvIndex/MAX_DCV != postOffice->GetID()) 
+	else if (lockIndex/MAX_DLOCK == uniqueGlobalID() && cvIndex/MAX_DCV != uniqueGlobalID()) 
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
@@ -2313,7 +2413,7 @@ bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPkt
 		}
 		char* request = new char [MaxMailSize];
 		waitingForWaitLocks[clientNum] = lockIndex;
-		sprintf(request,"%d_%d_%d_%d",WAITCV, clientNum,cvIndex+postOffice->GetID()*MAX_DLOCK, lockIndex+postOffice->GetID()*MAX_DLOCK);
+		sprintf(request,"%d_%d_%d_%d",WAITCV, clientNum,cvIndex+uniqueGlobalID()*MAX_DLOCK, lockIndex+uniqueGlobalID()*MAX_DLOCK);
 		outPktHdr.to = cvIndex/MAX_DCV;
 		outMailHdr.to = outPktHdr.to;
 		outMailHdr.from = inMailHdr.from;
@@ -2327,7 +2427,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 {	
 	bool success = false;
 	
-	if((lockIndex < 0)||(lockIndex > serverCount*(MAX_DLOCK)-1))
+	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK)-1))
 	{
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
@@ -2337,7 +2437,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	else if ((cvIndex < 0)||(cvIndex > serverCount*MAX_DCV-1))
+	else if ((cvIndex < 0)||(cvIndex > MAX_NUM_GLOBAL_IDS*MAX_DCV-1))
 	{
 		errorOutPktHdr = outPktHdr;
 		errorOutPktHdr.to = clientNum/100;
@@ -2348,7 +2448,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		return false;
 	}
 
-	if (lockIndex/MAX_DLOCK == postOffice->GetID() && cvIndex/MAX_DCV == postOffice->GetID()) 
+	if (lockIndex/MAX_DLOCK == uniqueGlobalID() && cvIndex/MAX_DCV == uniqueGlobalID()) 
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
@@ -2400,7 +2500,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		fflush(stdout);
 		
 		if (!(cvs[cvIndex]->isQueueEmpty())){
-			if (cvs[cvIndex]->getFirstLock() != lockIndex+postOffice->GetID()*MAX_DLOCK)
+			if (cvs[cvIndex]->getFirstLock() != lockIndex+uniqueGlobalID()*MAX_DLOCK)
 			{ 
 				
 			errorOutPktHdr = outPktHdr;
@@ -2416,7 +2516,7 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 				Message* reply = cvs[cvIndex]->RemoveReply(); 
 				reply->pktHdr.from = reply->pktHdr.to;
 				reply->mailHdr.from = reply->mailHdr.to;
-				bool success2 = Acquire(lockIndex+postOffice->GetID()*MAX_DLOCK, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
+				bool success2 = Acquire(lockIndex+uniqueGlobalID()*MAX_DLOCK, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
 				
 				if ( !success2 )
 				{
@@ -2430,11 +2530,11 @@ bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inP
 		}	
 		return success;
 	}
-	else if (lockIndex/MAX_DLOCK != postOffice->GetID() && cvIndex/MAX_DCV == postOffice->GetID())// lock not on this server
+	else if (lockIndex/MAX_DLOCK != uniqueGlobalID() && cvIndex/MAX_DCV == uniqueGlobalID())// lock not on this server
 	{
 		char* request = new char [MaxMailSize];
 		waitingForSignalCvs[clientNum] = cvIndex;
-		sprintf(request,"%d_%d_%d",SIGNALLOCK, clientNum, lockIndex+postOffice->GetID()*MAX_DLOCK);
+		sprintf(request,"%d_%d_%d",SIGNALLOCK, clientNum, lockIndex+uniqueGlobalID()*MAX_DLOCK);
 		outPktHdr.to = lockIndex/MAX_DLOCK;
 		outMailHdr.to = outPktHdr.to;
 		outMailHdr.from = inMailHdr.from;
@@ -2468,7 +2568,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 		errorInMailHdr = inMailHdr;
 		return false;
 	}
-	if (lockIndex/MAX_DLOCK == postOffice->GetID() && cvIndex/MAX_DCV == postOffice->GetID()) 
+	if (lockIndex/MAX_DLOCK == uniqueGlobalID() && cvIndex/MAX_DCV == uniqueGlobalID()) 
 	{
 		lockIndex=lockIndex%MAX_DLOCK;
 		cvIndex=cvIndex%MAX_DCV;
@@ -2519,7 +2619,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 		fflush(stdout);
 		
 		if (!(cvs[cvIndex]->isQueueEmpty())){
-			if (cvs[cvIndex]->getFirstLock() != lockIndex+postOffice->GetID()*MAX_DLOCK)
+			if (cvs[cvIndex]->getFirstLock() != lockIndex+uniqueGlobalID()*MAX_DLOCK)
 			{
 			errorOutPktHdr = outPktHdr;
 			errorInPktHdr = inPktHdr;
@@ -2531,7 +2631,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 				Message* reply = cvs[cvIndex]->RemoveReply();
 				reply->pktHdr.from = reply->pktHdr.to;
 				reply->mailHdr.from = reply->mailHdr.to;
-				bool success2 = Acquire(lockIndex+postOffice->GetID()*MAX_DLOCK, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
+				bool success2 = Acquire(lockIndex+uniqueGlobalID()*MAX_DLOCK, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
 				
 				if ( !success2 ) 
 				{
@@ -2544,7 +2644,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 				Message* reply = cvs[cvIndex]->RemoveReply(); 
 				reply->pktHdr.from = reply->pktHdr.to;
 				reply->mailHdr.from = reply->mailHdr.to;
-				bool success2 = Acquire(lockIndex+postOffice->GetID()*MAX_DLOCK, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
+				bool success2 = Acquire(lockIndex+uniqueGlobalID()*MAX_DLOCK, outPktHdr, reply->pktHdr,outMailHdr, reply->mailHdr, -2);
 				
 				if ( !success2 ) 
 				{
@@ -2563,7 +2663,7 @@ bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader 
 	{
 		char* request = new char [MaxMailSize];
 		waitingForBroadcastCvs[clientNum] = cvIndex;
-		sprintf(request,"%d_%d_%d",BROADCASTLOCK, clientNum, lockIndex+postOffice->GetID()*MAX_DLOCK);
+		sprintf(request,"%d_%d_%d",BROADCASTLOCK, clientNum, lockIndex+uniqueGlobalID()*MAX_DLOCK);
 		outPktHdr.to = lockIndex/MAX_DLOCK;
 		outMailHdr.to = outPktHdr.to;
 		outMailHdr.from = inMailHdr.from;
