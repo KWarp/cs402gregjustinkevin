@@ -119,15 +119,15 @@ extern int test_AllCustomersOrderThisCombo;
 void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers);
 void Initialize();
  
-int main();
+/*int main();*/
  
 /* Customer */
-void Customer(int debug);
+extern void Customer(int debug);
 void WaitInLineToEnterRest(int ID);
 void WaitInLineToOrderFood(int ID);
 
 /* Manager */
-void Manager(int debug);
+extern void Manager(int debug);
 void callWaiter();
 void orderInventoryFood();
 void manageCook();
@@ -135,19 +135,22 @@ void hireCook(int index);
 void checkLineToEnterRest();
 
 /* Cook */
-void Cook(int debug);
+extern void Cook(int debug);
 
 /* Order Taker */
-void OrderTaker(int debug);
+extern void OrderTaker(int debug);
 void serviceCustomer(int ID);
 void bagOrder(int isManager);
 
 /* Waiter */
-void Waiter(int debug);
+extern void Waiter(int debug);
 
 /* Utility */
 int shouldExit();
 int randomNumber(int count);
+void copyChar(char* str, const char* literal, int len);
+
+
 
 #endif  /* SIMULATION_H */
 
