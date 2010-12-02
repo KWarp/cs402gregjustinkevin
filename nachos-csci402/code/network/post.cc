@@ -293,7 +293,13 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
     printf("Post send: ");
     PrintHeader(pktHdr, mailHdr, timeStamp);
   }
-    
+
+  #if 1 // For debugging
+    printf("Sending from (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
+          pktHdr.from, mailHdr.from, pktHdr.to, mailHdr.to, mailHdr.length,
+          (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
+  #endif
+  
   // Make sure there's room after adding the timestamp (2 ints and 2 delimiting chars) if appropriate and header data.
   ASSERT(mailHdr.length <= MaxMailSize);
   ASSERT(0 <= mailHdr.to && mailHdr.to < numBoxes);

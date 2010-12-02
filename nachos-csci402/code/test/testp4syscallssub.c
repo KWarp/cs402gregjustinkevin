@@ -22,27 +22,34 @@ int main(int argc, char **argv)
 
 void LockTest()
 {
-  int lockIndex;
+  int lock1, lock2;
 
   PrintOut("------------------------------------------\n", 43);
   PrintOut("Testing Lock\n", 13); 
   PrintOut("------------------------------------------\n", 43);
 
-  PrintOut("Creating Lock...\n", 18); 
-  lockIndex = CreateLock("LK1", 3);
-  if (lockIndex >= 0)
+  PrintOut("Creating Lock LK1...\n", 18); 
+  lock1 = CreateLock("LK1", 3);
+  if (lock1 >= 0)
     PrintOut("Succeeded\n", 10);
 
+  PrintOut("Creating Lock LK2...\n", 18); 
+  lock2 = CreateLock("LK2", 3);
+  if (lock2 >= 0)
+    PrintOut("Succeeded\n", 10);
+    
   PrintOut("Acquiring Lock...\n", 18);
-  Acquire(lockIndex);
+  Acquire(lock1);
   PrintOut("Succeeded\n", 10);
   
+  Exit(0);
+  
   PrintOut("Releasing Lock...\n", 18);
-  Release(lockIndex);
+  Release(lock1);
   PrintOut("Succeeded\n", 10);
   
   PrintOut("Destroying Lock...\n", 19);
-  DestroyLock(lockIndex);
+  DestroyLock(lock1);
   PrintOut("Succeeded\n", 10);
 }
 

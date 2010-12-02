@@ -106,8 +106,10 @@ bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
 
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* inData)
 {
-  // If the message is from our UserProg thread.
+  // If the message is from ourselves or our UserProg thread.
   if (inPktHdr.from == postOffice->GetID() &&
+      inMailHdr.from == currentThread->mailID ||
+      inPktHdr.from == postOffice->GetID() &&
       inMailHdr.from == currentThread->mailID + 1)
   {
     // Find the message in unAckedMessages.
@@ -190,10 +192,10 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
   if (!postOffice->Send(outPktHdr, outMailHdr, request))
     interrupt->Halt();
 
-  RequestType receiveRequestType = REQUESTWAITING;
+  RequestType receiveRequestType = INVALIDTYPE;
   
   // ACKs can occur here, keep waiting for anything else
-  while(receiveRequestType == REQUESTWAITING || receiveRequestType == ACK)
+  while (receiveRequestType == INVALIDTYPE || receiveRequestType == ACK)
   {
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
     parseValue(0, buffer, (int*)(&receiveRequestType));
@@ -205,7 +207,7 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
     }
   }
   
-  printf("Request receiveRequestType: %d, msg: %s\n", receiveRequestType, buffer);
+  printf("Request receive RequestType: %d, msg: %s\n", receiveRequestType, buffer);
   
   Ack(inPktHdr, inMailHdr, timeStamp, buffer);
   
@@ -250,8 +252,8 @@ int uniqueGlobalID()
 bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, 
                     vector<NetThreadInfoEntry*> *localNetThreadInfo)
 {
-	printf("Processing Message from (%d, %d), time %d.%d, msg: %s\n", inPktHdr.from, inMailHdr.from, 
-         (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, msgData);
+	printf("Processing Message from (%d, %d) to (%d, %d), time %d.%d, msg: %s\n", inPktHdr.from, inMailHdr.from, 
+         inPktHdr.to, inMailHdr.to, (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, msgData);
 	
   PacketHeader outPktHdr;
   MailHeader outMailHdr;
@@ -425,9 +427,9 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			verifyResponses[clientNum]++;
       
       // If all server threads have responded to my request.
-			if (verifyResponses[clientNum] == serverCount)
+			if (verifyResponses[clientNum] == serverCount - 1)
 			{
-				for (i = 0; i < serverCount; i++)
+				for (i = 0; i < serverCount - 1; i++)
 				{
           // If the verifyResponse was -1 (i.e. it hadn't created the lock already).
 					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
@@ -435,7 +437,8 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						otherServerLockIndex = -1;
 					}
 					else  // If the server responded with the lock index it had already created.
-					{	
+					{
+            
 						otherServerLockIndex = atoi(verifyBuffer[clientNum][i]);
 						break;
 					}
@@ -939,7 +942,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			if (verifyResponses[clientNum] == serverCount - 1)
 			{
         // Check if any other servers have already created the mv.
-				for (i = 0; i < serverCount-1; i++)
+				for (i = 0; i < serverCount - 1; i++)
 				{
 					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
 					{
@@ -1057,17 +1060,17 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			outMailHdr.from = postOffice->GetID();
       
       // If the mv has not been created on this server.
-			if (mvIndex == -1) 
+			if (mvIndex == -1)
 			{
 				sprintf(request, "%d_%d_%d", CREATEMVANSWER, clientNum, -1);
 				outMailHdr.length = strlen(request) + 1;
-				success = postOffice->Send(outPktHdr, outMailHdr, request); 
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
 			}
 			else
 			{
 				sprintf(request, "%d_%d_%d", CREATEMVANSWER, clientNum, mvs[mvIndex]->GetGlobalId());
 				outMailHdr.length = strlen(request) + 1;
-				success = postOffice->Send(outPktHdr, outMailHdr, request); 
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
 			}
 			break;
 
@@ -1093,7 +1096,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			while(c!='\0')
 			{
 				c = msgData[++i];
-				lockIndexBuf[m++] = c; 
+				lockIndexBuf[m++] = c;
 			}
 			lockIndex = atoi(lockIndexBuf); 
 			//printf("lockIndex/MAX_DLOCK != uniqueGlobalID(): %d != %d\n", lockIndex/MAX_DLOCK, uniqueGlobalID());
@@ -1101,7 +1104,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			{
 				sprintf(buffer,"%d__%d_%s",ACQUIRE, clientNum, lockIndexBuf);
 				outPktHdr.to = lockIndex/MAX_DLOCK;
-				outMailHdr.to = outMailHdr.to + 1; // +1 to reach user thread
+				outMailHdr.to = inMailHdr.to + 1; // +1 to reach user thread
 				outMailHdr.from = inMailHdr.from;
 				outMailHdr.length = strlen(buffer) + 1;
         
@@ -1993,14 +1996,13 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
     printf("ACK... should not get here\n");
     ASSERT(false);
     break;
+  case TIMESTAMP:
+    // Do nothing. The timeStamp updating will get handled in the total ordering code.
+    break;
   case INVALIDTYPE:
     printf("INVALIDTYPE... should not get here\n");
     ASSERT(false);
     break;
-  case REQUESTWAITING:
-    printf("REQUESTWAITING... should not get here\n");
-    ASSERT(false);
-    break;  
     
   }
 
