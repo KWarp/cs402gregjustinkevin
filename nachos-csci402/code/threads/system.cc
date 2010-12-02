@@ -502,6 +502,7 @@ void updateTimeStamp(char* buffer)
   }
 }
 
+
 void NetworkThread()
 {
   printf("Starting NetworkThread\n");
@@ -571,24 +572,26 @@ void NetworkThread()
     {
       PrintNetThreadHeader();
       printf("=== Message from paired USER THREAD ===\n");
-
-      // Update the timeStamp since this is a new message.
-      gettimeofday(&timeStamp, NULL);
       
       PrintNetThreadHeader();
-      printf("Forward message to all Network Threads (including self)\n");
-      // Forward message to all NetworkThreads (including self).
-      for (i = 0; i < (int)localNetThreadInfo->size(); ++i)
-      {
-        outPktHdr.from = postOffice->GetID();
-        outMailHdr.from = currentThread->mailID;
-        outPktHdr.to = localNetThreadInfo->at(i)->machineID;
-        outMailHdr.to = localNetThreadInfo->at(i)->mailID;
-        outMailHdr.length = strlen(buffer) + 1;
-        
-        if (!postOffice->Send(outPktHdr, outMailHdr, timeStamp, buffer))
-          interrupt->Halt();
-      }
+      printf("Process message: %s\n", buffer);
+      processMessage(inPktHdr, inMailHdr, timeStamp, buffer, localNetThreadInfo);
+      #if 0
+        PrintNetThreadHeader();
+        printf("Forward message to all Network Threads (including self)\n");
+        // Forward message to all NetworkThreads (including self).
+        for (i = 0; i < (int)localNetThreadInfo->size(); ++i)
+        {
+          outPktHdr.from = postOffice->GetID();
+          outMailHdr.from = currentThread->mailID;
+          outPktHdr.to = localNetThreadInfo->at(i)->machineID;
+          outMailHdr.to = localNetThreadInfo->at(i)->mailID;
+          outMailHdr.length = strlen(buffer) + 1;
+          
+          if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
+            interrupt->Halt();
+        }
+      #endif
     }
     else // if the message is from another thread (including self).
     {
@@ -613,8 +616,7 @@ void NetworkThread()
         }
       }
       
-      //PrintNetThreadHeader();
-      //printf("msgQueue.size(): %d\n", (int)msgQueue.size());
+      
       // 3. Insert the message into msgQueue in timestamp order.
       for (i = 0; i < (int)msgQueue.size(); ++i)
       {
@@ -622,20 +624,14 @@ void NetworkThread()
             (msgQueue[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
              msgQueue[i]->timeStamp.tv_usec > timeStamp.tv_usec))
         {
-          PrintNetThreadHeader();
-          printf("Insert the message into msgQueue\n");
-          msgQueue.insert(msgQueue.begin() + i, new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
           break;
         }
       }
-      // occurs when msgQueue is empty, 
-      // or when timestamp is greater than all timeStamp
-      if (i == (int)msgQueue.size())
-      {
-        PrintNetThreadHeader();
-        printf("Insert the message into msgQueue EDGE CASE\n");
-        msgQueue.insert(msgQueue.begin() + i, new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
-      }
+      
+      PrintNetThreadHeader();
+      printf("Insert the message into msgQueue\n");
+      UnAckedMessage* newMsg = new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer);
+      msgQueue.insert(msgQueue.begin() + i, newMsg);
       
       // 4. Extract the earliest timestamp value from the table.
       timeval earliestTimeStamp = localNetThreadInfo->at(0)->timeStamp;
@@ -644,32 +640,36 @@ void NetworkThread()
       //    (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
       for (i = 1; i < (int)localNetThreadInfo->size(); ++i)
       {
-        if (localNetThreadInfo->at(i)->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
+        if (localNetThreadInfo->at(i)->timeStamp.tv_sec > 0 &&  // If the timeStamp is 0, it is still invalid, so ignore it.
+            (localNetThreadInfo->at(i)->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
             (localNetThreadInfo->at(i)->timeStamp.tv_sec == earliestTimeStamp.tv_sec &&
-             localNetThreadInfo->at(i)->timeStamp.tv_usec < earliestTimeStamp.tv_usec))
+             localNetThreadInfo->at(i)->timeStamp.tv_usec < earliestTimeStamp.tv_usec)))
         {
           earliestTimeStamp = localNetThreadInfo->at(i)->timeStamp;
         }
       }
-      //PrintNetThreadHeader();
-      //printf("Extracted earliest timestamp: %d.%d \n", (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
-      //PrintNetThreadHeader();
-      //printf("My timestamp: %d.%d \n", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
+      PrintNetThreadHeader();
+      printf("Extracted earliest timestamp: %d.%d \n", (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
+      PrintNetThreadHeader();
+      printf("My current timestamp:         %d.%d \n", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
       
       // 5. Process any message, in timestamp order, with a timestamp <=
       //    value from step 4.
       PrintNetThreadHeader();
-      printf("Process messages in timestamp order\n");      
+      printf("Process messages in timestamp order\n");
+      PrintNetThreadHeader();
+      printf("msgQueue.size(): %d\n", (int)msgQueue.size());      
       for (i = 0; i < (int)msgQueue.size(); ++i)
       {
-        if (msgQueue[i]->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
+        if (localNetThreadInfo->at(i)->timeStamp.tv_sec > 0 &&  // If the timeStamp is 0, it is still invalid, so ignore it.
+            (msgQueue[i]->timeStamp.tv_sec < earliestTimeStamp.tv_sec ||
             (msgQueue[i]->timeStamp.tv_sec == earliestTimeStamp.tv_sec &&
-             msgQueue[i]->timeStamp.tv_usec <= earliestTimeStamp.tv_usec))
+             msgQueue[i]->timeStamp.tv_usec <= earliestTimeStamp.tv_usec)))
         {
           // Process message.
           PrintNetThreadHeader();
           printf("Process message: %s\n", buffer);
-          processMessage(inPktHdr, inMailHdr, timeStamp, buffer, localNetThreadInfo);
+          processMessage(msgQueue[i]->pktHdr, msgQueue[i]->mailHdr, msgQueue[i]->timeStamp, msgQueue[i]->data, localNetThreadInfo);
           
           // Remove the message from the queue.
           msgQueue.erase(msgQueue.begin() + i);

@@ -25,6 +25,25 @@ class UnAckedMessage
     delete data;
   }
   
+  bool equals(UnAckedMessage* msg)
+  {
+    return this->lastTimeSent.tv_sec == msg->lastTimeSent.tv_sec &&
+            this->lastTimeSent.tv_usec == msg->lastTimeSent.tv_usec &&
+            this->timeStamp.tv_sec == msg->timeStamp.tv_sec &&
+            this->timeStamp.tv_usec == msg->timeStamp.tv_usec &&
+            this->pktHdr.from == msg->pktHdr.from &&
+            this->pktHdr.to == msg->pktHdr.to &&
+            this->mailHdr.from == msg->mailHdr.from &&
+            this->mailHdr.to == msg->mailHdr.to;
+  }
+  
+  void print()
+  {
+    printf("UnAckedMessage: lastTimeSent: %d.%d, timeStamp: %d.%d,\n  from (%d, %d), to (%d, %d) msg: %s\n",
+        (int)this->lastTimeSent.tv_sec, (int)this->lastTimeSent.tv_usec, (int)this->timeStamp.tv_sec, 
+        (int)this->timeStamp.tv_usec, pktHdr.from, mailHdr.from, pktHdr.to, mailHdr.to, data);
+  }
+  
   PacketHeader pktHdr;
   MailHeader mailHdr;
   char* data;

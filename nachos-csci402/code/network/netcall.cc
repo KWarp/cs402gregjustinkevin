@@ -302,7 +302,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 	{
 		case CREATELOCK:
       printf("CREATELOCK\n");
-			clientNum = 100 * inPktHdr.from + inMailHdr.from;
+			clientNum = 100 * inPktHdr.from + inMailHdr.from - 1;
 			if (createDLockIndex >= 0 && createDLockIndex < (MAX_DLOCK - 1))
 			{
 				j = 0;
@@ -411,9 +411,9 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			}
 			verifyResponses[clientNum]++;
       // if all server threads have responded to my request
-			if (verifyResponses[clientNum]==serverCount-1)
+			if (verifyResponses[clientNum]==serverCount)
 			{
-				for (i=0; i< serverCount-1; i++)
+				for (i=0; i< serverCount; i++)
 				{
 					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
 					{
@@ -537,7 +537,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case CREATECV:
       printf("CREATECV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			if((createDCVIndex >= 0)&&(createDCVIndex < (MAX_DCV-1)))
 			{
 				j = 0;
@@ -751,7 +751,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case CREATEMV:
       printf("CREATEMV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			if((createDMVIndex >= 0)&&(createDMVIndex < (MAX_DMV-1)))
 			{
 				j = 0;
@@ -972,7 +972,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case ACQUIRE:
 			printf("ACQUIRE\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1012,7 +1012,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
       
 		case RELEASE:
       printf("RELEASE\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1052,7 +1052,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case DESTROYLOCK:
       printf("DESTROYLOCK\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1089,7 +1089,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case SETMV:
 			printf("SETMV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1137,7 +1137,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case GETMV:
       printf("GETMV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1178,7 +1178,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case DESTROYMV:
       printf("DESTROYMV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1218,7 +1218,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;	
 		case WAIT:
       printf("WAIT\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1267,7 +1267,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 
 		case WAITCV:
       printf("WAITCV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1337,7 +1337,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case WAITRESPONSE:
       printf("WAITRESPONSE\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=-1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1353,6 +1353,9 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				client[m]='\0';
 				clientNum = atoi(client);
 			}
+      else
+        ASSERT(false);
+        
 			m=0;
 			while(c!='\0')
 			{
@@ -1392,7 +1395,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			
 		case SIGNAL:
       printf("SIGNAL\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=-1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1408,6 +1411,9 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				client[m]='\0';
 				clientNum = atoi(client);
 			}
+      else
+        ASSERT(false);
+        
 			cvNumIndex=0;
 			do {
 				c = msgData[++i];
@@ -1443,7 +1449,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			
 		case SIGNALLOCK:
       printf("SIGNALLOCK\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1490,7 +1496,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case SIGNALRESPONSE:
       printf("SIGNALRESPONSE\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1572,7 +1578,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case BROADCAST:
       printf("BROADCAST\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1623,7 +1629,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 
 		case BROADCASTLOCK:
       printf("BROADCASTLOCK\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1681,7 +1687,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			break;
 		case BROADCASTRESPONSE:
       printf("BROADCASTRESPONSE\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1779,7 +1785,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 
 		case DESTROYCV:	
       printf("DESTROYCV\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from;
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 			m=0; 
 			if(msgData[i+1] == '_')
 			{
@@ -1911,7 +1917,7 @@ bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailH
 {
 	bool success = false;
 	if (clientNum==-2)
-		clientNum=100*(inPktHdr.from)+inMailHdr.from;
+		clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
 	
 	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*MAX_DLOCK-1))
 	{
