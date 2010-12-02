@@ -502,6 +502,27 @@ void updateTimeStamp(char* buffer)
   }
 }
 
+void sendTimeStampMessage(vector<NetThreadInfoEntry*> *localNetThreadInfo)
+{
+  char buffer[MaxMailSize];
+  sprintf(buffer, "%d_", TIMESTAMP);
+  
+  PacketHeader outPktHdr;
+  MailHeader outMailHdr;
+  
+  // Forward message to all NetworkThreads (including self).
+  for (int i = 0; i < (int)localNetThreadInfo->size(); ++i)
+  {
+    outPktHdr.from = postOffice->GetID();
+    outMailHdr.from = currentThread->mailID;
+    outPktHdr.to = localNetThreadInfo->at(i)->machineID;
+    outMailHdr.to = localNetThreadInfo->at(i)->mailID;
+    outMailHdr.length = strlen(buffer) + 1;
+    
+    if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
+      interrupt->Halt();
+  }
+}
 
 void NetworkThread()
 {
@@ -543,12 +564,17 @@ void NetworkThread()
     // If the packet is an Ack, process it.
     if (requestType == ACK)
     {
-      //PrintNetThreadHeader();
-      //printf("processAck from (%d, %d) \n", inPktHdr.from, inMailHdr.from);
+      // PrintNetThreadHeader();
+      // printf("processAck from (%d, %d) \n", inPktHdr.from, inMailHdr.from);
       processAck(inPktHdr, inMailHdr, timeStamp);
       continue;
     }
-    
+    if (requestType != TIMESTAMP)
+    {
+      // Update the other threads' timeStamp for this server.
+      sendTimeStampMessage(localNetThreadInfo);
+    }
+
     // Signal that we have received the message.
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
     
@@ -576,22 +602,6 @@ void NetworkThread()
       PrintNetThreadHeader();
       printf("Process message: %s\n", buffer);
       processMessage(inPktHdr, inMailHdr, timeStamp, buffer, localNetThreadInfo);
-      #if 0
-        PrintNetThreadHeader();
-        printf("Forward message to all Network Threads (including self)\n");
-        // Forward message to all NetworkThreads (including self).
-        for (i = 0; i < (int)localNetThreadInfo->size(); ++i)
-        {
-          outPktHdr.from = postOffice->GetID();
-          outMailHdr.from = currentThread->mailID;
-          outPktHdr.to = localNetThreadInfo->at(i)->machineID;
-          outMailHdr.to = localNetThreadInfo->at(i)->mailID;
-          outMailHdr.length = strlen(buffer) + 1;
-          
-          if (!postOffice->Send(outPktHdr, outMailHdr, buffer))
-            interrupt->Halt();
-        }
-      #endif
     }
     else // if the message is from another thread (including self).
     {
@@ -607,31 +617,33 @@ void NetworkThread()
         if (inPktHdr.from  == localNetThreadInfo->at(i)->machineID &&
             inMailHdr.from == localNetThreadInfo->at(i)->mailID)
         {
-          PrintNetThreadHeader();
-          printf("Update timestamp for (%d, %d) to %d.%d\n", 
-              localNetThreadInfo->at(i)->machineID, localNetThreadInfo->at(i)->mailID,
-              (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
           localNetThreadInfo->at(i)->timeStamp = timeStamp;
           break;
         }
       }
       
-      
-      // 3. Insert the message into msgQueue in timestamp order.
-      for (i = 0; i < (int)msgQueue.size(); ++i)
+      // 3. Insert the message into msgQueue in timestamp order (if not a TIMESTAMP message).
+      if (requestType != TIMESTAMP)
       {
-        if (msgQueue[i]->timeStamp.tv_sec > timeStamp.tv_sec ||
-            (msgQueue[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
-             msgQueue[i]->timeStamp.tv_usec > timeStamp.tv_usec))
+        for (i = 0; i < (int)msgQueue.size(); ++i)
         {
-          break;
+          if (msgQueue[i]->timeStamp.tv_sec > timeStamp.tv_sec ||
+              (msgQueue[i]->timeStamp.tv_sec == timeStamp.tv_sec &&
+               msgQueue[i]->timeStamp.tv_usec > timeStamp.tv_usec))
+          {
+            break;
+          }
         }
+        
+        PrintNetThreadHeader();
+        printf("Adding to msgQueue[%d]: from (%d, %d) to (%d, %d) time %d.%d data %s\n", 
+            i, inPktHdr.from, inMailHdr.from,
+            inPktHdr.to, inMailHdr.to,
+            (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, buffer);
+            
+        UnAckedMessage* newMsg = new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer);
+        msgQueue.insert(msgQueue.begin() + i, newMsg);
       }
-      
-      PrintNetThreadHeader();
-      printf("Insert the message into msgQueue\n");
-      UnAckedMessage* newMsg = new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer);
-      msgQueue.insert(msgQueue.begin() + i, newMsg);
       
       // 4. Extract the earliest timestamp value from the table.
       timeval earliestTimeStamp = localNetThreadInfo->at(0)->timeStamp;
@@ -648,17 +660,9 @@ void NetworkThread()
           earliestTimeStamp = localNetThreadInfo->at(i)->timeStamp;
         }
       }
-      PrintNetThreadHeader();
-      printf("Extracted earliest timestamp: %d.%d \n", (int)earliestTimeStamp.tv_sec, (int)earliestTimeStamp.tv_usec);
-      PrintNetThreadHeader();
-      printf("My current timestamp:         %d.%d \n", (int)timeStamp.tv_sec, (int)timeStamp.tv_usec);
       
       // 5. Process any message, in timestamp order, with a timestamp <=
-      //    value from step 4.
-      PrintNetThreadHeader();
-      printf("Process messages in timestamp order\n");
-      PrintNetThreadHeader();
-      printf("msgQueue.size(): %d\n", (int)msgQueue.size());      
+      //    value from step 4.   
       for (i = 0; i < (int)msgQueue.size(); ++i)
       {
         if (localNetThreadInfo->at(i)->timeStamp.tv_sec > 0 &&  // If the timeStamp is 0, it is still invalid, so ignore it.
@@ -668,7 +672,11 @@ void NetworkThread()
         {
           // Process message.
           PrintNetThreadHeader();
-          printf("Process message: %s\n", buffer);
+          printf("Processing message: from (%d, %d) to (%d, %d) time %d.%d data %s\n", 
+              msgQueue[i]->pktHdr.from, msgQueue[i]->mailHdr.from,
+              msgQueue[i]->pktHdr.to, msgQueue[i]->mailHdr.to,
+              (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, buffer);
+              
           processMessage(msgQueue[i]->pktHdr, msgQueue[i]->mailHdr, msgQueue[i]->timeStamp, msgQueue[i]->data, localNetThreadInfo);
           
           // Remove the message from the queue.
@@ -677,7 +685,7 @@ void NetworkThread()
         }
       }
       PrintNetThreadHeader();
-      printf("Completed Total Ordering\n");
+      printf("=== Completed Total Ordering ===\n");
     }
   }
 }
@@ -802,8 +810,8 @@ void Initialize(int argc, char **argv)
     
   #ifdef CHANGED
     #ifdef NETWORK
-      printf("Commented out msgResendTimer\n");
-      //msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
+      // printf("Commented out msgResendTimer\n");
+      msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
     #endif
   #endif
 
