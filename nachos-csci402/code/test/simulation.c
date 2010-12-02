@@ -522,6 +522,7 @@ void Customer(int debug)
 		PrintOut(" to-go", 7);
 	PrintOut(" the food\n", 10);
   
+  
 	Signal(CV_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])], 
 					lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]);
   
