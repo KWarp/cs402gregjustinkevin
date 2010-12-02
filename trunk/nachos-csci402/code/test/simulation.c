@@ -104,6 +104,23 @@ int test_AllCustomersEatIn;
 int test_AllCustomersEatOut;
 int test_NoCooks;
 int test_AllCustomersOrderThisCombo;
+
+#define MAX_STR_LEN 20
+
+/*
+ * Utility to copy string over
+ */
+void copyChar(char* str, const char* literal, int len)
+{
+	int i;
+	for (i = 0; i < MAX_STR_LEN; i++)
+	{
+		if( i < len )
+			str[i] = literal[i];
+		else
+			str[i] = '\0';
+	}	
+}
  
 /* =============================================================	
  * Initialize functions
@@ -111,151 +128,152 @@ int test_AllCustomersOrderThisCombo;
 
 void Initialize()
 {
-  int i;
-  char str[40];
-
+  int i, hasBeenInitialized, initializationLock;
+  char* str;
+  str = "12345678901234567890\n"; /* 21 length */
+  
   /* Initialize Locks */
-  lock_MrCr_LineToEnterRest = CreateLock("lock_MrCr_LineToEnterRest", 25);
-  lock_OrCr_LineToOrderFood = CreateLock("lock_OrCr_LineToOrderFood", 25);
+  lock_MrCr_LineToEnterRest = CreateLock("lock_MrCr_EnterRest", 19);
+  lock_OrCr_LineToOrderFood = CreateLock("lock_OrCr_OrderFood", 19);
   
   for (i = 0; i < count_MaxNumOrderTakers; ++i)
   {
-	str = "lock_OrderTakerBusy";
-	str[19] = char(i);
-    lock_OrderTakerBusy[i] = CreateLock(str,20);
+	copyChar(str, "lock_OrderTakerBusy", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    lock_OrderTakerBusy[i] = CreateLock(str, MAX_STR_LEN);
 	}
 	
   for (i = 0; i < count_MaxNumCustomers; ++i)
   {
-	str = "lock_CustomerSittingFromCustomerID";
-	str[34] = char(i);
-    lock_CustomerSittingFromCustomerID[i] = CreateLock(str, 34);
+	copyChar(str, "lock_CuSitFromCustID", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    lock_CustomerSittingFromCustomerID[i] = CreateLock(str, MAX_STR_LEN);
   }
   
-  lock_OrCr_OrderReady = CreateLock("lock_OrCr_OrderReady", 20);
+  lock_OrCr_OrderReady = CreateLock("lock_OrCr_OrderReady", MAX_STR_LEN);
   
   lock_MrWr = CreateLock("lock_MrWr", 9);
   for (i = 0; i < numInventoryItemTypes; ++i)
   {
-	str = "lock_MrCk_InventoryLocks";
-	str[24] = char(i);
-	lock_MrCk_InventoryLocks[i] = CreateLock(str, 25);
+	copyChar(str, "lock_MrCk_InvenLocks", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+	lock_MrCk_InventoryLocks[i] = CreateLock(str, MAX_STR_LEN);
   }
 	
   lock_HireCook = CreateLock("lock_HireCook", 13);
-  lock_OrdersNeedingBagging = CreateLock("lock_OrdersNeedingBagging", 25);
-  lock_OrWr_BaggedOrders = CreateLock("lock_OrWr_BaggedOrders", 22);
-  lock_Init_InitializationLock = CreateLock("lock_Init_InitializationLock", 28);
+  lock_OrdersNeedingBagging = CreateLock("lock_OrdersNeBagging", MAX_STR_LEN);
+  lock_OrWr_BaggedOrders = CreateLock("lock_OrWr_BaggOrders", MAX_STR_LEN);
+  lock_Init_InitializationLock = CreateLock("lock_Init_InitiaLock", MAX_STR_LEN);
 
   /* Initialize CV's */
-  CV_OrWr_BaggedOrders = CreateCondition("CV_OrWr_BaggedOrders", 20);
+  CV_OrWr_BaggedOrders = CreateCondition("CV_OrWr_BaggedOrders", MAX_STR_LEN);
   CV_HireCook = CreateCondition("CV_HireCook", 11);
   for (i = 0; i < count_MaxNumCustomers; ++i)
 	{
-	str = "CV_MrCk_InventoryLocks";
-	str[22] = char(i);
-    CV_MrCk_InventoryLocks[i] = CreateCondition(str, 23);
+	copyChar(str, "CV_MrCk_InventLocks", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    CV_MrCk_InventoryLocks[i] = CreateCondition(str, MAX_STR_LEN);
 	}
   CV_MrWr = CreateCondition("CV_MrWr", 7);
   for (i = 0; i < count_MaxNumCustomers; ++i)
   {
-	str= "CV_CustomerWaitingForFood";
-	str[25] = char(i);
-    CV_CustomerWaitingForFood[i] = CreateCondition(str, 26);
+	copyChar(str, "CV_CusWaitingForFood", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    CV_CustomerWaitingForFood[i] = CreateCondition(str, MAX_STR_LEN);
   }
   CV_OrCr_OrderReady = CreateCondition("CV_OrCr_OrderReady", 18);
   for (i = 0; i < count_MaxNumCustomers; ++i)
   {
-	str = "CV_CustomerSittingFromCustomerID";
-	str[32] = char(i);
-    CV_CustomerSittingFromCustomerID[i] = CreateCondition(str, 33);
+	copyChar(str, "CV_CuSittingFromCuID", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    CV_CustomerSittingFromCustomerID[i] = CreateCondition(str, MAX_STR_LEN);
 	}
   for (i = 0; i < count_MaxNumCustomers; ++i)
   {
-	str = "CV_OrderTakerBusy";
-	str[17] = char(i);
+	copyChar(str, "CV_OrderTakerBusy", 18);
+	str[17] = (char)i;
     CV_OrderTakerBusy[i] = CreateCondition(str, 18);
 	}
   for (i = 0; i < count_MaxNumCustomers; ++i)
   {
-	str = "CV_OrCr_LineToOrderFoodFromCustomerID";
-	str[37] = char(i);
-    CV_OrCr_LineToOrderFoodFromCustomerID[i] = CreateCondition(str, 38);
+	copyChar(str, "CV_OrCr_LineFoodCuID", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    CV_OrCr_LineToOrderFoodFromCustomerID[i] = CreateCondition(str, MAX_STR_LEN);
   }
   for (i = 0; i < count_MaxNumCustomers; ++i)
   {
-	str= "CV_MrCr_LineToEnterRestFromCustomerID";
-	str[37] = char(i);
-    CV_MrCr_LineToEnterRestFromCustomerID[i] = CreateCondition(str, 38);
+	copyChar(str, "CV_MrCr_LineEnteCuID", MAX_STR_LEN);
+	str[MAX_STR_LEN-1] = (char)i;
+    CV_MrCr_LineToEnterRestFromCustomerID[i] = CreateCondition(str, MAX_STR_LEN);
   }
   /* locks and condition variables done here */
   
-  int hasBeenInitialized = CreateMV("hasBeenInitialized",18);
-  int initializationLock = CreateLock("initializationLock", 18);
+  hasBeenInitialized = CreateMV("hasBeenInitialized",18);
+  initializationLock = CreateLock("initializationLock", 18);
   
-  /* Initialize Monitor Variables and Globals */
-  // create monitor variables
+  /* Initialize Monitor Variables and Globals
+     create monitor variables */
   
   
-	count_NumTablesAvailable = CreateMV("count_NumTablesAvailable",24);
+	count_NumTablesAvailable = CreateMV("count_NumTablesAvail", MAX_STR_LEN);
 	
 	for(i = 0; i < numInventoryItemTypes; i += 1)
 	{
-		str = "inventoryCount";							str[14] = i;		inventoryCount[i] = CreateMV(str,15);
-		str = "minCookedFoodStacks";					str[19] = i;		minCookedFoodStacks[i] = CreateMV(str,20);
-		str = "maxCookedFoodStacks";					str[19] = i;		maxCookedFoodStacks[i] = CreateMV(str,20);
-		str = "cookedFoodStacks";						str[16] = i;		cookedFoodStacks[i] = CreateMV(str,17);
-		str = "cookTime";								str[8]  = i;		cookTime[i] = CreateMV(str,9);
-		str = "Get_CookIsHiredFromInventoryIndex";		str[33] = i;		Get_CookIsHiredFromInventoryIndex[i] = CreateMV(str,34);
-		str = "Get_CookOnBreakFromInventoryIndex";		str[33] = i;		Get_CookOnBreakFromInventoryIndex[i] = CreateMV(str,34);
-		str = "inventoryCost";							str[13] = i;		inventoryCost[i] = CreateMV(str,14);
+		copyChar(str, "inventoryCount", 15);					str[14] = i;		inventoryCount[i] = CreateMV(str,15);
+		copyChar(str, "minCookedFoodStacks", MAX_STR_LEN);		str[MAX_STR_LEN-1] = i;		minCookedFoodStacks[i] = CreateMV(str,MAX_STR_LEN);
+		copyChar(str, "maxCookedFoodStacks", MAX_STR_LEN);		str[MAX_STR_LEN-1] = i;		maxCookedFoodStacks[i] = CreateMV(str,MAX_STR_LEN);
+		copyChar(str, "cookedFoodStacks", 17);					str[16] = i;		cookedFoodStacks[i] = CreateMV(str,17);
+		copyChar(str, "cookTime", 9);							str[8]  = i;		cookTime[i] = CreateMV(str,9);
+		copyChar(str, "Get_CokHiredInvIndex", MAX_STR_LEN);		str[MAX_STR_LEN-1] = i;		Get_CookIsHiredFromInventoryIndex[i] = CreateMV(str,MAX_STR_LEN);
+		copyChar(str, "Get_CokBreakInvIndex", MAX_STR_LEN);		str[MAX_STR_LEN-1] = i;		Get_CookOnBreakFromInventoryIndex[i] = CreateMV(str,MAX_STR_LEN);
+		copyChar(str, "inventoryCost", 14);						str[13] = i;		inventoryCost[i] = CreateMV(str,14);
 	}
 	
-	count_NumOrderTakers = CreateMV("count_NumOrderTakers",20);
+	count_NumOrderTakers = CreateMV("count_NumOrderTakers", MAX_STR_LEN);
 	count_NumCustomers = CreateMV("count_NumCustomers",18);
 	count_NumCooks  = CreateMV("count_NumCooks",14);
 	count_NumManagers  = CreateMV("count_NumManagers",17);
-	count_lineToEnterRestLength  = CreateMV("count_lineToEnterRestLength",27);
-	count_lineToOrderFoodLength  = CreateMV("count_lineToOrderFoodLength",27);
+	count_lineToEnterRestLength  = CreateMV("count_lineRestLength", MAX_STR_LEN);
+	count_lineToOrderFoodLength  = CreateMV("count_lineFoodLength", MAX_STR_LEN);
 	orderNumCounter  = CreateMV("orderNumCounter",15);
 	
 	for(i = 0; i < count_MaxNumCustomers ; i += 1)
 	{
-		str = "ordersNeedingBagging";					str[20] = i;		ordersNeedingBagging[i] = CreateMV(str,21);
-		str = "baggedOrders";							str[12] = i;		baggedOrders[i] = CreateMV(str,13);
-		str = "bool_ListOrdersReadyFromToken";			str[29] = i;		bool_ListOrdersReadyFromToken[i] = CreateMV(str,30);
+		copyChar(str, "ordersNeedingBagging", MAX_STR_LEN);		str[MAX_STR_LEN-1] = i;		ordersNeedingBagging[i] = CreateMV(str,MAX_STR_LEN);
+		copyChar(str, "baggedOrders", 13);						str[12] = i;		baggedOrders[i] = CreateMV(str,13);
+		copyChar(str, "bool_ListOrdersToken", MAX_STR_LEN);		str[MAX_STR_LEN-1] = i;		bool_ListOrdersReadyFromToken[i] = CreateMV(str,MAX_STR_LEN-1);
 	}
 	
-	count_NumOrdersBaggedAndReady=CreateMV("count_NumOrdersBaggedAndReady",29);
+	count_NumOrdersBaggedAndReady=CreateMV("count_NumOrdersBagge", MAX_STR_LEN);
 
 	for (i = 0; i < count_MaxNumMenuItems; ++i)
-		str = "menu";					str[4] = i;		menu[i] = CreateMV(str,5);
+		copyChar(str, "menu", 5);				str[4] = i;		menu[i] = CreateMV(str,5);
   
 	money_Rest = CreateMV("money_Rest",10);
-	count_NumOrderTokens = CreateMV("count_NumOrderTokens",20);
-	count_NumCustomersServed =  CreateMV("count_NumCustomersServed",24);
+	count_NumOrderTokens = CreateMV("count_NumOrderTokens", MAX_STR_LEN);
+	count_NumCustomersServed =  CreateMV("count_NumCustoServed", MAX_STR_LEN);
   
 	/* Initialize Test Variables as off */
-	test_AllCustomersEatIn = CreateMV("test_AllCustomersEatIn",22);
-	test_AllCustomersEatOut = CreateMV("test_AllCustomersEatOut",23);
+	test_AllCustomersEatIn = CreateMV("test_AllCustomeEatIn", MAX_STR_LEN);
+	test_AllCustomersEatOut = CreateMV("test_AllCustomEatOut", MAX_STR_LEN);
 	test_NoCooks = CreateMV("test_NoCooks",12);
-	test_AllCustomersOrderThisCombo = CreateMV("test_AllCustomersOrderThisCombo",31);
+	test_AllCustomersOrderThisCombo = CreateMV("test_AllCOrderTCombo", MAX_STR_LEN);
   
 	  
-	count_NumCustomersServed = CreateMV("count_NumCustomersServed",24);
-	count_WhenAllCustomersServed = CreateMV("count_WhenAllCustomersServed",28);
+	count_NumCustomersServed = CreateMV("count_NumCustoServed", MAX_STR_LEN);
+	count_WhenAllCustomersServed = CreateMV("count_WhenAllCServed", MAX_STR_LEN);
   
-  index_Ck_InventoryIndex = CreateMV("index_Ck_InventoryIndex",23);
+	index_Ck_InventoryIndex = CreateMV("index_Ck_InventIndex", MAX_STR_LEN);
   
 	for (i = 0; i < count_MaxNumMenuItems; ++i)
 	{
-		str = "ID_Get_OrderTakerIDFromCustomerID";						str[33] = i;		ID_Get_OrderTakerIDFromCustomerID[i] = CreateMV(str,34);
-		str = "Get_CustomerOrderFoodChoiceFromOrderTakerID";			str[43] = i;		Get_CustomerOrderFoodChoiceFromOrderTakerID[i] = CreateMV(str,44);
-		str = "Get_CustomerTogoOrEatinFromCustomerID";					str[37] = i;		Get_CustomerTogoOrEatinFromCustomerID[i] = CreateMV(str,38);
-		str = "Get_CustomerMoneyPaidFromOrderTakerID";					str[37] = i;		Get_CustomerMoneyPaidFromOrderTakerID[i] = CreateMV(str,38);
-		str = "token_OrCr_OrderNumberFromCustomerID";					str[36] = i;		token_OrCr_OrderNumberFromCustomerID[i] = CreateMV(str,37);
-		str = "bool_ListOrdersReadyFromToken";							str[29] = i;		bool_ListOrdersReadyFromToken[i] = CreateMV(str,30);
-		str = "Get_CustomerIDFromToken";								str[23] = i;		Get_CustomerIDFromToken[i] = CreateMV(str,24);
+		copyChar(str, "ID_Get_OTIDFromCusID", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		ID_Get_OrderTakerIDFromCustomerID[i] = CreateMV(str, MAX_STR_LEN);
+		copyChar(str, "Get_COrderFoodChOTID", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		Get_CustomerOrderFoodChoiceFromOrderTakerID[i] = CreateMV(str, MAX_STR_LEN);
+		copyChar(str, "Get_CTogoOrEatinFCID", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		Get_CustomerTogoOrEatinFromCustomerID[i] = CreateMV(str, MAX_STR_LEN);
+		copyChar(str, "Get_CMoneyPaidFrOTID", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		Get_CustomerMoneyPaidFromOrderTakerID[i] = CreateMV(str, MAX_STR_LEN);
+		copyChar(str, "token_OrCr_ONumFrCID", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		token_OrCr_OrderNumberFromCustomerID[i] = CreateMV(str, MAX_STR_LEN);
+		copyChar(str, "bool_ListORdyFrToken", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		bool_ListOrdersReadyFromToken[i] = CreateMV(str, MAX_STR_LEN);
+		copyChar(str, "Get_CustoIDFromToken", MAX_STR_LEN);			str[MAX_STR_LEN-1] = i;		Get_CustomerIDFromToken[i] = CreateMV(str, MAX_STR_LEN);
 	}
   
   
@@ -263,67 +281,67 @@ void Initialize()
   Acquire(initializationLock);
   if(GetMV(hasBeenInitialized) != 1)
   {
-	setMV(hasBeenInitialized,1);
+	SetMV(hasBeenInitialized,1);
 	
 	
-  //initializeMonitorVariables
-	setMV(count_NumTablesAvailable,10);
+	/* Initialize Monitor Variables */
+	SetMV(count_NumTablesAvailable,10);
 	
 	for(i = 0; i < numInventoryItemTypes; i += 1)
 	{
-		setMV(count_NumTablesAvailable,10);
-	    setMV(inventoryCount[i] ,0);
-		setMV(minCookedFoodStacks[i] , 2);
-		setMV(maxCookedFoodStacks[i] , 5);
-		setMV(cookedFoodStacks[i] , 0);
-		setMV(cookTime[i] , 50);
-		setMV(Get_CookIsHiredFromInventoryIndex[i ] , 0);
-		setMV(Get_CookOnBreakFromInventoryIndex[i ] , 0);
-		setMV(inventoryCost[i] , i*5 + 5);
+		SetMV(count_NumTablesAvailable,10);
+	    SetMV(inventoryCount[i] ,0);
+		SetMV(minCookedFoodStacks[i] , 2);
+		SetMV(maxCookedFoodStacks[i] , 5);
+		SetMV(cookedFoodStacks[i] , 0);
+		SetMV(cookTime[i] , 50);
+		SetMV(Get_CookIsHiredFromInventoryIndex[i ] , 0);
+		SetMV(Get_CookOnBreakFromInventoryIndex[i ] , 0);
+		SetMV(inventoryCost[i] , i*5 + 5);
 	}
 	
-	setMV(count_NumOrderTakers , 0);
-	setMV(count_NumCustomers , 0);
-	setMV(count_NumCooks  , 0);
-	setMV(count_NumManagers , 0);
-	setMV(count_lineToEnterRestLength , 0);
-	setMV(count_lineToOrderFoodLength , 0);
-	setMV(orderNumCounter , 0);
+	SetMV(count_NumOrderTakers , 0);
+	SetMV(count_NumCustomers , 0);
+	SetMV(count_NumCooks  , 0);
+	SetMV(count_NumManagers , 0);
+	SetMV(count_lineToEnterRestLength , 0);
+	SetMV(count_lineToOrderFoodLength , 0);
+	SetMV(orderNumCounter , 0);
 	
 	for(i = 0; i < count_MaxNumCustomers ; i += 1)
 	{
-		setMV(ordersNeedingBagging[i] , 0);
-		setMV(baggedOrders[i] , 0);
-		setMV(bool_ListOrdersReadyFromToken[i] , 0);
+		SetMV(ordersNeedingBagging[i] , 0);
+		SetMV(baggedOrders[i] , 0);
+		SetMV(bool_ListOrdersReadyFromToken[i] , 0);
 	}
 	
-	setMV(count_NumOrdersBaggedAndReady , 0);
+	SetMV(count_NumOrdersBaggedAndReady , 0);
 	
-	setMV(menu[0] , 1);   /* Soda */
-	setMV(menu[1] ,2);   /* Fries */
-	setMV(menu[2] , 3);   /* Fries, Soda */
-	setMV(menu[3] , 4);   /* Veggie Burger */
-	setMV(menu[4] , 5);   /* Veggie Burger, Soda */
-	setMV(menu[5] , 6);   /* Veggie Burger, Fries */
-	setMV(menu[6] , 7);   /* Veggie Burger, Fries, Soda */
-	setMV(menu[7] , 8);   /* $3 Burger */
-	setMV(menu[8] , 9);   /* $3 Burger, Soda */
-	setMV(menu[9] , 10);  /* $3 Burger, Fries */
-	setMV(menu[10] , 11); /* $3 Burger, Fries, Soda */
-	setMV(menu[11] , 16); /* $6 Burger */
-	setMV(menu[12] , 17); /* $6 Burger, Soda */
-	setMV(menu[13] , 18); /* $6 Burger, Fries */
-	setMV(menu[14] ,19); /* $6 Burger, Fries, Soda */
+	SetMV(menu[0] , 1);   /* Soda */
+	SetMV(menu[1] ,2);   /* Fries */
+	SetMV(menu[2] , 3);   /* Fries, Soda */
+	SetMV(menu[3] , 4);   /* Veggie Burger */
+	SetMV(menu[4] , 5);   /* Veggie Burger, Soda */
+	SetMV(menu[5] , 6);   /* Veggie Burger, Fries */
+	SetMV(menu[6] , 7);   /* Veggie Burger, Fries, Soda */
+	SetMV(menu[7] , 8);   /* $3 Burger */
+	SetMV(menu[8] , 9);   /* $3 Burger, Soda */
+	SetMV(menu[9] , 10);  /* $3 Burger, Fries */
+	SetMV(menu[10] , 11); /* $3 Burger, Fries, Soda */
+	SetMV(menu[11] , 16); /* $6 Burger */
+	SetMV(menu[12] , 17); /* $6 Burger, Soda */
+	SetMV(menu[13] , 18); /* $6 Burger, Fries */
+	SetMV(menu[14] ,19); /* $6 Burger, Fries, Soda */
 	
-	setMV(money_Rest , 0);
-	setMV(count_NumOrderTokens , 0);
-	setMV(count_NumCustomersServed , 0);
+	SetMV(money_Rest , 0);
+	SetMV(count_NumOrderTokens , 0);
+	SetMV(count_NumCustomersServed , 0);
 	
 	/* Initialize Test Variables as off */
-	setMV(test_AllCustomersEatIn , 0);
-	setMV(test_AllCustomersEatOut , 0);
-	setMV(test_NoCooks , 0);
-	setMV(test_AllCustomersOrderThisCombo , -1);
+	SetMV(test_AllCustomersEatIn , 0);
+	SetMV(test_AllCustomersEatOut , 0);
+	SetMV(test_NoCooks , 0);
+	SetMV(test_AllCustomersOrderThisCombo , -1);
   }
   Release(initializationLock);
 }
@@ -344,11 +362,13 @@ void PrintNumberV(int input)
   #endif
 }
 
+
 /* =============================================================
  * Runs the simulation
  * =============================================================*/
 void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 {
+#if 0
   int i;
 
   if (numCustomers < 0 || numCustomers > count_MaxNumCustomers)
@@ -400,778 +420,24 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers)
 		Fork((void *)OrderTaker);
 	for (i = 0; i < numWaiters; ++i)
 		Fork((void *)Waiter);
+#endif
 }
 
+
+
+#if 0
 int main()
 {
+  int i;
   StartUserProgram();
   RunSimulation(-1, -1, -1);
   return 0;
 }
+#endif
 
-/* =============================================================	
- * CUSTOMER
- * =============================================================*/
 
-/*-----------------------------
- * Top Level Customer Routine
- * ---------------------------*/
-void Customer(int debug)
-{
-  int ID, eatIn, orderCombo, token, hasCheckedOrder;
-  
-	Acquire(lock_Init_InitializationLock);
-	ID = GetMV(count_NumCustomers);
-	SetMV(count_NumCustomers,ID+1);
-	Release(lock_Init_InitializationLock);
 
-	if (GetMV(test_AllCustomersEatIn) == TRUE)
-		eatIn = 1;
-	else if (GetMV(test_AllCustomersEatOut) == TRUE)
-		eatIn = 0;
-	else
-		eatIn = RandomNumber(2);
-	
-	if(eatIn)
-	{
-		PrintOut("Customer ", 9);
-		PrintNumber(ID);
-		PrintOut(" wants to eat-in the food\n", 26);
 
-		WaitInLineToEnterRest(ID);
-	}
-	else
-	{
-		PrintOut("Customer ", 9);
-		PrintNumber(ID);
-		PrintOut(" wants to to-go the food\n", 25);
-	}
-	
-	PrintOutV("Customer", 8);
-	PrintNumberV(ID);
-	PrintOutV("::Waiting in line for food\n", 27);
-	WaitInLineToOrderFood(ID);
-	/* at this point we are locked with the order taker */
-	
-	/* randomly pick an order and tell it to order taker if not testing */
-	if (GetMV(test_AllCustomersOrderThisCombo) != -1)
-		orderCombo = GetMV(test_AllCustomersOrderThisCombo);
-	else
-		orderCombo = 2 * (ID % numInventoryItemTypes); /*RandomNumber(count_MaxNumMenuItems);*/
-	
-	SetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[GetMV( ID_Get_OrderTakerIDFromCustomerID[ID])] , GetMV(menu[orderCombo]));
-	/* Tell OrderTaker whether eating in or togo */
-	SetMV(Get_CustomerTogoOrEatinFromCustomerID[ID]) = eatIn;
-	/* Ordered, Signal Order Taker - this represents talking to ordertaker */
-	
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" is giving order to ", 20);  
-	if(GetMV(ID_Get_OrderTakerIDFromCustomerID)[ID] > 0)
-	{
-		PrintOut("OrderTaker ", 11);
-		PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-	}
-	else
-	{
-		PrintOut("the Manager", 11);
-	}
-	PrintOut("\n", 1);
-
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" is ", 4);
-	if (((GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]) >> 4) & 1) == 0)
-		PrintOut("not ", 4);
-	PrintOut("ordering 6-dollar burger\n", 25);
-  
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" is ", 4);
-	if (((GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]) >> 3) & 1) == 0)
-		PrintOut("not ", 4);
-	PrintOut("ordering 3-dollar burger\n", 25);
-  
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" is ", 4);
-	if (((GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]) >> 2) & 1) == 0)
-		PrintOut("not ", 4);
-	PrintOut("ordering veggie burger\n", 23);
-  
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" is ", 4);
-	if (((GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]) >> 1) & 1) == 0)
-		PrintOut("not ", 4);
-	PrintOut("ordering french fries\n", 22);
-  
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" is ", 4);
-	if ((GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]) & 1) == 0)
-		PrintOut("not ", 4);
-	PrintOut("ordering soda\n", 14);
-  
-	PrintOut("Customer ", 9);
-	PrintNumber(ID);
-	PrintOut(" chooses to ", 12);
-	if(eatIn)
-		PrintOut("eat-in", 7);
-	else
-		PrintOut(" to-go", 7);
-	PrintOut(" the food\n", 10);
-  
-  
-	Signal(CV_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])], 
-					lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]);
-  
-	/* Wait for order taker to respond */
-	Wait(CV_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])], 
-					lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]]));
-	
-	PrintOutV("Customer", 8);
-	PrintNumberV(ID);
-	PrintOutV("::Paying OrderTaker #", 21);
-	PrintNumberV(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-	PrintOutV("\n", 1);
-	
-	/* this is the money the customer gives to the orderTaker */
-	/* Customer pays double the inventory cost */
-	SetMV(Get_CustomerMoneyPaidFromOrderTakerID[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])] 
-				, inventoryCost[GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[					
-				GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])])] * 2); 
-	
-	Signal(CV_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])],
-					lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]]));
-  
-	/* Wait for order taker to respond */
-	Wait(CV_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])], 
-					lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]);
-   
-	/* Order Taker got my order, and money */
-	/* Order Taker gives me an order number in exchange */
-	token = GetMV(token_OrCr_OrderNumberFromCustomerID[ID]);
-  
-	if (orderCombo != 0)
-	{
-		PrintOutV("Customer", 8);
-		PrintNumberV(ID);
-		PrintOutV("::My order is order #", 21);
-		PrintNumberV(token);
-		PrintOutV("\n", 1);
-	}
-  
-	if(eatIn)
-	{
-		PrintOut("Customer ", 9);
-		PrintNumber(ID);
-		PrintOut(" is seated at table. ", 21);
-		PrintNumber(GetMV(count_NumTablesAvailable));
-		PrintOut(" tables available\n", 18);
-
-		/* we want the customer to be ready to receive the order */
-		/* before we Release the OrderTaker to process the order */
-		Acquire(lock_CustomerSittingFromCustomerID[ID]);
-		Release(lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]);
-
-		PrintOut("Customer ", 9);
-		PrintNumber(ID);
-		PrintOut(" is waiting for the waiter to serve the food\n", 45);		
-	
-		/* Wait for order to be ready.  
-		 * Waiter will deliver it just to me, so I have my own condition variable. 
-		 * Signal - Wait - Signal insures correct sequencing
-		 */
-		Signal(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
-		Wait(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
-		Signal(CV_CustomerSittingFromCustomerID[ID], lock_CustomerSittingFromCustomerID[ID]);
-		
-		PrintOut("Customer ", 9);
-		PrintNumber(ID);
-		PrintOut(" is served by waiter 0\n", 23);
-    
-		/* I received my order */
-		Release(lock_CustomerSittingFromCustomerID[ID]);
-    
-		PrintOutV("Customer", 8);
-		PrintNumberV(ID);
-		PrintOutV("::Eatin - Eating\n",17);
-    
-		/* make the table available again. */
-		Acquire(lock_MrCr_LineToEnterRest);
-		  count_NumTablesAvailable += 1;
-		Release(lock_MrCr_LineToEnterRest);
-		
-		PrintOutV("Customer", 8);
-		PrintNumberV(ID);
-		PrintOutV("::Eatin - Leaving Restaurant full and happy =)\n", 47);
-		
-    /* leave restaurant */
-	}
-	else
-	{    
-		/*prepare to recieve food before I let the order take go make it. */
-		Acquire(lock_OrCr_OrderReady);
-		/*let ordertaker go make food. */
-		Release(lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]);
-		
-		PrintOutV("Customer", 8);
-		PrintNumberV(ID);
-		PrintOutV("::Eatout - Ready for food\n",26);
-    
-		/* check if my order is ready */
-		hasCheckedOrder = 0; /* used for print statement */
-		while(GetMV(bool_ListOrdersReadyFromToken[token]) == FALSE)
-		{
-			if (hasCheckedOrder > 0)
-			{
-				PrintOutV("Customer", 8);
-				PrintNumberV(ID);
-				PrintOutV("::Eatout - Order called was not #",33);
-				PrintNumberV(token);
-				PrintOutV("\n",1);
-			}
-			else
-			{
-				if(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]) > 0)
-				{
-					PrintOut("OrderTaker ", 11);
-					PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-				}
-				else
-				{
-					PrintOut("Manager", 7);
-				}
-				PrintOut(" gives token number ", 20);
-				PrintNumber(token);
-				PrintOut(" to Customer ", 13);
-				PrintNumber(ID);
-				PrintOut("\n", 1);
-			  
-				PrintOut("Customer ", 9);
-				PrintNumber(ID);
-				PrintOut(" is given token number ", 23);
-				PrintNumber(token);
-				PrintOut(" by ", 4);
-				if(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]) > 0)
-				{
-				  PrintOut("OrderTaker ", 11);
-				  PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-				}
-				else
-				{
-					PrintOut("the Manager", 11);
-				}
-				PrintOut("\n", 1);
-			}
-      
-			/* Wait for an OrderReady Broadcast */
-			Wait(CV_OrCr_OrderReady, lock_OrCr_OrderReady);
-			hasCheckedOrder = 1;
-      
-			PrintOutV("Customer", 8);
-			PrintNumberV(ID);
-			PrintOutV("::Eatout - Checking if order called is #", 40);
-			PrintNumberV(token);
-			PrintOutV("\n", 1);
-		}
-    
-		if (hasCheckedOrder == 0)
-		{
-			if(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]) > 0)
-			{
-				PrintOut("OrderTaker ", 11);
-				PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-			}
-			else
-			{
-				PrintOut("Manager", 7);
-			}
-			PrintOut(" gives food to Customer ", 24);
-			PrintNumber(ID);
-			PrintOut("\n", 1);
-    
-			PrintOut("Customer ", 9);
-			PrintNumber(ID);
-			PrintOut(" receives food from ", 20);
-			if(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]) > 0)
-			{
-				PrintOut("OrderTaker ", 11);
-				PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-			}
-			else
-			{
-				PrintOut("the Manager", 11);
-			}
-			PrintOut("\n", 1);
-		}
-		else
-		{
-			PrintOut("Customer ", 9);
-			PrintNumber(ID);
-			PrintOut(" receives token number ", 23);
-			PrintNumber(token);
-			PrintOut(" from the OrderTaker ", 21);
-			PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-			PrintOut("\n", 1);
-		}
-    
-		PrintOutV("Customer", 8);
-		PrintNumberV(ID);
-		PrintOutV("::Eatout - Taking order #", 25);
-		PrintNumberV(token);
-		PrintOutV("\n",1);
-    
-		SetMV(bool_ListOrdersReadyFromToken[token] , FALSE);
-		Release(lock_OrCr_OrderReady);
-    
-		if (hasCheckedOrder > 0)
-		{
-			PrintOut("Customer ", 9);
-			PrintNumber(ID);
-			PrintOut(" is leaving the restaurant after OrderTaker ", 44);
-			PrintNumber(GetMV(ID_Get_OrderTakerIDFromCustomerID[ID]));
-			PrintOut(" packed the food\n", 17);
-		}
-    
-		/* leave restaurant */
-	}
-	
-	Acquire(lock_Init_InitializationLock);
-	  PrintOut("~~~ Total Customers left to be served: ", 39);
-	  SetMV(count_NumCustomersServed,GetMV(count_NumCustomersServed)+1);
-	  PrintNumber(GetMV(count_NumCustomers)-(GetMV(count_NumCustomersServed)));
-      PrintOut(" ~~~\n", 5);
-	Release(lock_Init_InitializationLock);
-	
-	
-	Exit(0);
-}
-
-/*-----------------------------
- * Customers getting in line for the restaurant
- * ---------------------------*/
-void WaitInLineToEnterRest(int ID)
-{
-	Acquire(lock_MrCr_LineToEnterRest);
-  
-	SetMV(lineToEnterRest[GetMV(count_lineToEnterRestLength)] ,ID);
-	SetMV(count_lineToEnterRestLength,GetMV(count_lineToEnterRestLength)+1);
-	/* Wait in line, and pass my ID as CV */
-	Wait(CV_MrCr_LineToEnterRestFromCustomerID[ID], lock_MrCr_LineToEnterRest);
-
-	if (GetMV(count_lineToEnterRestLength) > 0)
-	{
-		SetMV(count_lineToEnterRestLength,GetMV(count_lineToEnterRestLength)-1);
-	}
-	else  /* Should never get here */
-	{
-      PrintOutV("Customer", 8);
-      PrintNumberV(ID);
-      PrintOutV("::Something is wrong while customer getting out of order line\n",47);
-	}	
-	Release(lock_MrCr_LineToEnterRest);
-}
-
-/*-----------------------------
- * Customers getting in line to take an Order
- * ---------------------------*/
-void WaitInLineToOrderFood(int ID)
-{
-	Acquire(lock_OrCr_LineToOrderFood);
-	SetMV(lineToOrderFood[count_lineToOrderFoodLength] , ID);
-	SetMV(count_lineToOrderFoodLength,GetMV(count_lineToOrderFoodLength)+1);
-	Wait(CV_OrCr_LineToOrderFoodFromCustomerID[ID], lock_OrCr_LineToOrderFood);
-	
-	/* make sure OrderTaker is ready to serve me */
-	Acquire(lock_OrderTakerBusy[GetMV(ID_Get_OrderTakerIDFromCustomerID[ID])]);
-	Release(lock_OrCr_LineToOrderFood);
-}
-
-/* =============================================================	
- * MANAGER
- * =============================================================*/	
-
-/*-----------------------------
- * Top Level Manager Routine
- * ---------------------------*/
-void Manager(int debug)
-{
-  int i, ID, helpOT;
-  
-	Acquire(lock_Init_InitializationLock);
-	  ID = GetMV(count_NumOrderTakers);
-		SetMV(count_NumOrderTakers,GetMV(count_NumOrderTakers)+1);
-		SetMV(count_NumManagers,GetMV(count_NumManagers)+1);
-	  PrintOutV("Manager", 7);
-	  PrintOutV("::Created - I\'m the boss.\n", 26);
-	Release(lock_Init_InitializationLock);
-
-  
-	while(TRUE)
-	{
-		helpOT = 0;
-
-		Acquire(lock_OrCr_LineToOrderFood);
-
-			if( GetMV(count_lineToOrderFoodLength) > 3 * ( GetMV(count_NumOrderTakers) -  GetMV(count_NumManagers)))
-			{
-			  PrintOutV("Manager", 7);
-			  PrintOutV("::Helping service customers\n", 28);
-					helpOT = 1;
-			}
-    
-		Release(lock_OrCr_LineToOrderFood);
-
-		if (helpOT)
-		{
-			for (i = 0 ; i < 2; i++)
-			{
-				serviceCustomer(ID);
-			}
-		}
-		bagOrder(TRUE);
-		
-		callWaiter(); /* Is this necessary? I think this is handled in bagOrder() */
-		orderInventoryFood();
-		manageCook();
-		checkLineToEnterRest();
-		
-		/* Exit condition */
-		if(shouldExit())
-		{
-			PrintOutV("Manager", 7);
-			PrintOutV("::all customers served.\n", 24);
-			Exit(0);
-		}
-		
-		Yield(25);		
-	}
-}
-
-/*-----------------------------
- * Manager Broadcasting to Waiters
- * ---------------------------*/
-void callWaiter()
-{
-	Acquire(lock_MrWr);
-	
-	if( GetMV(count_NumOrdersBaggedAndReady )> 0)
-	{
-		Broadcast(CV_MrWr, lock_MrWr);
-	}
-
-	Release(lock_MrWr);
-}
-
-/*-----------------------------
- * Manager Ordering more food for the Restaurant
- * ---------------------------*/
-void orderInventoryFood()
-{
-  int i, numBought;
-
-	for(i = 0; i < numInventoryItemTypes; i += 1)
-	{
-		Acquire(lock_MrCk_InventoryLocks[i]);
-		
-		if(GetMV(inventoryCount[i] )<= 0)
-		{
-      PrintOutV("Manager",7);
-      PrintOutV("::Food item #",13);
-      PrintNumberV(i);
-      PrintOutV(" out of stock\n",13);
-			
-			PrintOut("Manager refills the inventory\n", 30);
-    
-			numBought = 5;
-			if(GetMV(money_Rest) < GetMV(inventoryCost[i])*numBought)
-			{
-        PrintOutV("Manager",7);
-        PrintOutV("::Restaurant money ($",21);
-        PrintNumberV(GetMV(money_Rest));
-        PrintOutV(") too low for food item #",25);
-        PrintNumberV(i);
-        PrintOutV("\n",1);
-				
-				PrintOut("Manager goes to bank to withdraw the cash\n", 42);
-        
-				/* Yield(cookTime[i]*(5)); */ /* Takes forever */
-        Yield(5);
-				SetMV(money_Rest,GetMV(money_Rest) + GetMV(inventoryCost[i])*2*(numBought+5);
-        
-        PrintOutV("Manager",7);
-        PrintOutV("::Went to bank. Restaurant now has $",36);
-        PrintNumberV(GetMV(money_Rest));
-        PrintOutV("\n",1);
-				
-			}
-
-			SetMV(money_Rest,GetMV(money_Rest) - GetMV(inventoryCost[i])*numBought;
-			inventoryCount[i] += numBought;
-
-      PrintOutV("Manager",7);
-      PrintOutV("::Purchasing ",13);
-      PrintNumberV(numBought);
-      PrintOutV(" of food item #",15);
-      PrintNumberV(i);
-      PrintOutV(". Restaurant now has $",22);
-      PrintNumberV(GetMV(money_Rest));
-      PrintOutV("\n",1);
-			PrintOut("Inventory is loaded in the restaurant\n", 38);
-		}
-
-		Release(lock_MrCk_InventoryLocks[i]);			
-	}
-}
-
-/*-----------------------------
- * Manager managing Cook
- * ---------------------------*/
-void manageCook()
-{
-  int i;
-  
-  /* Start at i = 1 because we never want to hire a cook for Soda!!! */
-	for(i = 1; i < numInventoryItemTypes; i += 1)
-	{
-		Acquire(lock_MrCk_InventoryLocks[i]);
-		if(GetMV(cookedFoodStacks[i] )<GetMV( minCookedFoodStacks[i] )&& test_NoCooks == FALSE)
-		{
-			if(GetMV(Get_CookIsHiredFromInventoryIndex[i] )== 0)
-			{
-        
-				/* Cook is not hired so hire new cook */
-				hireCook(i);
-			}
-			else
-			{
-				if(GetMV(Get_CookOnBreakFromInventoryIndex[i]))
-				{
-					  PrintOutV("Manager",7);
-					  PrintOutV("::Bringing cook #",14);
-					  PrintNumberV(i);
-					  PrintOutV(" off break\n",11);
-        
-					/* Cook is hired so Signal him to make sure he is not on break */
-					SetMV(Get_CookOnBreakFromInventoryIndex[i] , FALSE);
-				}
-				Signal(CV_MrCk_InventoryLocks[i], lock_MrCk_InventoryLocks[i]);
-			}
-		}
-		else if(GetMV(cookedFoodStacks[i] )> GetMV(maxCookedFoodStacks[i]))
-		{
-			if(!GetMV(Get_CookOnBreakFromInventoryIndex[i]))
-			{
-				PrintOutV("Manager",7);
-				PrintOutV("::Sending cook #",16);
-				PrintNumberV(i);
-				PrintOutV(" on break\n",10);
-        
-				SetMV(Get_CookOnBreakFromInventoryIndex[i] , TRUE);
-			}
-		}
-		Release(lock_MrCk_InventoryLocks[i]);
-	}
-}
-
-/*-----------------------------
- * Manager hiring a new Cook
- * ---------------------------*/
-void hireCook(int index)
-{
-	/* Acquire(lock_MrCk_InventoryLocks[index])  <-- this is already done! */
-	
-	Acquire(lock_HireCook);
-	
-	SetMV(Get_CookIsHiredFromInventoryIndex[index] , -1);
-	SetMV(index_Ck_InventoryIndex , index);
-
-	Fork((void *)Cook);
-
-	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
-	
-
-	Release(lock_HireCook);
-
-	/*Release(lock_MrCk_InventoryLocks[index])  <-- this will be done! */
-}
-
-/*-----------------------------
- * Manager Opening Spaces in line
- * ---------------------------*/
-void checkLineToEnterRest()
-{
-  int custID;
-  
-	Acquire(lock_MrCr_LineToEnterRest);
-	
-	custID = GetMV(lineToEnterRest[GetMV(count_lineToEnterRestLength)-1]);
-	
-	if (GetMV(count_lineToEnterRestLength) > 0)
-	{
-	
-		if (GetMV(count_NumTablesAvailable) > 0)
-		{
-		
-			PrintOut("Customer ", 9);
-			PrintNumber(custID);
-			PrintOut(" is informed by the Manager-the restaurant is ", 46);
-			if (GetMV(count_NumTablesAvailable )> 0)
-				PrintOut("not full\n", 9);
-			else
-				PrintOut("full\n", 5);
-			
-			if (GetMV(count_NumTablesAvailable )<= 0)
-			{
-				PrintOut("Customer ", 8);
-				PrintNumber(custID);
-				PrintOut(" is waiting to sit on the table\n", 32);
-			}  
-		
-			SetMV(count_NumTablesAvailable ,GetMV(count_NumTablesAvailable )- 1);
-			/* Signal to the customer to enter the restaurant */
-			Signal(CV_MrCr_LineToEnterRestFromCustomerID[custID],
-						lock_MrCr_LineToEnterRest);
-		}
-	}
-	Release(lock_MrCr_LineToEnterRest);
-}
-
-/* =============================================================	
- * COOK
- * =============================================================*/	
- 
- /*-----------------------------
- * Top Level Cook Routine
- * ---------------------------*/
-void Cook(int debug)
-{
-	int ID, t;
-  
-	Acquire(lock_HireCook);
-	
-	ID = GetMV(index_Ck_InventoryIndex);
-	SetMV(Get_CookIsHiredFromInventoryIndex[ID] , 1);
-  
-	Signal(CV_HireCook, lock_HireCook); 
-	
-	Release(lock_HireCook);
-
-	/* I am Alive!!! */
-	
-	PrintOut("Manager informs Cook ", 21);
-	PrintNumber(ID);
-	PrintOut(" to cook ", 9);
-	switch(ID)
-			{
-			/* [6-dollar burger/3-dollar burger/veggie burger/french fries] */
-				case 1: PrintOut("french fries\n", 13); break;
-				case 2: PrintOut("veggie burger\n", 14); break;
-				case 3: PrintOut("3-dollar burger\n", 16); break;
-				case 4: PrintOut("6-dollar burger\n", 16); break;
-			}
-
-	while(TRUE)
-	{
-		Acquire(lock_MrCk_InventoryLocks[ID]);
-		t = 0;
-		
-		if(GetMV(Get_CookOnBreakFromInventoryIndex[ID]))
-		{
-			t = 1;
-			PrintOut("Cook ", 5);
-			PrintNumber(ID);
-			PrintOut(" is going on break\n", 19);
-			  
-			Wait(CV_MrCk_InventoryLocks[ID], lock_MrCk_InventoryLocks[ID]);
-			
-			PrintOut("Cook ", 5);
-			PrintNumber(ID);
-			PrintOut(" returned from break\n", 21);
-		}
-		
-		if(t == 1)
-		{
-			PrintOut("Cook ", 5);
-			PrintNumber(ID);
-			PrintOut(" is going on break\n", 19);
-		}
-		
-		/* Cook something */
-		if(GetMV(inventoryCount[ID]) > 0)
-		{
-			PrintOut("Cook ", 5);
-			PrintNumber(ID);
-			PrintOut(" is going to cook ", 18);
-			switch(ID)
-			{
-			/* [6-dollar burger/3-dollar burger/veggie burger/french fries] */
-				case 1: PrintOut("french fries\n", 13); break;
-				case 2: PrintOut("veggie burger\n", 14); break;
-				case 3: PrintOut("3-dollar burger\n", 16); break;
-				case 4: PrintOut("6-dollar burger\n", 16); break;
-			}
-			
-			SetMV(inventoryCount[ID],GetMV(inventoryCount[ID])-1);
-			Release(lock_MrCk_InventoryLocks[ID]);
-			
-			Yield(GetMV(cookTime[ID]));
-      
-			Acquire(lock_MrCk_InventoryLocks[ID]);
-			SetMV(cookedFoodStacks[ID],GetMV(cookedFoodStacks[ID])+1);
-		}
-		
-		Release(lock_MrCk_InventoryLocks[ID]);
-		
-		/* Exit condition */
-		if(shouldExit())
-		{
-			PrintOutV("Cook", 5);
-			PrintOutV("::all customers served.\n", 24);
-			Exit(0);
-		}
-		Yield(5);
-	}
-
-}
- 
-/* =============================================================	
- * ORDER TAKER
- * =============================================================*/	
-
- /*-----------------------------
- * Top Level OrderTaker Routine
- * ---------------------------*/
-void OrderTaker(int debug)
-{
-  int ID;
-
-	Acquire(lock_Init_InitializationLock);
-	  ID = GetMV(count_NumOrderTakers);
-	  SetMV(count_NumOrderTakers,GetMV(count_NumOrderTakers)+1);
-	  PrintOutV("OrderTaker", 10);
-	  PrintNumberV(ID);
-	  PrintOutV("::Created - At your service.\n", 29);	
-	Release(lock_Init_InitializationLock);
-	
-	while(TRUE)
-	{
-		serviceCustomer(ID);
-		bagOrder(FALSE);
-		
-		/* Exit condition */
-		if(shouldExit())
-		{
-			PrintOutV("OrderTaker", 10);
-			PrintOutV("::all customers served.\n", 24);
-			Exit(0);
-		}
-		
-		Yield(50);
-	}
-}
 
 /*-----------------------------
  * If there are any customers Waiting in line, 
@@ -1219,8 +485,8 @@ void serviceCustomer(int ID)
 	/* Customer has paid by the time we get here. */
 
 	/* Give the customer's order an order number. */
-	token = GetMV(orderNumCounter)
-	SetMV(orderNumCounter,GetMV(orderNumCounter)+1);
+	token = GetMV(orderNumCounter);
+	SetMV(orderNumCounter, GetMV(orderNumCounter)+1);
 	SetMV(token_OrCr_OrderNumberFromCustomerID[custID] , token);
 	
   if (GetMV(Get_CustomerOrderFoodChoiceFromOrderTakerID[ID]) != 1)
@@ -1342,87 +608,7 @@ void bagOrder(int isManager)
     }
 	Release(lock_OrdersNeedingBagging);
 }
- 
-/* =============================================================	
- * Waiter
- * =============================================================*/	
-void Waiter(int debug)
-{
-	int ID, token;
-  
-	Acquire(lock_Init_InitializationLock);
-	ID = GetMV(count_NumWaiters);
-	SetMV(count_NumWaiters,GetMV(count_NumWaiters)+1);
-	Release(lock_Init_InitializationLock);
-	
-	while(TRUE)
-	{
-		token = -1;
-		Acquire(lock_OrWr_BaggedOrders);
-		/* Wait to get Signaled by the Order Taker*/
-		while(GetMV(count_NumOrdersBaggedAndReady) <= 0)
-		{
-			PrintOut("Waiter ", 7);
-			PrintNumber(ID);
-			PrintOut(" is going on break\n", 19);
-			Wait(CV_OrWr_BaggedOrders, lock_OrWr_BaggedOrders);
-			PrintOut("Waiter ", 7);
-			PrintNumber(ID);
-			PrintOut(" returned from break\n", 21);
-		}
-		
-		/* Grab the order that is ready */
-		token = GetMV(baggedOrders[GetMV(count_NumOrdersBaggedAndReady) - 1]);
-		SetMV(count_NumOrdersBaggedAndReady,GetMV(count_NumOrdersBaggedAndReady)-1);
-		
-		Release(lock_OrWr_BaggedOrders);
-		
-		if (token != -1)
-		{
-			PrintOut("Manager gives Token number ", 27);
-			PrintNumber(token);
-			PrintOut(" to Waiter ", 11);
-			PrintNumber(ID);
-			PrintOut(" for Customer ", 14);
-			PrintNumber(GetMV(Get_CustomerIDFromToken[token]));
-			PrintOut("\n", 1);
-			
-			PrintOut("Waiter ", 7);
-			PrintNumber(ID);
-			PrintOut(" got token number ", 18);
-			PrintNumber(token);
-			PrintOut(" for Customer ", 14);
-			PrintNumber(GetMV(Get_CustomerIDFromToken[token]));
-			PrintOut("\n", 1);
-		  
-			PrintOut("Waiter ", 7);
-			PrintNumber(ID);
-			PrintOut(" validates the token number for Customer ", 41);
-			PrintNumber(GetMV(Get_CustomerIDFromToken[token]));
-			PrintOut("\n", 1);
-		  
-			PrintOut("Waiter ", 7);
-			PrintNumber(ID);
-			PrintOut(" serves food to Customer ", 25);
-			PrintNumber(GetMV(Get_CustomerIDFromToken[token]));
-			PrintOut("\n", 1);
-		  
-			/* Signal to the customer that the order is ready 
-			 * Signal - Wait - Signal insures correct sequencing
-			 */
-			Acquire(lock_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token]))]);
-				Signal(CV_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])],
-						lock_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])]);
-				Wait(CV_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])],
-						lock_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])]);
-				Signal(CV_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])],
-						lock_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])]);
 
-			Release(lock_CustomerSittingFromCustomerID[GetMV(Get_CustomerIDFromToken[token])]);
-		}
-		Yield(5);
-	}
-}
 
 /* =============================================================	
  * Utility Functions

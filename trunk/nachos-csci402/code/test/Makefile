@@ -32,9 +32,9 @@ INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
 all: halt matmult sort testfiles testfork testexec exectestprogram1 exectestprogram2 testnetsyscalls \
-      syscalltest testsynchmanager testtwomatmult testtwosort simulation testmultisim \
+      syscalltest testsynchmanager testtwomatmult testtwosort testmultisim \
       teststartuserprogram teststartuserprogramsub testp4syscalls testp4syscallssub \
-      customer ordertaker manager cook launchcustomer launchordertaker launchmanager
+      customer ordertaker manager cook waiter launchcustomer launchordertaker launchmanager
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -124,12 +124,12 @@ testexec.o: testexec.c
 testexec: testexec.o exectestprogram1.o exectestprogram2.o start.o
 	$(LD) $(LDFLAGS) start.o testexec.o -o testexec.coff
 	../bin/coff2noff testexec.coff testexec
-  
-simulation.o: simulation.c simulation.h
-	$(CC) $(CFLAGS) -c simulation.c
-simulation: simulation.o start.o
-	$(LD) $(LDFLAGS) start.o simulation.o -o simulation.coff
-	../bin/coff2noff simulation.coff simulation
+	
+#simulation.o: simulation.c simulation.h
+#	$(CC) $(CFLAGS) -c simulation.c
+#simulation: simulation.o start.o
+#	$(LD) $(LDFLAGS) start.o simulation.o -o simulation.coff
+#	../bin/coff2noff simulation.coff simulation
   
 teststartuserprogram.o: teststartuserprogram.c
 	$(CC) $(CFLAGS) -c teststartuserprogram.c
@@ -155,29 +155,36 @@ testp4syscallssub: testp4syscallssub.o start.o
 	$(LD) $(LDFLAGS) start.o testp4syscallssub.o -o testp4syscallssub.coff
 	../bin/coff2noff testp4syscallssub.coff testp4syscallssub    
   
-customer.o: customer.c
-	$(CC) $(CFLAGS) -c customer.c
-customer: customer.o start.o
-	$(LD) $(LDFLAGS) start.o customer.o -o customer.coff
+customer.o: customer.c simulation.c 
+	$(CC) $(CFLAGS) -c customer.c simulation.c
+customer: customer.o start.o 
+	$(LD) $(LDFLAGS) start.o  customer.o -o customer.coff
 	../bin/coff2noff customer.coff customer  
   
-ordertaker.o: ordertaker.c
+ordertaker.o: ordertaker.c simulation.c 
 	$(CC) $(CFLAGS) -c ordertaker.c
-ordertaker: ordertaker.o start.o
-	$(LD) $(LDFLAGS) start.o ordertaker.o -o ordertaker.coff
+ordertaker: ordertaker.o start.o 
+	$(LD) $(LDFLAGS) start.o  ordertaker.o -o ordertaker.coff
 	../bin/coff2noff ordertaker.coff ordertaker  
   
-manager.o: manager.c
+manager.o: manager.c simulation.c 
 	$(CC) $(CFLAGS) -c manager.c
-manager: manager.o start.o
-	$(LD) $(LDFLAGS) start.o manager.o -o manager.coff
+manager: manager.o start.o 
+	$(LD) $(LDFLAGS) start.o  manager.o -o manager.coff
 	../bin/coff2noff manager.coff manager  
   
-cook.o: cook.c
+cook.o: cook.c simulation.c 
 	$(CC) $(CFLAGS) -c cook.c
-cook: cook.o start.o
-	$(LD) $(LDFLAGS) start.o cook.o -o cook.coff
+cook: cook.o start.o 
+	$(LD) $(LDFLAGS) start.o  cook.o -o cook.coff
 	../bin/coff2noff cook.coff cook  
+	
+waiter.o: waiter.c simulation.c 
+	$(CC) $(CFLAGS) -c waiter.c
+waiter: waiter.o start.o 
+	$(LD) $(LDFLAGS) start.o  waiter.o -o waiter.coff
+	../bin/coff2noff waiter.coff waiter  	
+	
   
 launchcustomer.o: launchcustomer.c
 	$(CC) $(CFLAGS) -c launchcustomer.c
