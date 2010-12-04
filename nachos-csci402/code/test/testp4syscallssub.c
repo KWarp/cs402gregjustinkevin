@@ -38,11 +38,11 @@ void LockTest()
   if (lock2 >= 0)
     PrintOut("Succeeded\n", 10);
     
+  Exit(0);    
+    
   PrintOut("Acquiring Lock...\n", 18);
   Acquire(lock1);
   PrintOut("Succeeded\n", 10);
-  
-  Exit(0);
   
   PrintOut("Releasing Lock...\n", 18);
   Release(lock1);
