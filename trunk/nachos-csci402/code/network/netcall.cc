@@ -96,11 +96,13 @@ bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
 
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* inData)
 {
-  // If the message is from ourselves or our UserProg thread.
-  if (inPktHdr.from == postOffice->GetID() &&
-      inMailHdr.from == currentThread->mailID ||
-      inPktHdr.from == postOffice->GetID() &&
-      inMailHdr.from == currentThread->mailID + 1)
+  // If the message is from ourselves or our associated UserProg/Network thread.
+  if ((inPktHdr.from == postOffice->GetID() &&
+      inMailHdr.from == currentThread->mailID) ||
+      (inPktHdr.from == postOffice->GetID() &&
+      inMailHdr.from == currentThread->mailID + 1) || 
+      (inPktHdr.from == postOffice->GetID() &&
+      inMailHdr.from == currentThread->mailID - 1))
   {
     // Find the message in unAckedMessages.
     unAckedMessagesLock->Acquire();
@@ -539,29 +541,29 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 
 		case ACQUIRE:
 			printf("ACQUIRE\n");
-			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
-			m=0; 
-			if(msgData[i+1] == '_')
+			m = 0; 
+			if (msgData[i + 1] == '_')
 			{
 				i++;
 				do 
 				{
 					c = msgData[++i];
-					if(c=='_')
+					if (c == '_')
 						break;
 					client[m++] = c;	
-				}while(c!='_');
-        
-				client[m]='\0';
+				} while (c != '_');        
+				client[m] ='\0';
 				clientNum = atoi(client);
 			}
-			m=0;
-			while(c!='\0')
+      
+			m = 0;
+			while (c !='\0')
 			{
 				c = msgData[++i];
 				lockIndexBuf[m++] = c;
 			}
-			lockIndex = atoi(lockIndexBuf); 
+			lockIndex = atoi(lockIndexBuf);
+      
 			//printf("lockIndex/MAX_DLOCK != uniqueGlobalID(): %d != %d\n", lockIndex/MAX_DLOCK, uniqueGlobalID());
 			if(lockIndex/MAX_DLOCK != uniqueGlobalID())
 			{

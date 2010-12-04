@@ -570,15 +570,15 @@ void NetworkThread()
       buffer[i] = '\0';
   
     // Wait for a message to be received.
-    //PrintNetThreadHeader();
-    //printf("Waiting for message to be received\n");
+    // PrintNetThreadHeader();
+    // printf("Waiting for message to be received\n");
     
     requestType = INVALIDTYPE;
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
 
     parseValue(0, buffer, (int*)(&requestType));
-    //PrintNetThreadHeader();
-    //printf("received message: %s\n", buffer);
+    // PrintNetThreadHeader();
+    // printf("received message: %s\n", buffer);
     
     // If the packet is an Ack, process it.
     if (requestType == ACK)
