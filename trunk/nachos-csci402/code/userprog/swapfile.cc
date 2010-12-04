@@ -6,7 +6,7 @@ void SwapFile::printMemoryPage(int ppn)
 {
   printf("Main memory: (ppn = %d) \n", ppn);
   for(int i= ppn * PageSize; i < (ppn * PageSize) + PageSize; i++)
-    printf("%c", &(machine->mainMemory[i]));
+    printf("%c", machine->mainMemory[i]);
   printf("\n");
 }
 
@@ -17,7 +17,7 @@ void SwapFile::printFilePage(int index)
   swap->ReadAt(array, PageSize, index * PageSize);
 
   for(int i= 0; i < PageSize; i++)
-    printf("%c", &array[i]);
+    printf("%c", array[i]);
   printf("\n");
   delete[] array;
 }
