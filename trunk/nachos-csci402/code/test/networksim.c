@@ -108,6 +108,12 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers, int num
 	Initialize();
 	*/
 	
+	PrintOut("\nNumber of Managers = ", 22);
+	if(numCooks > 0)
+		PrintNumber(1);
+	else
+		PrintNumber(0);
+	
 	PrintOut("\nNumber of OrderTakers = ", 25);
 	PrintNumber(numOrderTakers);
 	PrintOut("\nNumber of Waiters = ", 21);
@@ -137,7 +143,7 @@ void RunSimulation(int numOrderTakers, int numWaiters, int numCustomers, int num
 	for (i = 0; i < numCustomers; ++i)
 		Exec("../test/customer");
 	for (i = 0; i < numOrderTakers; ++i)
-		Exec("../test/orderTaker");
+		Exec("../test/ordertaker");
 	for (i = 0; i < numWaiters; ++i)
 		Exec("../test/waiter");
 	for (i = 0; i < numCooks; ++i)
