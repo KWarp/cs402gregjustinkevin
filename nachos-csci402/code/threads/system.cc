@@ -143,6 +143,20 @@ bool messageIsRedundant(vector<UnAckedMessage*> *receivedMessages, PacketHeader 
   return false;
 }
 
+// Returns true if the thread has already registered with the server
+bool threadHasRegistered(vector<NetThreadInfoEntry*> serverNetThreadInfo, int machineID, int mailID)
+{
+  for (int i = 0; i < (int)serverNetThreadInfo.size(); ++i)
+  {
+    if (serverNetThreadInfo[i]->machineID == machineID && 
+        serverNetThreadInfo[i]->mailID == mailID)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 void RegServer()
 {
   printf("===Starting Registration Server===\n");
@@ -205,8 +219,12 @@ void RegServer()
       buffer[i] = '\0';
     
     // Add the network thread that just messaged us to serverNetThreadInfo.
-    NetThreadInfoEntry* entry = new NetThreadInfoEntry(machineID, mailID);
-    serverNetThreadInfo.push_back(entry);
+    // threads can accidentally register twice when packet loss is enabled
+    if( !threadHasRegistered(serverNetThreadInfo, machineID, mailID) )
+    {
+      NetThreadInfoEntry* entry = new NetThreadInfoEntry(machineID, mailID);
+      serverNetThreadInfo.push_back(entry);
+    }
     
     // Respond to the network thread with the number of messages it will receive containing serverNetThreadInfo.
     printf("SERVER: Tell network thread to expect %d messages\n", divRoundUp(totalNumNetworkThreads, ThreadsPerMessage));
@@ -431,7 +449,6 @@ void RegisterNetworkThread(vector<NetThreadInfoEntry*> *localNetThreadInfo, vect
     PrintNetThreadHeader();
     printf("Received message %d of %d\n", msgNum+1, numMessages);
     PrintNetThreadHeader();
-    PrintNetThreadHeader();
     printf("buffer %s\n", buffer);
     
     int machineID, mailID;
@@ -569,11 +586,6 @@ void NetworkThread()
       processAck(inPktHdr, inMailHdr, timeStamp);
       continue;
     }
-    if (requestType != TIMESTAMP)
-    {
-      // Update the other threads' timeStamp for this server.
-      sendTimeStampMessage(localNetThreadInfo);
-    }
 
     // Signal that we have received the message.
     Ack(inPktHdr, inMailHdr, timeStamp, buffer);
@@ -582,11 +594,17 @@ void NetworkThread()
     if (messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
     {
       // Do not process the redundant message.
-      //PrintNetThreadHeader();
-      //printf("not processing redundant message: %s\n", buffer);
+      PrintNetThreadHeader();
+      printf("not processing redundant message: %s\n", buffer);
       continue;
     }
     
+    if (requestType != TIMESTAMP)
+    {
+      // Update the other threads' timeStamp for this server.
+      sendTimeStampMessage(localNetThreadInfo);
+    }
+	
     // Add message to receivedMessages.
     PrintNetThreadHeader();
     printf("Add message to receivedMessages: %s\n", buffer);
@@ -810,7 +828,7 @@ void Initialize(int argc, char **argv)
     
   #ifdef CHANGED
     #ifdef NETWORK
-      // printf("Commented out msgResendTimer\n");
+      //printf("Commented out msgResendTimer\n");
       msgResendTimer = new Timer(MsgResendInterruptHandler, 0, false);
     #endif
   #endif
