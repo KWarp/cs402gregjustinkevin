@@ -34,7 +34,8 @@ CFLAGS = -G 0 -c $(INCDIR)
 all: halt matmult sort testfiles testfork testexec exectestprogram1 exectestprogram2 testnetsyscalls \
       syscalltest testsynchmanager testtwomatmult testtwosort testmultisim \
       teststartuserprogram teststartuserprogramsub testp4syscalls testp4syscallssub \
-      customer ordertaker manager cook waiter launchcustomer launchordertaker launchmanager
+      customer ordertaker manager cook waiter launchcustomer launchordertaker launchmanager \
+	  networksim
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -184,7 +185,12 @@ waiter.o: waiter.c simulation.c
 waiter: waiter.o start.o 
 	$(LD) $(LDFLAGS) start.o  waiter.o -o waiter.coff
 	../bin/coff2noff waiter.coff waiter  	
-	
+
+networksim.o: networksim.c simulation.c 
+	$(CC) $(CFLAGS) -c networksim.c
+networksim: networksim.o start.o 
+	$(LD) $(LDFLAGS) start.o  networksim.o -o networksim.coff
+	../bin/coff2noff networksim.coff networksim  	
   
 launchcustomer.o: launchcustomer.c
 	$(CC) $(CFLAGS) -c launchcustomer.c
@@ -203,6 +209,8 @@ launchmanager.o: launchmanager.c
 launchmanager: launchmanager.o start.o
 	$(LD) $(LDFLAGS) start.o launchmanager.o -o launchmanager.coff
 	../bin/coff2noff launchmanager.coff launchmanager  
+	
+	
   
 clean:
 	rm -f *.o *.coff

@@ -48,6 +48,7 @@ int main()
   PrintOut("=== OrderTaker ===\n", 19);
   
   StartUserProgram();
-  
+  Initialize();  
   OrderTaker(0);
+  return 0;
 }

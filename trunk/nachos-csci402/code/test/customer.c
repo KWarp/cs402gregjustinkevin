@@ -21,6 +21,7 @@ void Customer(int debug)
 	Acquire(lock_Init_InitializationLock);
 	ID = GetMV(count_NumCustomers);
 	SetMV(count_NumCustomers,ID+1);
+	SetMV(count_WhenAllCustomersServed, ID+1);
 	Release(lock_Init_InitializationLock);
 
 	if (GetMV(test_AllCustomersEatIn) == TRUE)
@@ -393,6 +394,7 @@ int main()
   PrintOut("=== Customer ===\n", 17);
   
   StartUserProgram();
-  
+  Initialize();
   Customer(0);
+  return 0;
 }

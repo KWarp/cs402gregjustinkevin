@@ -92,7 +92,7 @@ int main()
   PrintOut("=== Waiter ===\n", 15);
   
   StartUserProgram();
-  
+  Initialize();  
   Waiter(0);
-  
+  return 0;  
 }

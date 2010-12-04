@@ -206,7 +206,7 @@ void hireCook(int index)
 	SetMV(index_Ck_InventoryIndex , index);
 
 	/*Fork((void *)Cook);*/
-	Exec("cook");
+	/*Exec("../test/cook");*/
 
 	Wait(CV_HireCook, lock_HireCook); /* don't continue until the new cook says he knows what he is cooking.*/
 	
@@ -263,6 +263,7 @@ int main()
   PrintOut("=== Manager ===\n", 16);
   
   StartUserProgram();
-  
+  Initialize();  
   Manager(0);
+  return 0;
 }

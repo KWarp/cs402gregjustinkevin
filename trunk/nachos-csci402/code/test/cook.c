@@ -109,8 +109,8 @@ int main()
   PrintOut("=== Cook ===\n", 17);
   
   StartUserProgram();
-  
+  Initialize();  
   Cook(0);
-  
+  return 0; 
 }
 
