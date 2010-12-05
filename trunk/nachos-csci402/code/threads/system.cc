@@ -579,15 +579,15 @@ void NetworkThread()
       buffer[i] = '\0';
   
     // Wait for a message to be received.
-    //PrintNetThreadHeader();
-    //printf("Waiting for message to be received\n");
+    // PrintNetThreadHeader();
+    // printf("Waiting for message to be received\n");
     
     requestType = INVALIDTYPE;
     postOffice->Receive(currentThread->mailID, &inPktHdr, &inMailHdr, &timeStamp, buffer);
 
     parseValue(0, buffer, (int*)(&requestType));
-    //PrintNetThreadHeader();
-    //printf("received message: %s\n", buffer);
+    // PrintNetThreadHeader();
+    // printf("received message: %s\n", buffer);
     
     // If the packet is an Ack, process it.
     if (requestType == ACK)
@@ -605,8 +605,8 @@ void NetworkThread()
     if (messageIsRedundant(receivedMessages, inPktHdr, inMailHdr, timeStamp))
     {
       // Do not process the redundant message.
-      PrintNetThreadHeader();
-      printf("not processing redundant message: %s\n", buffer);
+      // PrintNetThreadHeader();
+      // printf("not processing redundant message: %s\n", buffer);
       continue;
     }
     
@@ -617,28 +617,27 @@ void NetworkThread()
     }
 	
     // Add message to receivedMessages.
-    PrintNetThreadHeader();
-    printf("Add message to receivedMessages: %s\n", buffer);
+    // PrintNetThreadHeader();
+    // printf("Add message to receivedMessages: %s\n", buffer);
     receivedMessages->push_back(new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer));
     
     // If the message is from our UserProg thread.
     if (inPktHdr.from == postOffice->GetID() &&
         inMailHdr.from == currentThread->mailID + 1)
     {
-      PrintNetThreadHeader();
-      printf("=== Message from paired USER THREAD ===\n");
+      // PrintNetThreadHeader();
+      // printf("=== Message from paired USER THREAD ===\n");
       
-      PrintNetThreadHeader();
-      printf("Process message: %s\n", buffer);
+      // PrintNetThreadHeader();
+      // printf("Process message: %s\n", buffer);
       processMessage(inPktHdr, inMailHdr, timeStamp, buffer, localNetThreadInfo);
     }
     else // if the message is from another thread (including self).
     {
       // Do Total Ordering.
-      #if 0
-        PrintNetThreadHeader();
-        printf("=== Do Total Ordering ===\n");
-      #endif
+      // PrintNetThreadHeader();
+      // printf("=== Do Total Ordering ===\n");
+      
       // 1. Extract timestamp and member's ID.
       // This is already done above.
       
@@ -666,12 +665,14 @@ void NetworkThread()
           }
         }
         
+        #if 0
         PrintNetThreadHeader();
         printf("Adding to msgQueue[%d]: from (%d, %d) to (%d, %d) time %d.%d data %s\n", 
             i, inPktHdr.from, inMailHdr.from,
             inPktHdr.to, inMailHdr.to,
             (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, buffer);
-            
+        #endif
+        
         UnAckedMessage* newMsg = new UnAckedMessage(timeStamp, timeStamp, inPktHdr, inMailHdr, buffer);
         msgQueue.insert(msgQueue.begin() + i, newMsg);
       }
@@ -702,12 +703,14 @@ void NetworkThread()
              msgQueue[i]->timeStamp.tv_usec <= earliestTimeStamp.tv_usec)))
         {
           // Process message.
+          #if 0
           PrintNetThreadHeader();
           printf("Processing message: from (%d, %d) to (%d, %d) time %d.%d data %s\n", 
               msgQueue[i]->pktHdr.from, msgQueue[i]->mailHdr.from,
               msgQueue[i]->pktHdr.to, msgQueue[i]->mailHdr.to,
               (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, buffer);
-              
+          #endif
+          
           processMessage(msgQueue[i]->pktHdr, msgQueue[i]->mailHdr, msgQueue[i]->timeStamp, msgQueue[i]->data, localNetThreadInfo);
           
           // Remove the message from the queue.
@@ -715,10 +718,8 @@ void NetworkThread()
           i--;
         }
       }
-      #if 0
-        PrintNetThreadHeader();
-        printf("=== Completed Total Ordering ===\n");
-      #endif
+      // PrintNetThreadHeader();
+      // printf("=== Completed Total Ordering ===\n");
     }
   }
 }

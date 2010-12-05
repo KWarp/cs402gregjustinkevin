@@ -294,7 +294,7 @@ bool PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, timeval timeStamp
     PrintHeader(pktHdr, mailHdr, timeStamp);
   }
 
-  #if 1 // For debugging
+  #if 0 // For debugging
     printf("Sending from (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
           pktHdr.from, mailHdr.from, pktHdr.to, mailHdr.to, mailHdr.length,
           (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, data);
