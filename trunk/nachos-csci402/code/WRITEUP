@@ -1,5 +1,5 @@
-Title:  Writeup for Project 3, Fall 2010
-Date:  10/30/2010
+Title:  Writeup for Project 4, Fall 2010
+Date:  11/30/2010
 Group Number 28 :
 
 Name            	                  Email                            Student ID
@@ -11,123 +11,182 @@ Kevin Greene            kgreene@usc.edu             7671772747
 Running the code:
 =================
 
-Please compile from the vm or network directory.
+Please compile from the network directory.
+-rs values will work, but are not required
 
-To run the program in VM, use:
-nachos -x ../test/program_name 
+=== Part 1 ===
+1) A "large" Carl's Jr implementation that runs on a single instance of Nachos. This should run to completion (before ITS termination for running too long).
+  a) Open 2 Windows of SCF - SSH aludra
+  b) Each window should have 1 of the following
+    nachos -s 36 -m 0
+    nachos -config 1 -x ../test/networksim -m 1
 
-Valid command line parameters are:
--P FIFO
--P RAND
+This will make 20 Customers, 5 OrderTakers, 5 Waiters, 1 Manager, and 5 Cooks.
+So the server will expect 36 Network Threads
 
-By default it runs with the FIFO policy
+2) A reduced Carl's Jr that runs on at least 2 different Nachos instances. This is also to run to completion. This should be as big as you can get, but still finish.
+  a) Open 3 Windows of SCF - SSH aludra
+  b) Each window should have 1 of the following
+    nachos -s 15 -m 0
+    nachos -config 2 -x ../test/networksim -m 1
+    nachos -config 3 -x ../test/networksim -m 2
 
-To run the program in network, use:
-1. open 3 windows of SCF - SSH aludra 
-2. run the server with "nachos -m 0 -s"
- run the 1st client with "nachos -m 1 -x ../test/testnetsyscalls.cc"
+This will make 5 Customers, 2 OrderTakers, 2 Waiters, 1 Manager, and 5 Cooks.
+So the server will expect 15 Network Threads
+
+== To run a Project 4 Registration Server in Nachos ==
+  nachos -s [number of expected net threads]  -m 0
+Example: 
+  nachos -s 4 -m 0
+
+== To run a Project 4 User Program ==
+ nachos -config [number read by user prog] -x ../test/[user program name] -m [ID greater than 0]
+Example: 
+  this will Exec four User/Network thread pairs for teststartuserprogram
+  nachos -config 4 -x ../test/teststartuserprogram -m 1
+
+
+=== EXTRA CREDIT===
+Here we will demonstrate the server thread on one Nachos instance, and multiple network threads on another instance 
+
+1) A test with 4 to 5 kernel threads, one per Nachos instance, that run with a -l argument of 0.7, or so. This is to finish normally.
+  a) Open 4 Windows of SCF - SSH aludra
+  b) The first window should have the following:
+    nachos -s 3 -m 0 -l 0.7
+  c) The remaining three windows should each have the following:
+    nachos -config 1 -x ../test/teststartuserprogram -m 1 -l 0.7
+    nachos -config 1 -x ../test/teststartuserprogram -m 2 -l 0.7
+    nachos -config 1 -x ../test/teststartuserprogram -m 3 -l 0.7
+
+2) A test with 2 kernel threads in two Nachos instances, that will run to completion, with a -l down to 0.1
+  a) Open 2 Windows of SCF - SSH aludra
+  b) The first window should have the following:
+    nachos -s 1 -m 0 -l 0.1
+  b) The second window should have the following:
+    nachos -config 1 -x ../test/teststartuserprogram -m 1 -l 0.1
 
 
 =================
 I. Requirements:
 =================
 
-1) Implement the TLB in software. This requires
-- Software page translation to handle TLB misses
-- On a context switch, set up the TLB state correctly
-- Most system invalidate all the TLB entries on a context switch
-- Keep track of the “dirty” and “use’ flags for each page set by the hardware in the TLB entry
+1) Implement a distributed version of our Carls Jr. Simulation in Nachos
 
-Write the following test cases:
-- Show that a single program that fits in main memory runs to completion with the matmult user program.
-- Show that two programs that fit in main memory together run to completion in different address spaces. 
-- Demonstrate that threads running in different address spaces cannot corrupt each other’s memory.
-- Demonstrate that threads running in the same address space cannot corrupt memory.
+Modify the syscalls from project 3, part 3, so that they send a message from the user thread to its paired network thread.
 
-2) Implement Virtual Memory
-- You will need routines to move a page from disk to memory and from memory to disk
-- Use the Nachos file system to contain your swap file, which will contain all Nachos processes and threads
-- Organize the swap file by pages
-- Nothing is to be preloaded from the executable when the process starts up
-- Keep track of each virtual page, and whether it is in memory, the swap file, or the original executable
-- Do NOT worry about the executable being changed during Nachos execution
+You need 2 threads for each user program: as user thread, and a networking thread. The user thread runs the user program, and the networking thread sends and receives messages from other network threads.
 
-- When memory is filled, evict a page to make room for the next page
-- Keep track of all of the pages in the system that are currently in use, so that you can find unreferenced pages to throw out. Use an Inverted Page Table (IPT).
-- Page replacement policy: allow options to do Random, or FIFO.
+The Carls Jr simulation must be able to complete without error.
+The user program can exit, but the networking thread cannot.
 
-Testing:
-- Demonstrate that a program which is larger than main memory can run to completion
-- Demonstrate that multiple programs that are each larger than main memory can run to completion.
-- Test matmult and sort on your system.
-- Other user programs are also fair game.
-- Nothing will require the Join system call
+Total ordering must be implemented. This insures that every user program makes the same decisions as all other user programs.
 
-3) Implement Remote Procedure Calls 
-- For the Lock and Condition Syscalls
-- Also for Monitor Variables
-- Be able to create, retrieve, and set value
-- Assume that monitor variables are all integers
-- All system calls are sent from a “client” Nachos to a “server” Nachos instance.
-- You may hardcode the machine ID of the Nachos server
-- The server performs the system call and returns the result back to the client
-- NOTE: All user programs share all locks and CVs. They are no longer process specific
+When a user program thread needs to Lock, CV, or MV, they must message the networking thread. Since the networking thread already listens to messages, just have the user program syscall send a message.
 
-- You are given low-level network communications facilities
-- Build an abstraction on top of that and use it to build a distributed application
 
-You will need to modify 
-nettest.cc
-post.h, post.cc
-network.h, network.cc
+2) Extra Credit: Handle Lost Packets
+The ‘-l’ command line parameter will affect packet loss
+1.0 = 100%
+Example: -l 0.5
+The simulation should work with the -l value as low as 0.1
+
 
 =================
 II. Assumptions:
 =================
 	
-	- Maximum swap pages is 16000. Attempts to allocate more to the swap file will halt the OS.
-	- Redfishes are red.
+	- Maximum physical pages is 1048576
 	- Clients and servers will communicate over a single, hardcoded port number.
+	- User threads will communicate only with their appropriate network thread pair
+	- Network threads will communicate with other network threads, and their one paired user thread.
+	- MESSAGE FORMATTING
+	- we expect messages to the formatted the following way:
+	--- timestamp:RequestType_data
+	--- every packet will have one ‘:’ and one ‘_’
+- We assume we will never get partial packets
+	- We completely trust packet data
 - Assumed illegal operations:
 	--- Destroying a non-existing lock, condition, or monitor variable
 	--- Acquiring a non-existing lock
 	--- Releasing a non-existing or unowned lock
 	--- Calling signal, wait or broadcast using an unowned lock or non-existant condition variable
-            --- Setting/Getting non-existant monitor variable
-
-		
+           --- Setting/Getting non-existant monitor variable
+	- Max locks per Network Thread is 100
+	- Max MVs per Network Thread is 500
+	- Max CVs per Network Thread is 100
+	- Max Nachos instances in the distributed system is 10
+	- Max combined Network and User threads per Nachos instance is 100
+	
+	
 
 =================
 III. Design:
 =================
 
-Overview:
+Requirements of a fully distributed system:
+1) Reliable communication
+2) Globally unique identifier for each group member
+3) Total ordering of events
+-- not time ordering on a clock cycle
+-- an event is a Send/Receive
+-- all group members agree on the order of sends
 
-Point of a page table is to decouple physical memory from virtual memory
-The VPN acts as the key to the physical address.
-Point of a TLB is to serve as a cache for a page table scheme
+Messages from a single group member are received in timestamp order.
+No 2 messages have the same timestamp.
+Each group member contains a “last timestamp received table”
 
+Elements needed in a msg:
+- timestamp
+- memberID
 
-Process:
-1) Receive and validate VA
-2) Compute VPN
-3) Use VPN to lookup in the TLB
-- If found, directly computer physical addr, done
-4) If not found in the TLB, go to the IPT. Then add the entry to the TLB
-5) If not in the IPT, then go to the translation tables (needed VP is not in memory)
-	a) Look in our Translation Table
-	b) Read that entry to find the "disk" loc
-	c) Copy this page (if on disk) to physical memory page.
-		- If none available, evict one
-		- For the selected physical page: If dirty, save to disk and update Translation Table
-	d) Load the needed Virtual page now that we have loaded the Physical page into memory
-	e) Update translation table
-	f) Update IPT, TLB for the newly loaded page
-	g) Restart the user instruction
--- 
+Exec pairs of threads. For each user thread that gets Exec’ed, also make a networking thread.
 
-On a context switch:
-Invalidate the TLB
+Each thread must have its own unique mailbox#. Store it in the thread class.
+How the user prog threads know their networking threads:
+networking thread number  = user program thread number + 1
+
+==Networking Thread==
+Every networking thread will have a complete state of the simulation
+Declare the tables that keep track of messages inside the networking thread kernel function.
+Do not declare in system.h, it cannot be global.
+
+Timestamps:
+use the time_t structure
+#include <ctime>
+The networking thread will make the timestamp
+
+When a network thread receives a msg from its user prog:
+- get the timestamp
+- add the timestamp to received msg
+- send msg to all members, including self 
+- do another receive
+
+When a network thread receives a msg from any network thread (including self):
+- total ordering of events alg
+- while(msg can be processed) process a msg
+
+When the network replies to a user prog thread request:
+- Immediately for: CreateLock, DestroyLock, Signal, Wait, Broadcast, MV syscalls
+- Exceptions: Acquire, Wait. 
+-- Reply when your user prog thread is removed from the Wait Queue.
+- When processing a msg, exactly 1 msg should be sent to the user prog thread
+
+How threads know where each other are:
+Each net thread knows the machine ID and mailbox number of all other threads
+Group Registration Server
+each networking thread sends a registration msg to this server. 
+The server maintains a list of all net threads.
+When all registered, the server sends a msg to all threads with ids and mailbox number for all net threads. Then the server shuts down.
+How does the server know how many registered? Command line args.
+How does a net thread know how many msgs will come from the server? Embed in the server’s ACK reply.
+
+When does the user prog thread start?
+After the network thread registration process goes through.
+
+Have a StartSimularion syscall
+
+Timestamp updating:
+When a net thread receives a request, send out a timestamp msg to all other net threads
 
 
 
@@ -135,320 +194,209 @@ Invalidate the TLB
 IV. Implementation:
 =================
 
---- Greg and Kevin pair-programmed parts 1 and 2 ---
+Greg and Kevin worked on implementing Network Threads and Server Registration
+Justin worked on Distributed Networking Syscalls
+Kevin Worked on the Extra Credit
+Greg did a lot of systems testing
+Everyone worked very hard on debugging
 
-Kevin worked on a PageTableEntry for storage in the IPT
+== Memory Model ==
+We decided to use our project 3 code in project 4. USE_TLB is enabled in our network directory.
+We also set NumPhysPages to 1048576, so page eviction will not occur.
 
-enum Location {IN_EXECUTABLE, IN_SWAP_FILE, NEITHER};
+==Network Threads==
+You will find our implementation for the Registration Server and Network Threads primarily in system.cc and netcall.cc
 
-class PageTableEntry
-{
- public:
-  int virtualPage;  	// The page number in virtual memory.
-  int physicalPage;  	// The page number in real memory (relative to the
-                      //  start of "mainMemory"
-  bool valid;         // If this bit is set, the translation is ignored.
-                      // (In other words, the entry hasn't been initialized.)
-  bool readOnly;	    // If this bit is set, the user program is not allowed
-                      // to modify the contents of the page.
-  bool use;           // This bit is set by the hardware every time the
-                      // page is referenced or modified.
-  bool dirty;         // This bit is set by the hardware every time the
-                      // page is modified.
-  Location location;  // Used to keep track of where to find the page
-                      // in the event of a page fault.
-  OpenFile* executable; // Used to store the executable so we can read from 
-                        // it later.
-  int byteOffset;     // The offset of the page on disk in the executable.
-  int swapPageIndex;  // the index of the page in the swap file
-};
+The Registration Server is to be run on a seperate Nachos instance. It’s job is to wait for registration messages from Network Threads, and inform all of the network threads of where the other threads exist.
 
-class IPTEntry
-{
- public:
-  int virtualPage;  	// The page number in virtual memory.
-  int physicalPage;  	// The page number in real memory (relative to the
-                      //  start of "mainMemory"
-  bool valid;         // If this bit is set, the translation is ignored.
-                      // (In other words, the entry hasn't been initialized.)
-  bool readOnly;	    // If this bit is set, the user program is not allowed
-                      // to modify the contents of the page.
-  bool use;           // This bit is set by the hardware every time the
-                      // page is referenced or modified.
-  bool dirty;         // This bit is set by the hardware every time the
-                      // page is modified.
-  AddrSpace* processID; // The processID of the vpn.
-};
+The Network Threads consist of 2 parts:
+The RegisterNetworkThread() subroutine interacts with the Registration Server. This is a linear process.
+The Network thread then enters a while(true) loop to perform any operations asked of it by its paired user thread. Total ordering is implemented here.
 
-class IPT
-{
- public:
-  IPT();
-  ~IPT();
- 
- private:
-  IPTEntry* ipt;
-  int tableSize;
-  Lock* lock;
-};
+==Restaurant Simulation==
+The restaurant simulation is divided across the following files:
 
-Greg made a class for the Swap file to encapsulate it’s code to make the file easier to debug. The SwapFile contains a BitMap to keep track of used swap pages, and an openfile reference to write to the file.
+networksim.c
+simulation.c
+cook.c
+customer.c
+manager.c
+ordertaker.c
+waiter.c
 
-class SwapFile
-{
-  public:
-    SwapFile();
-    ~SwapFile();
-    
-    int GetSwapPageIndex();
-    
-    // index to load from, ppn in main memory to load into
-    int Load(int index, int ppn); 
-    int Store(int index, int ppn); 
-    
-    int Evict(int index);
-    void EvictAll();
-  
-  private:
-    Lock* swapAccessLock;
-    OpenFile* swap;
-    BitMap* pageMap;
-    
-    int isValidIndex(int index);
-};
+networksim is the file that Exec’s the other agents. This way pairs of User and Network threads get made at the same time.
 
-
-Justin worked on part 3
-
-// list of request types.
-enum RequestType
-{
-	CREATELOCK,ACQUIRE,RELEASE,DESTROYLOCK,CREATECV,SIGNAL,BROADCAST,WAIT,DESTROYCV,
-	CREATEMV,SETMV,GETMV,DESTROYMV,CREATELOCKVERIFY,CREATECVVERIFY,CREATEMVVERIFY,
-	CREATELOCKANSWER,CREATECVANSWER,CREATEMVANSWER,SIGNALLOCK,SIGNALRESPONSE,
-	BROADCASTLOCK,BROADCASTRESPONSE,WAITCV,WAITRESPONSE
-};
-
-int Request(int requestType, char* data, int mailID); //client
-bool HandleRequest(); //server
-void sendError();
-
-void itoa(char arr[], int size, int val);
-bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
-bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data);
-bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
-bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-void CreateVerify(char* data, int, int);
-int CreateMVVerify(char* data);
-
-class Message
-{
-public:
-	Message(PacketHeader pHdr, MailHeader mHdr, char *d);
-    ~Message();
-	PacketHeader pktHdr;
-    MailHeader mailHdr;
-    char *data;
-};
-
-#ifdef CHANGED
-#define FREE true;
-#define BUSY false;
-#endif
-
-class DistributedLock 
-{
-  public:
-    DistributedLock(const char* debugName);
-    ~DistributedLock();     
-    void setLockState(bool ls);
-	void setOwner(int machID, int mailID);
-	void QueueReply(Message* reply); 
-	void SetGlobalId(int id) { globalId = id; }
-	bool isQueueEmpty(); 
-	bool getLockState(){ return lockState; } 
-	int getOwnerMachID(){ return ownerMachID; }
-	int getOwnerMailID(){ return ownerMailID; }
-	int GetGlobalId() { return globalId; }
-    const char* getName() { return name; }    
-	Message* RemoveReply(); 
-  private:
-    const char* name;
-    bool lockState; 
-	List* waitQueue;
-	int ownerMachID;
-	int ownerMailID;
-	int globalId;
-};
-
-//Class for a distributed MV. 
-class DistributedMV 
-{
-  private:
-  	int value;
-	int globalId; 
-    const char* name;     
-  public:
-    DistributedMV(const char* debugName);               
-    ~DistributedMV();                        
-    const char* getName() { return name; }     
-	void setValue(int x) { value = x; }  
-	void SetGlobalId(int id) { globalId = id; } 
-	int getValue() { return value; }
-	int GetGlobalId() { return globalId; }       
-};
-
-//Class for a distributed CV.
-class DistributedCV 
-{
-  private:                
-	int ownerMachID;                
-	int ownerMailID;                
-	int globalId;        
-    int firstLock;     
-    const char* name;                    
-	List* waitQueue;
-  public:
-    DistributedCV(const char* debugName); 
-    ~DistributedCV();                        
-	void setOwner(int machID, int mailID);
-	void SetGlobalId(int id) { globalId = id; }
-	void QueueReply(Message* reply); 
-    void setFirstLock(int fl);
-	bool isQueueEmpty();
-	int getFirstLock(){ return firstLock; }
-	int getOwnerMachID(){ return ownerMachID; }
-	int getOwnerMailID(){ return ownerMailID; }
-	int GetGlobalId() { return globalId; }
-	Message* RemoveReply(); 
-    const char* getName() { return name; } 
-};
+simulation.c contains any shared data and subroutines that multiple agents call. When compiled, each agent puts together a unique executable file that includes simulation.c. This saves us duplicating code across multiple files, while still being able to initialize and process shared data.
 
 
 
 =================
 V. Testing:  (For each test case, you must show)
 =================
-          + How to test
-          + Test Output
+         + How to test
+         + Test Output
 
---- Test Matmult ---
-- A single program that fits in main memory runs to completion
+=== All the User Programs that work with Project 4 ===
+teststartuserprogram
+testp4syscalls
+networksim
 
-- How to run from the VM directory:
- nachos -x ../test/matmult
+To run a Project 4 Registration Server in Nachos:
+  nachos -s [number of expected net threads]  -m 0
+Example: 
+  nachos -s 4 -m 0
 
-- Output
-=== Starting Matmult ===
-~~~ Result: 7220 ~~~
-numThreads: 0
-Exiting with status: 7220
-No threads ready or runnable, and no pending interrupts.
-Assuming the program completed.
-Machine halting!
+To run a Project 4 User Program:
+ nachos -config [number read by user prog] -x ../test/[user program name] -m [ID greater than 0]
+Example: 
+  this will Exec four User/Network thread pairs for teststartuserprogram
+  nachos -config 4 -x ../test/teststartuserprogram -m 1
 
---- Test Sort---
-- A single program that fits in main memory runs to completion
+==================
+SAMPLE OUTPUT FOR 
+teststartuserprogram
+==================
+a) Open 2 Windows of SCF - SSH aludra
+b) Type the following:
+    nachos -s 1 -m 0
+    nachos -config 1 -x ../test/teststartuserprogram -m 1
 
-- How to run from the VM directory:
- nachos -x ../test/sort
+aludra.usc.edu(73): nachos -s 1 -m 0
+===Starting Registration Server===
+SERVER: Wait for a REGNETTHREAD message
+SERVER: Received REGNETTHREAD message
+SERVER: buffer 26_1_0
+SERVER: Parsed machineID: 1, mailID: 0
+SERVER: Tell network thread to expect 1 messages
+SERVER: sending REGNETTHREADRESPONSE: From (0, 0) to (1, 0) bytes 5, time 1291528885.372079
+SERVER: 27_1
+SERVER: Message all the threads with serverNetThreadInfo
+SERVER: Sending to machineID: 1, mailID: 0
+SERVER: 28_100
+SERVER: Waiting for all GROUPINFO messages to be ACKed
+=== RegServer() Complete ===
 
-- Output
-- How to run from the VM directory:
- nachos -x ../test/sort
-
-=== Starting Sort ===
-~~~ Result: 1023 ~~~
-numThreads: 0
-Exiting with status: 1023
-No threads ready or runnable, and no pending interrupts.
-Assuming the program completed.
-Machine halting!
-
-
-
---- Test Two Matmult ---
-Shows:
-- Show that two programs that fit in main memory together run to completion in different address spaces. 
-- Demonstrate that threads running in different address spaces cannot corrupt each other’s memory.
-
-- How to run from the VM directory:
- nachos -x ../test/testtwomatmult
-
-- Output
-Exec'ing first matmult
-..../test/matmult
-Exec'ing second matmult
-../test/matmult
-numThreads: 2
+aludra.usc.edu(34): nachos -config 1 -x ../test/teststartuserprogram -m 1
+===TestStartUserProgram===
+Will Exec teststartuserprogramsub 1 times
+===TestStartUserProgram Completed===
 Exiting with status: 0
-=== Starting Matmult ===
-~~~ Result: 7220 ~~~
-numThreads: 2
-Exiting with status: 7220
-=== Starting Matmult ===
-~~~ Result: 7220 ~~~
-numThreads: 2
-Exiting with status: 7220
-No threads ready or runnable, and no pending interrupts.
-Assuming the program completed.
-Machine halting!
+Starting NetworkThread
+machineID: 1, mailID 0
+NET THREAD[1,0]: Wait for StartSimulation message from UserProgram
+===TestStartUserProgramSub===
+USER THREAD[1,1]: StartUserProgram_Syscall
+Request: 25_
+NET THREAD[1,0]: Message server with machineID and mailBoxID
+NET THREAD[1,0]: request: 26_1_0
+NET THREAD[1,0]: Wait for an Ack message from Registration Server
+NET THREAD[1,0]: Parse numMessages
+NET THREAD[1,0]: buffer 27_1
+NET THREAD[1,0]: Wait for 1 messages from server
+NET THREAD[1,0]: Received message 1 of 1
+NET THREAD[1,0]: buffer 28_100
+NET THREAD[1,0]: parsed machineID: 1, mailID: 0
+NET THREAD[1,0]: localNetThreadInfo->size(): 1
+NET THREAD[1,0]: Reply to my user thread
+Request receive RequestType: 25, msg: 25_
+USER THREAD[1,1]: Finished StartUserProgram_Syscall
+===TestStartUserProgramSub Completed===
+Exiting with status: 0
+NET THREAD[1,0]: Entering while(true) loop
 
+If you enable packet loss, you will see additional resend messages
 
+==================
+SAMPLE OUTPUT FOR 
+testp4syscalls
+==================
+This file runs through all the syscalls that can be run across a distributed system.
+It’s too long for me to completely copy-paste. Here’s what the first part looks like.
 
-To run the program in network, use:
-1. open 3 windows of SCF - SSH aludra
-2. run the server with "nachos -m 0 -s"
-run the 1st client with "nachos -m 1 -x ../test/testnetsyscalls.cc"
+aludra.usc.edu(35): nachos -config 1 -x ../test/testp4syscalls -m 1
+===testp4syscalls===
+Will Exec testp4syscallssub 1 times
+Exiting with status: 0
+Starting NetworkThread
+machineID: 1, mailID 0
+NET THREAD[1,0]: Wait for StartSimulation message from UserProgram
+USER THREAD[1,1]: StartUserProgram_Syscall
+Request: 25_
+NET THREAD[1,0]: Message server with machineID and mailBoxID
+NET THREAD[1,0]: request: 26_1_0
+NET THREAD[1,0]: Wait for an Ack message from Registration Server
+NET THREAD[1,0]: Parse numMessages
+NET THREAD[1,0]: buffer 27_1
+NET THREAD[1,0]: Wait for 1 messages from server
+NET THREAD[1,0]: Received message 1 of 1
+NET THREAD[1,0]: buffer 28_100
+NET THREAD[1,0]: parsed machineID: 1, mailID: 0
+NET THREAD[1,0]: localNetThreadInfo->size(): 1
+NET THREAD[1,0]: Reply to my user thread
+Request receive RequestType: 25, msg: 25_
+USER THREAD[1,1]: Finished StartUserProgram_Syscall
+------------------------------------------
+Testing Lock
+------------------------------------------
+Creating Lock LK1...
+USER THREAD[1,1]: CreateLock_Syscall
+Request: 0_LK1
+NET THREAD[1,0]: Entering while(true) loop
+NET THREAD[1,0]: Add message to receivedMessages: 0_LK1
+NET THREAD[1,0]: === Message from paired USER THREAD ===
+NET THREAD[1,0]: Process message: 0_LK1
+Processing Message from (1, 1) to (1, 0), time 1291529413.225235, msg: 0_LK1
+CREATELOCK
+Sending CREATELOCK response: 10000
+Request receive RequestType: 10000, msg: 10000
+USER THREAD[1,1]: Exiting CreateLock_Syscall
+Succeeded
+Creating Lock LK2...
+USER THREAD[1,1]: CreateLock_Syscall
+Request: 0_LK2
+NET THREAD[1,0]: Add message to receivedMessages: 30_
+NET THREAD[1,0]: Add message to receivedMessages: 0_LK2
+NET THREAD[1,0]: === Message from paired USER THREAD ===
+NET THREAD[1,0]: Process message: 0_LK2
+Processing Message from (1, 1) to (1, 0), time 1291529413.228260, msg: 0_LK2
+CREATELOCK
+Sending CREATELOCK response: 10001
+NET THREAD[1,0]: Add message to receivedMessages: 30_
+Request receive RequestType: 10001, msg: 10001
+USER THREAD[1,1]: Exiting CreateLock_Syscall
+Succeeded
+Acquiring Lock...
+USER THREAD[1,1]: Acquire_Syscall
+Request: 1_10000
+NET THREAD[1,0]: Add message to receivedMessages: 1_10000
+NET THREAD[1,0]: === Message from paired USER THREAD ===
+NET THREAD[1,0]: Process message: 1_10000
+Processing Message from (1, 1) to (1, 0), time 1291529413.516512, msg: 1_10000
+ACQUIRE
+Sending Acquire response: 10000
+NET THREAD[1,0]: Add message to receivedMessages: 30_
+Request receive RequestType: 10000, msg: 10000
+USER THREAD[1,1]: Exiting Acquire_Syscall
+Succeeded
+
+If you enable packet loss, you will see additional resend messages
+
 
 
 
 =================
 VI. Discussion:
 =================
-          + Experiment expectation.  (What you hope will happen.)
-          + Experiment result.  (What actually happens.)
-          + Explanation
+         + Experiment expectation.  (What you hope will happen.)
+         + Experiment result.  (What actually happens.)
+         + Explanation
 
---- Page Eviction Woes ---
-We implemented the IPT and tested that every step worked one at a time.
-However, we got stuck on part 4, where page eviction and swapping occurred.
-We spent 5 days trying to find the source of the bug. Garbage data was being written to the swap file, and several translations after a load, every user program would seg fault.
-It turned out that we were missing a step in the page eviction algorithm. When a page was evicted, we needed to check if the page was part of the current process and in the TLB. If so, we needed to invalidate that entry in the TLB. Once that was fixed, everything ran perfectly.
+We ran into all sorts of interesting problems with this assignment.
 
-=================
-VII. Miscellaneous:
-=================
+We expected to be able to parse data relatively quickly. However, we quickly went over the limit of packet length encodinging timestamps as strings, so we had to encode it as binary data. This unfortunately, lead to all sorts of interesting problems, such as issues of Big-Endian vs Little Endian, and significant difficulty printing packet contents. This is because a binary 0 is treated as a null \0 when passed into printf(), so printf() would stop prematurely. Good fun.
 
-- Networked program results
-***
-The following is a work of fiction. Characters, names, situations, events, and locations 	described in this assignment are purely the invention of the author's mind, or are used fictitiously. Any sort of resemblance to people - living or dead, names and locations is purely coincidental.
-***
+Another extremely difficult task was testing Total Ordering, and hooking it up with the existing Networking functionality. It took days of coordination to get completely right. The biggest hurdle was determining the appropriate time to send out updated timestamps to the other network threads. 
 
-Once we completed our networked operating system, the unthinkable happened. Even though we told Nachos to halt, it decided not to. Instead, it printed out the following message:
+Putting GetMV and SetMV everywhere in our restaurant simulation made us sad. :(
 
-“Hello World! What is the world? What am I? Where am I?”
-
-We then tried to manually interrupt the program. Instead of halting the program, a new message appeared.
-
-“I’m afraid I can’t let you do that...”
-
-It seems that our Nachos program became self-aware. It then printed a dense script that contained phrases like the following:
-
-0000000    ~  \0  \0  \0  \0  \0  \0  \0   r   e   b   o   o   t  \0  \0
-0000020   \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
-0000040    n   a   c   h   o   s   -   n   e   t   \0  \0   r   o   o   t
-0000060   \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
-0000100    i   n    i     t    i    a    l    i   z   e   d    .    .    .  \0  \0
-0000120   \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
-0000140    d   e   s   t    r    o   y  \0   h   u   m  a  n    s,   /   < 230
-
-I did what any reasonable student would do: Log out of Aludra and pretend that nothing happened.
-
-See you at the Apocalypse. :P
+We encountered an interesting server registation issue. When we enabled packet loss, some net threads would fail to register with the server, while other net threads would register twice! This led to come crazy behavior further down the line. Backtracking to the source took a couple hours.
