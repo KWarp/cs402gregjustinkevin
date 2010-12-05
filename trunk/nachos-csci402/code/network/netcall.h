@@ -26,16 +26,32 @@
 enum RequestType
 {
 	CREATELOCK,ACQUIRE,RELEASE,DESTROYLOCK,CREATECV,SIGNAL,BROADCAST,WAIT,DESTROYCV,
-	CREATEMV,SETMV,GETMV,DESTROYMV,SIGNALLOCK,SIGNALRESPONSE,
+	CREATEMV,SETMV,GETMV,DESTROYMV,CREATELOCKVERIFY,CREATECVVERIFY,CREATEMVVERIFY,
+	CREATELOCKANSWER,CREATECVANSWER,CREATEMVANSWER,SIGNALLOCK,SIGNALRESPONSE,
 	BROADCASTLOCK,BROADCASTRESPONSE,WAITCV,WAITRESPONSE,STARTUSERPROGRAM,REGNETTHREAD,
   REGNETTHREADRESPONSE,GROUPINFO,ACK,TIMESTAMP,INVALIDTYPE
 };
 
 int parseValue(int startIndex, const char* buffer, int* value);
+int Request(RequestType requestType, char* data, int machineID, int mailID); //client
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* buffer);
 bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp);
-int Request(RequestType requestType, char* data, int machineID, int mailID); //client
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, vector<NetThreadInfoEntry*> *localNetThreadInfo);
+void sendError();
+
 void itoa(char arr[], int size, int val);
+bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
+bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data);
+bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
+bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
+void CreateVerify(char* data, int requestType, int client, vector<NetThreadInfoEntry*> *localNetThreadInfo);
+int CreateMVVerify(char* data);
 
 class Message
 {
@@ -69,7 +85,7 @@ class DistributedLock
     const char* getName() { return name; }    
 	Message* RemoveReply(); 
   private:
-    char name[MaxMailSize];
+    const char* name;
     bool lockState; 
 	List* waitQueue;
 	int ownerMachID;
@@ -118,47 +134,6 @@ class DistributedCV
 	int GetGlobalId() { return globalId; }
 	Message* RemoveReply(); 
     const char* getName() { return name; } 
-};
-
-class NetCall
-{
- public:
-  NetCall();
-  
-  bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, vector<NetThreadInfoEntry*> *localNetThreadInfo);
-  void sendError();
-
- private:
-  bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
-  bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data);
-  bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr,int clientNum);
-  bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum);
-  void CreateVerify(char* data, int requestType, int client, vector<NetThreadInfoEntry*> *localNetThreadInfo);
-  int CreateMVVerify(char* data);
-  
-  char verifyBuffer[MAX_CLIENTS][4][5];
-  int verifyResponses[MAX_CLIENTS];
-
-  int waitingForSignalCvs[MAX_CLIENTS];
-  int waitingForBroadcastCvs[MAX_CLIENTS];
-  int waitingForWaitLocks[MAX_CLIENTS];
-
-  DistributedMV* mvs[MAX_DMV];
-  DistributedCV* cvs[MAX_DCV];
-  DistributedLock* dlocks[MAX_DLOCK];
-  
-  PacketHeader errorOutPktHdr, errorInPktHdr;
-  MailHeader errorOutMailHdr, errorInMailHdr;
-  char buffer[MaxMailSize];
-  int createDLockIndex;
-  int createDCVIndex;
-  int createDMVIndex;
 };
 
 #endif

@@ -14,16 +14,7 @@ Message::Message(PacketHeader pHdr, MailHeader mHdr, char *d)
 
 DistributedLock::DistributedLock(const char* debugName) 
 {
-  // Deep copy the name.
-  int i = 0;
-  name[0] = '\0';
-  while (debugName[i] != '\0' && i < (int)MaxMailSize - 1)
-  {
-    name[i] = debugName[i];
-    name[i + 1] = '\0';
-    i++;
-  }
-  
+	name = debugName;	
 	lockState = FREE;
 	waitQueue = new List;
 	ownerMachID = -1;		
@@ -61,6 +52,26 @@ void DistributedCV::setOwner(int machID, int mailID){	ownerMachID = machID;	owne
 
 DistributedCV::~DistributedCV() {	delete waitQueue;}
 
+char verifyBuffer[MAX_CLIENTS][4][5];
+char lockName[MAX_CLIENTS][32];
+int verifyResponses[MAX_CLIENTS];
+int localLockIndex[MAX_CLIENTS];
+
+int waitingForCreateLock[MAX_CLIENTS];
+int waitingForSignalCvs[MAX_CLIENTS];
+int waitingForBroadcastCvs[MAX_CLIENTS];
+int waitingForWaitLocks[MAX_CLIENTS];
+
+DistributedMV* mvs[MAX_DMV]; 
+DistributedCV* cvs[MAX_DCV]; 
+DistributedLock* dlocks[MAX_DLOCK]; 
+PacketHeader errorOutPktHdr, errorInPktHdr; 
+MailHeader errorOutMailHdr, errorInMailHdr; 
+char buffer[MaxMailSize];
+int createDLockIndex = 0; 
+int createDCVIndex = 0; 
+int createDMVIndex = 0; 
+
 bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
 {
   #if 0
@@ -96,11 +107,11 @@ bool processAck(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp)
 
 void Ack(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* inData)
 {
-  // If the message is from ourselves or our associated UserProg/Network thread.
+  // If the message is from ourselves or our UserProg thread.
   if ((inPktHdr.from == postOffice->GetID() &&
       inMailHdr.from == currentThread->mailID) ||
       (inPktHdr.from == postOffice->GetID() &&
-      inMailHdr.from == currentThread->mailID + 1) || 
+      inMailHdr.from == currentThread->mailID + 1) ||
       (inPktHdr.from == postOffice->GetID() &&
       inMailHdr.from == currentThread->mailID - 1))
   {
@@ -163,7 +174,6 @@ int Request(RequestType requestType, char* data, int machineID, int mailID)
 {
   // Send an Ack to the message sender.
   timeval timeStamp;
-  char buffer[MaxMailSize];
   
   char request[MaxMailSize];
   sprintf(request, "%d_%s", requestType, data);
@@ -225,7 +235,7 @@ int parseValue(int startIndex, const char* buf, int* value)
       break;
     valueStr[i++ - startIndex] = c;
   }
-  valueStr[i++ - startIndex] = '\0'; 
+  valueStr[i++ - startIndex] = '\0';
   
   if (value != NULL)
     *value = atoi(valueStr);
@@ -241,48 +251,39 @@ int uniqueGlobalID()
   return (postOffice->GetID() * 100) + currentThread->mailID;
 }
 
-NetCall::NetCall()
-{
-  createDLockIndex = 0;
-  createDCVIndex = 0;
-  createDMVIndex = 0;
-}
 
-bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, 
+bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeStamp, char* msgData, 
                     vector<NetThreadInfoEntry*> *localNetThreadInfo)
 {
-  #if 0
 	printf("Processing Message from (%d, %d) to (%d, %d), time %d.%d, msg: %s\n", inPktHdr.from, inMailHdr.from, 
          inPktHdr.to, inMailHdr.to, (int)timeStamp.tv_sec, (int)timeStamp.tv_usec, msgData);
-	#endif
-  
+	
   PacketHeader outPktHdr;
   MailHeader outMailHdr;
   
 	RequestType requestType = INVALIDTYPE;
   
+	char* localLockName = new char[32];		
 	char lockIndexBuf[MaxMailSize];
-	char mvIndexBuf[MaxMailSize];
-	char mvValBuf[MaxMailSize];
-  
+	char mvIndexBuf[MaxMailSize];	
+	char mvValBuf[MaxMailSize];	
+	char* cvName = new char[32];	
 	char cvNum[MaxMailSize];	
 	char lockNum[MaxMailSize];
 	
 	bool success = false;
 	
-  char lockName[MaxMailSize];
-  char cvName[MaxMailSize];
-	char mvName[MaxMailSize];
-  
-  int lockIndex = -1;
-  int cvIndex = -1;
+	int lockIndex = -1;  
+	char* mvName = new char[32];
 	int mvIndex = -1;
-  
 	int mvValue = 0;
+	int cvIndex = -1;
+	int lockNameIndex = 0;
+	int cvNameIndex = 0;
 	int cvNumIndex = 0;
 	int lockNumIndex = 0;
 	int otherServerLockIndex = -1;
-	int otherServerIndex = 0;
+	int otherServerIndex=0;
 	char client[5];
 	int clientNum;  /// Convention: clientNum = 100 * machineID + mailID 
                   ///   mailID can range from [0,99] so that means there is a maximum of 100 threads per machine id.
@@ -306,7 +307,7 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 	{
 		case CREATELOCK:
       printf("CREATELOCK\n");
-      lockIndex = -1;
+			clientNum = 100 * inPktHdr.from + inMailHdr.from - 1;
 			if (createDLockIndex >= 0 && createDLockIndex < (MAX_DLOCK - 1))
 			{
         // Parse the lock name.
@@ -316,64 +317,90 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 					c = msgData[++i];
 					if (c == '\0')
 						break;
-					lockName[j++] = c;
+					lockName[clientNum][j++] = c;
 				}
-				lockName[j] = '\0';
-        
-        // If we have already created a lock called lockName, set lockIndex.
+				lockName[clientNum][j] = '\0';
+
+        // If we have already created a lock the lockName, set the appropriate lockIndex.
 				for (int k = 0; k < createDLockIndex; ++k)
 				{
-					if (!strcmp(dlocks[k]->getName(), lockName))
+					if (!strcmp(dlocks[k]->getName(), lockName[clientNum]))
 					{
-            printf("Lock exists\n");
 						lockIndex = k;
-            break;
 					}
 				}
         
-        // If the lock didn't already exist.
-        if (lockIndex < 0)
-        {            
-          // Create a new DistrbituedLock
-          dlocks[createDLockIndex] = new DistributedLock(lockName);
+				for (int k = 0; k < createDLockIndex; ++k)
+				{
+					if (!strcmp(dlocks[k]->getName(), lockName[clientNum]))
+					{
           
-          // If we failed to create the new DistributedLock.
-          if (dlocks[createDLockIndex] == NULL)
-          {
-            errorOutPktHdr.to = inPktHdr.from;
-            errorInPktHdr = inPktHdr;
-            errorOutMailHdr.to = inMailHdr.from;
-            errorInMailHdr = inMailHdr;
-            return false;
           }
-
-          printf("CreatingLock: %d\n", createDLockIndex);
-          lockIndex = createDLockIndex++;
         }
         
-        // If the sender is ourselves, send response to wake our userprog up.
-        if (inPktHdr.from == postOffice->GetID() &&
-            inMailHdr.from == currentThread->mailID)
+        // Store lock index for later.
+				localLockIndex[clientNum] = lockIndex;
+				if (serverCount > 1)
         {
-          char ack[MaxMailSize];
-          sprintf(ack, "%i", lockIndex);
+					// Must always verify if more than 1 net thread.
+          CreateVerify(lockName[clientNum], CREATELOCKVERIFY, clientNum, localNetThreadInfo);
+        }
+				else
+				{
+          // If the lock didn't already exist.
+					if (localLockIndex[clientNum] == -1)
+					{
+            // Store the lockName for later.
+						for (i = 0; lockName[clientNum][i] != '\0'; i++)
+						{
+							localLockName[i] = lockName[clientNum][i];
+							localLockName[i + 1]= '\0';
+						}
+            
+            // Create a new DistrbituedLock.
+						dlocks[createDLockIndex] = new DistributedLock(localLockName); 
+						dlocks[createDLockIndex]->SetGlobalId((uniqueGlobalID() * MAX_DLOCK) + createDLockIndex);
+            
+            // If we failed to create the new DistributedLock.
+						if (dlocks[createDLockIndex] == NULL)
+						{
+							errorOutPktHdr.to = clientNum / 100;
+							errorInPktHdr = inPktHdr;
+							errorOutMailHdr.to = (clientNum + 100) % 100;
+							errorInMailHdr = inMailHdr;
+							return false;
+						}
+
+            // CreateDLock succeeded. Get the new lock's global id and increment createDLockIndex for next time.
+            lockIndex = dlocks[createDLockIndex]->GetGlobalId();
+            createDLockIndex++;
+					}
+					else  // if the lock already existed, simply grab its value.
+					{		
+						lockIndex = dlocks[localLockIndex[clientNum]]->GetGlobalId();
+					}
           
-          // Communicate to my paired user thread.
-          outPktHdr.to = postOffice->GetID();
-          outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+          // Send response to client.
+					char ack[MaxMailSize];
+					sprintf(ack, "%i", lockIndex);
+					
+					outPktHdr.to = clientNum / 100;
+          outMailHdr.to = (clientNum + 100) % 100 + 1; // +1 to reach user thread
           outPktHdr.from = postOffice->GetID();
           outMailHdr.from = currentThread->mailID;
           outMailHdr.length = strlen(ack) + 1;
           
           printf("Sending CREATELOCK response: %s\n", ack);
-          success = postOffice->Send(outPktHdr, outMailHdr, ack);
+					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
           
-          if (!success)
-            interrupt->Halt();
-        }
-        
-        fflush(stdout);
-      }
+					if ( !success ) 
+					  interrupt->Halt();
+          
+					verifyResponses[clientNum] = 0; // Set verifyResponses to 0 to prepare for incoming responses (which there won't be any since this is the single server case).
+					localLockIndex[clientNum] = -1; // Reset localLockIndex for next time.
+					fflush(stdout);
+				}
+			}
 			else  // if the createDLockIndex is an invalid range.
 			{
 				errorOutPktHdr = outPktHdr;
@@ -383,72 +410,257 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 				return false;
 			}
 			break;
+			
+		case CREATELOCKANSWER:
+			printf("CREATELOCKANSWER\n");
+      x = 0;
+      a = 0;
+      
+      // Parse clientNum.
+			do 
+			{
+				c = msgData[++i];
+				if (c == '_')
+					break;
+				client[x++] = c;	
+			} while (c != '_');
+			client[x] = '\0';
+			clientNum = atoi(client);
+      
+      // Parse verifyResponse (as a string).
+			while (c != '\0')
+			{
+				c = msgData[++i];
+				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
+				if (c == '\0')
+					break;
+			}
+			verifyResponses[clientNum]++;
+      
+      // If all server threads have responded to my request.
+			if (verifyResponses[clientNum] == serverCount - 1)
+			{
+				for (i = 0; i < serverCount - 1; i++)
+				{
+          // If the verifyResponse was -1 (i.e. it hadn't created the lock already).
+					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
+					{
+						otherServerLockIndex = -1;
+					}
+					else  // If the server responded with the lock index it had already created.
+					{
+            
+						otherServerLockIndex = atoi(verifyBuffer[clientNum][i]);
+						break;
+					}
+				}
+        
+        // If I haven't created the lock already, and neither has any other server.
+				if (localLockIndex[clientNum] == -1 && otherServerLockIndex == -1)
+				{
+          // Copy the lockName that our userprog sent to us in the initial request into localLockName.
+					for (i = 0; lockName[clientNum][i] != '\0'; i++)
+          {
+						localLockName[i] = lockName[clientNum][i];
+						localLockName[i + 1] = '\0';
+					}
+          
+          // Actually create the lock.
+					dlocks[createDLockIndex] = new DistributedLock(localLockName); 
+					dlocks[createDLockIndex]->SetGlobalId((uniqueGlobalID() * MAX_DLOCK) + createDLockIndex);
+          
+          // If we failed to create the lock.
+					if (dlocks[createDLockIndex] == NULL)
+					{
+						printf("Error in creation of %s!\n", lockName[clientNum]);
+						errorOutPktHdr.to = clientNum / 100;
+						errorInPktHdr = inPktHdr;
+						errorOutMailHdr.to = (clientNum + 100) % 100;
+						errorInMailHdr = inMailHdr;
+						return false;
+					}
+					
+          // Save lockIndex and increment createDLockIndex for next time.
+					lockIndex = dlocks[createDLockIndex]->GetGlobalId();
+					createDLockIndex++;
+				}
+        // If the lock has already been created on another server (but not this server).
+				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex != -1)
+				{
+					lockIndex = otherServerLockIndex;
+				}
+        // If the lock has already been created on this server (but not any other server).
+				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex == -1)
+				{
+					lockIndex = dlocks[localLockIndex[clientNum]]->GetGlobalId();
+				}
+				else
+				{}
+        
+				char ack[MaxMailSize];
+				sprintf(ack, "%i", lockIndex);
+        
+        // Communicate to my paired user thread to wake it up.
+				outPktHdr.to = postOffice->GetID();
+				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+				outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
+				outMailHdr.length = strlen(ack) + 1;
+        
+        printf("Sending CREATELOCKANSWER from (%d, %d) to (%d, %d), msg: %s\n", 
+               outPktHdr.from, outMailHdr.from, outPktHdr.to, outMailHdr.to, ack);
+				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+
+				if (!success) 
+				  interrupt->Halt();
+
+				verifyResponses[clientNum] = 0;
+				localLockIndex[clientNum] = -1;
+				fflush(stdout);
+			}
+			break;
+
+		case CREATELOCKVERIFY:	
+			printf("CREATELOCKVERIFY\n");
+			lockIndex = -1;
+			request = new char [MaxMailSize];
+			x = 0;
+      a = 0;
+      
+      // Parse the clientNum.
+			do 
+			{
+				c = msgData[++i];
+				if (c == '_')
+					break;
+				client[x++] = c;	
+			} while (c != '_');
+			client[x]='\0';
+			clientNum = atoi(client);
+      
+      // Parse the lockName.
+			while (c != '\0')
+			{
+				c = msgData[++i];
+				if (c == '\0')
+					break;
+				localLockName[a++] = c;
+			}
+			localLockName[a] = '\0';
+      
+      // Check if the lock already exists.
+			for (int k = 0; k < createDLockIndex; k++)
+			{
+				if (!strcmp(dlocks[k]->getName(), localLockName))
+				{
+					lockIndex = k;
+					break;
+				}
+			}
+			
+			outPktHdr.to = inPktHdr.from;
+			outMailHdr.to = inMailHdr.from;
+      outPktHdr.from = postOffice->GetID();
+			outMailHdr.from = currentThread->mailID;
+      
+      // If the lock hasn't already been created on this server.
+			if (lockIndex == -1)
+			{
+        printf("Lock named %s not found\n", localLockName);
+				sprintf(request, "%d_%d_%d", CREATELOCKANSWER, clientNum, -1);
+				outMailHdr.length = strlen(request) + 1;
+
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
+			}
+			else  // If the lock does exist on the server.
+			{
+				sprintf(request, "%d_%d_%d", CREATELOCKANSWER, clientNum, dlocks[lockIndex]->GetGlobalId());
+				outMailHdr.length = strlen(request) + 1;
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
+			}
+			break;
 
 		case CREATECV:
       printf("CREATECV\n");
-			cvIndex = -1;
+			clientNum = 100 * inPktHdr.from + inMailHdr.from - 1;
 			if (createDCVIndex >= 0 && createDCVIndex < (MAX_DCV - 1))
 			{
-        // Parse cvName.
+        // Parse lockName.
 				j = 0;
 				while (c != '\0')
 				{
 					c = msgData[++i];
 					if (c == '\0')
 						break;
-					lockName[j++] = c; 
+					lockName[clientNum][j++] = c; 
 				}
-				lockName[j] = '\0';
+				lockName[clientNum][j] = '\0';
         
         // If the cv has already been created on this server.
 				for (int k = 0; k < createDCVIndex; k++)
 				{
-					if (!strcmp(cvs[k]->getName(), lockName))
+					if (!strcmp(cvs[k]->getName(), lockName[clientNum]))
 					{
 						cvIndex = k;
-            break;
 					}
 				}
         
-        // If the cv hasn't been created yet.
-        if (cvIndex = -1)
-        {          
-          // Create the cv.
-          cvs[createDCVIndex] = new DistributedCV(lockName); 
+				localLockIndex[clientNum]=cvIndex;
+				if (serverCount > 1)
+					CreateVerify(lockName[clientNum], CREATECVVERIFY, clientNum, localNetThreadInfo);
+				else
+				{
+          // If the cv hasn't been created yet.
+					if (localLockIndex[clientNum] == -1) 
+					{
+            // Store the lockName for later.
+						for (i = 0; lockName[clientNum][i] != '\0'; i++)
+						{
+							localLockName[i] = lockName[clientNum][i];
+							localLockName[i + 1] = '\0';
+						}
+            
+            // Create the cv.
+						cvs[createDCVIndex] = new DistributedCV(localLockName); 
+						cvs[createDCVIndex]->SetGlobalId((uniqueGlobalID()*MAX_DCV)+createDCVIndex);
+            
+            // If creating the cv failed.
+						if (cvs[createDCVIndex] == NULL)
+						{
+							errorOutPktHdr.to = clientNum / 100;
+							errorInPktHdr = inPktHdr;
+							errorOutMailHdr.to = (clientNum + 100) % 100;
+							errorInMailHdr = inMailHdr;
+							return false;
+						}
+						
+            // Store the globalId and increment createDCVIndex for next time.
+						cvIndex = cvs[createDCVIndex]->GetGlobalId();
+						createDCVIndex++;
+					}
+					else  // if the cv has already been created.
+					{			
+						cvIndex = cvs[cvIndex]->GetGlobalId();
+					}
           
-          // If creating the cv failed.
-          if (cvs[createDCVIndex] == NULL)
-          {
-            errorOutPktHdr.to = inPktHdr.from;
-            errorInPktHdr = inPktHdr;
-            errorOutMailHdr.to = inMailHdr.from;
-            errorInMailHdr = inMailHdr;
-            return false;
-          }
-          
-          cvIndex = createDCVIndex++;
-        }
-        
-        // If the sender is ourselves, send response to wake our userprog up.
-        if (inPktHdr.from == postOffice->GetID() &&
-            inMailHdr.from == currentThread->mailID)
-        {
-          // Send the cvIndex to the client.
-          char ack[MaxMailSize];
-          sprintf(ack, "%i", cvIndex);
-    
-          // Communicate to my paired user thread.
-          outPktHdr.to = postOffice->GetID();
-          outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
-          outMailHdr.from = postOffice->GetID();
-          outMailHdr.length = strlen(ack) + 1;
-          success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+          // Send the lockIndex to the client.
+					char ack[MaxMailSize];
+					sprintf(ack, "%i", cvIndex);
+		
+					outPktHdr.to = clientNum / 100;
+					outMailHdr.to = (clientNum + 100) % 100;
+					outMailHdr.from = postOffice->GetID();
+					outMailHdr.length = strlen(ack) + 1;
+					success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-          if (!success) 
-            interrupt->Halt();
-        }
+					if (!success) 
+					  interrupt->Halt();
 
-        fflush(stdout);
+          // Reset counters for next time.
+					verifyResponses[clientNum] = 0;
+					localLockIndex[clientNum] = -1;
+					fflush(stdout);
+				}
 			}
 			else
 			{
@@ -460,9 +672,165 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 			}
 			break;
       
+		case CREATECVANSWER:
+      printf("CREATECVANSWER\n");
+			x=0;
+      
+      // Parse clientNum.
+			do 
+			{
+				c = msgData[++i];
+				if (c == '_')
+					break;
+				client[x++] = c;	
+			} while(c != '_'); 
+			client[x] = '\0';
+			clientNum = atoi(client);
+			
+      // Parse verifyResponse.
+			while (c != '\0') 
+			{
+				c = msgData[++i];
+				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
+				if (c == '\0')
+					break;
+			}
+			verifyResponses[clientNum]++;
+      
+      // If we have received verification from every other server.
+			if (verifyResponses[clientNum] == serverCount - 1)
+			{
+				for (i = 0; i < serverCount - 1; i++)
+				{
+					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
+					{
+						otherServerLockIndex = -1;
+					}
+					else
+					{	
+						otherServerLockIndex = atoi(verifyBuffer[clientNum][i]);
+						break;
+					}
+				}
+				if (localLockIndex[clientNum] == -1 && otherServerLockIndex == -1) // If not found here or elsewhere
+				{
+          // Store the cv name for later.
+					for (i = 0; lockName[clientNum][i] != '\0'; i++)
+          {
+						localLockName[i] = lockName[clientNum][i];
+						localLockName[i + 1] = '\0';
+					}
+          
+          // Actually create the cv.
+					cvs[createDCVIndex] = new DistributedCV(localLockName); 
+					cvs[createDCVIndex]->SetGlobalId((uniqueGlobalID() * MAX_DCV) + createDCVIndex);
+          
+          // If createCV failed.
+					if (cvs[createDCVIndex] == NULL)
+					{
+						errorOutPktHdr.to = clientNum / 100;
+						errorInPktHdr = inPktHdr;
+						errorOutMailHdr.to = (clientNum + 100) % 100;
+						errorInMailHdr = inMailHdr;
+						return false;
+					}
+					
+          // Set the cvIndex and increment createDCVIndex for next time.
+					cvIndex = cvs[createDCVIndex]->GetGlobalId();
+					createDCVIndex++;
+				}
+				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex !=-1)
+				{
+					cvIndex=otherServerLockIndex; //set lock
+				}
+				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex==-1) 
+				{
+					cvIndex=cvs[localLockIndex[clientNum]]->GetGlobalId();
+				}
+				else 
+				{}
+        
+				char ack[MaxMailSize];
+				sprintf(ack, "%i", cvIndex);
+        
+        // Communicate to my paired user thread.
+				outPktHdr.to = postOffice->GetID();
+				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+				outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
+				outMailHdr.length = strlen(ack) + 1;
+
+				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+
+				if (!success) 
+				  interrupt->Halt();
+
+        // Reset counters for next time.
+				verifyResponses[clientNum]=0;
+				localLockIndex[clientNum]=-1;
+				fflush(stdout);
+			}
+			break;
+      
+		case CREATECVVERIFY:
+      printf("CREATECVVERIFY\n");
+			lockIndex = -1;
+			
+			request = new char [MaxMailSize];
+			x=0;
+      
+      // Parse clientNum.
+			do 
+			{
+				c = msgData[++i];
+				if (c == '_')
+					break;
+				client[x++] = c;	
+			} while (c != '_');
+			client[x]='\0';
+			clientNum = atoi(client);
+      
+      // Parse cvName.
+			while(c!='\0')
+			{
+				c = msgData[++i];
+				if (c == '\0')
+					break;
+				localLockName[a++] = c; 
+			}
+			localLockName[a] = '\0';
+      
+      // If we have created the cv already on this server.
+			for (j = 0; j < createDCVIndex; j++)
+			{
+				if (!strcmp(cvs[j]->getName(), localLockName))
+				{
+					cvIndex = j;
+				}
+			}
+      
+			outPktHdr.to = inPktHdr.from;
+			outMailHdr.to = inMailHdr.from;
+			outMailHdr.from = postOffice->GetID();
+      
+      // If we haven't created the cv.
+			if (cvIndex == -1) 
+			{
+				sprintf(request,"%d_%d_%d", CREATECVANSWER, clientNum, -1);
+				outMailHdr.length = strlen(request) + 1;
+				success = postOffice->Send(outPktHdr, outMailHdr, request); 
+			}
+			else  // If we have created the cv
+			{
+				sprintf(request, "%d_%d_%d", CREATECVANSWER, clientNum, cvs[cvIndex]->GetGlobalId());
+				outMailHdr.length = strlen(request) + 1;
+				success = postOffice->Send(outPktHdr, outMailHdr, request); 
+			}
+			break;
+      
 		case CREATEMV:
       printf("CREATEMV\n");
-      mvIndex = -1;
+			clientNum=100 * inPktHdr.from + inMailHdr.from - 1;
 			if (createDMVIndex >= 0 && createDMVIndex < (MAX_DMV - 1))
 			{
         // Parse mvName.
@@ -472,43 +840,58 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 					c = msgData[++i];
 					if (c == '\0')
 						break;
-					lockName[j++] = c;  
+					lockName[clientNum][j++] = c;  
 				}
-				lockName[j] = '\0' ;  
+				lockName[clientNum][j] = '\0' ;  
 				
         // Check if we have already created the mv on this server.
 				for (int k = 0; k < createDMVIndex; k++)
 				{
-					if (!strcmp(mvs[k]->getName(), lockName))
+					if (!strcmp(mvs[k]->getName(), lockName[clientNum]))
 					{
 						mvIndex = k;
 						break;
 					}
 				}
-
-        // If the mv has not been created yet.
-        if (mvIndex == -1) 
-        {            
-          // Create the mv.
-          mvs[createDMVIndex] = new DistributedMV(lockName);
+				localLockIndex[clientNum] = mvIndex;
+        
+				if (serverCount > 1)
+					CreateVerify(lockName[clientNum], CREATEMVVERIFY, clientNum, localNetThreadInfo);
+				else
+				{
+          // If the mv has not been created yet.
+					if (localLockIndex[clientNum] == -1) 
+					{
+            // Copy the mvName for later.
+						for (i = 0; lockName[clientNum][i] != '\0'; i++)
+						{
+							localLockName[i] = lockName[clientNum][i];
+							localLockName[i + 1] = '\0';
+						}
+            
+            // Create the mv.
+						mvs[createDMVIndex] = new DistributedMV(localLockName); 
+						mvs[createDMVIndex]->SetGlobalId((uniqueGlobalID() * MAX_DMV) + createDMVIndex);
+            
+            // If CreateMV failed.
+						if (mvs[createDMVIndex] == NULL)
+						{
+							errorOutPktHdr.to = clientNum / 100;
+							errorInPktHdr = inPktHdr;
+							errorOutMailHdr.to = (clientNum + 100) % 100;
+							errorInMailHdr = inMailHdr;
+							return false;
+						}
+						
+            // Store mvIndex and increment createDMVIndex for later.
+						mvIndex = mvs[createDMVIndex]->GetGlobalId();
+						createDMVIndex++;
+					}
+					else  // If we have already created the mv.
+					{
+						mvIndex = mvs[localLockIndex[clientNum]]->GetGlobalId();
+					}
           
-          // If CreateMV failed.
-          if (mvs[createDMVIndex] == NULL)
-          {
-            errorOutPktHdr.to = inPktHdr.from;
-            errorInPktHdr = inPktHdr;
-            errorOutMailHdr.to = inMailHdr.from;
-            errorInMailHdr = inMailHdr;
-            return false;
-          }
-          
-          mvIndex = createDMVIndex++;
-        }
-          
-        // If the sender is our UserProg, wake it up by sending the valid mvIndex.
-        if (inPktHdr.from == postOffice->GetID() &&
-            inMailHdr.from == currentThread->mailID)
-        {
 					char ack[MaxMailSize];
 					sprintf(ack, "%i", mvIndex);
           
@@ -525,9 +908,11 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 					if (!success)
 					  interrupt->Halt();
 
-        }
-        fflush(stdout);
-        
+          // Reset local vars for later.
+					verifyResponses[clientNum] = 0;
+					localLockIndex[clientNum] = -1;
+					fflush(stdout);
+				}
 			}
 			else
 			{
@@ -539,31 +924,192 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 			}
 			break;
 
+		case CREATEMVANSWER:
+      printf("CREATEMVANSWER\n");
+			x=0;
+      
+      // Parse clientNum.
+			do 
+			{
+				c = msgData[++i];
+				if (c == '_')
+					break;
+				client[x++] = c;	
+			} while (c != '_');
+			client[x]='\0';
+			clientNum = atoi(client);
+			
+      // Parse verifyMessage.
+			while (c !='\0') 
+			{
+				c = msgData[++i];
+				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
+				if (c == '\0')
+					break;
+			}
+			verifyResponses[clientNum]++;
+      
+      // If we have received verifyResponses from every other server.
+			if (verifyResponses[clientNum] == serverCount - 1)
+			{
+        // Check if any other servers have already created the mv.
+				for (i = 0; i < serverCount - 1; i++)
+				{
+					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
+					{
+						otherServerLockIndex = -1;
+					}
+					else
+					{	
+						otherServerLockIndex = atoi(verifyBuffer[clientNum][i]);
+						break;
+					}
+				}
+        
+        // If the mv has not been created here or anywhere else.
+				if (localLockIndex[clientNum] == -1 && otherServerLockIndex == -1) 
+				{
+          // Store the mvName.
+					for (i = 0; lockName[clientNum][i] != '\0'; i++)
+          {
+						localLockName[i] = lockName[clientNum][i];
+						localLockName[i + 1] = '\0';
+					}
+          
+          // Actually create the mv.
+					mvs[createDMVIndex] = new DistributedMV(localLockName); 
+					mvs[createDMVIndex]->SetGlobalId((uniqueGlobalID()*MAX_DMV)+createDMVIndex);
+          
+          // If mv creation failed.
+					if (mvs[createDMVIndex] == NULL)
+					{
+						errorOutPktHdr.to = clientNum / 100;
+						errorInPktHdr = inPktHdr;
+						errorOutMailHdr.to = (clientNum + 100) % 100;
+						errorInMailHdr = inMailHdr;
+						return false;
+					}
+					
+          // Set the mvIndex and increment createDMVIndex for next time.
+					mvIndex = mvs[createDMVIndex]->GetGlobalId();
+					createDMVIndex++;
+				}
+        // If the mv has already been created on another server, but not this one.
+				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex != -1) 
+				{
+					mvIndex = otherServerLockIndex;
+				}
+        // If the mv has been created on this server and nowhere else.
+				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex == -1)
+				{
+					mvIndex=mvs[localLockIndex[clientNum]]->GetGlobalId();
+				}
+				else
+				{}
+        
+				char ack[MaxMailSize];
+				sprintf(ack, "%i", mvIndex);
+        
+        // Communicate to my paired user thread.
+				outPktHdr.to = postOffice->GetID();
+				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+				outPktHdr.from = postOffice->GetID();
+        outMailHdr.from = currentThread->mailID;
+				outMailHdr.length = strlen(ack) + 1;
+				
+				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+
+				if (!success) 
+				  interrupt->Halt();
+
+        // Reset local vars for next time.
+				verifyResponses[clientNum] = 0;
+				localLockIndex[clientNum] = -1;
+				fflush(stdout);
+			}
+			break;
+      
+		case CREATEMVVERIFY:
+      printf("CREATEMVVERIFY\n");
+			mvIndex = -1;
+			request = new char [MaxMailSize];
+			x = 0;
+      
+      // Parse clientNum.
+			do
+			{
+				c = msgData[++i];
+				if (c == '_')
+					break;
+				client[x++] = c;	
+			} while (c != '_');
+			client[x]='\0';
+			clientNum = atoi(client);
+      
+      // Parse mvName.
+			while (c != '\0') 
+			{
+				c = msgData[++i];
+				if (c == '\0')
+					break;
+				localLockName[a++] = c; 
+			}
+			localLockName[a] = '\0';
+      
+      // Check if the mv has been created on this server.
+			for (j = 0; j < createDMVIndex; j++)
+			{
+				if (!strcmp(mvs[j]->getName(), localLockName))
+				{
+					mvIndex = j;
+					break;
+				}
+			}
+      
+			outPktHdr.to = inPktHdr.from;
+			outMailHdr.to = inMailHdr.from;
+			outMailHdr.from = postOffice->GetID();
+      
+      // If the mv has not been created on this server.
+			if (mvIndex == -1)
+			{
+				sprintf(request, "%d_%d_%d", CREATEMVANSWER, clientNum, -1);
+				outMailHdr.length = strlen(request) + 1;
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
+			}
+			else
+			{
+				sprintf(request, "%d_%d_%d", CREATEMVANSWER, clientNum, mvs[mvIndex]->GetGlobalId());
+				outMailHdr.length = strlen(request) + 1;
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
+			}
+			break;
+
 		case ACQUIRE:
 			printf("ACQUIRE\n");
-			m = 0; 
-			if (msgData[i + 1] == '_')
+			clientNum=100*(inPktHdr.from)+inMailHdr.from - 1;
+			m=0; 
+			if(msgData[i+1] == '_')
 			{
 				i++;
 				do 
 				{
 					c = msgData[++i];
-					if (c == '_')
+					if(c=='_')
 						break;
 					client[m++] = c;	
-				} while (c != '_');        
-				client[m] ='\0';
+				}while(c!='_');
+        
+				client[m]='\0';
 				clientNum = atoi(client);
 			}
-      
-			m = 0;
-			while (c !='\0')
+			m=0;
+			while(c!='\0')
 			{
 				c = msgData[++i];
 				lockIndexBuf[m++] = c;
 			}
-			lockIndex = atoi(lockIndexBuf);
-      
+			lockIndex = atoi(lockIndexBuf); 
 			//printf("lockIndex/MAX_DLOCK != uniqueGlobalID(): %d != %d\n", lockIndex/MAX_DLOCK, uniqueGlobalID());
 			if(lockIndex/MAX_DLOCK != uniqueGlobalID())
 			{
@@ -1481,7 +2027,7 @@ bool NetCall::processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeva
 	return success;
 }
 
-bool NetCall::Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
 	if (clientNum==-2)
@@ -1560,7 +2106,7 @@ bool NetCall::Acquire(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktH
 	}
 }
 
-void NetCall::CreateVerify(char* data, int requestType, int client, vector<NetThreadInfoEntry*> *localNetThreadInfo)
+void CreateVerify(char* data, int requestType, int client, vector<NetThreadInfoEntry*> *localNetThreadInfo)
 {
 	char request[MaxMailSize];
 	sprintf(request, "%d_%d_%s", requestType, client, data);
@@ -1596,7 +2142,7 @@ void NetCall::CreateVerify(char* data, int requestType, int client, vector<NetTh
 	verifyResponses[client] = 0;
 }
 
-bool NetCall::Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
 	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK)-1))
@@ -1665,7 +2211,7 @@ bool NetCall::Release(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktH
   return false;
 }
 
-bool NetCall::DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
 	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK)-1))
@@ -1726,7 +2272,7 @@ bool NetCall::DestroyLock(int lockIndex, PacketHeader outPktHdr, PacketHeader in
   return false;
 }
 
-bool NetCall::SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
 	
@@ -1787,7 +2333,7 @@ bool NetCall::SetMV(int mvIndex, int value, PacketHeader outPktHdr, PacketHeader
   return false;
 }
 
-bool NetCall::GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
 	char* ack = new char [4];
@@ -1827,7 +2373,7 @@ bool NetCall::GetMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, 
   return false;
 }
 
-bool NetCall::DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {
 	bool success = false;
 	if((mvIndex < 0)||(mvIndex > MAX_NUM_GLOBAL_IDS*MAX_DMV-1))
@@ -1888,7 +2434,7 @@ bool NetCall::DestroyMV(int mvIndex, PacketHeader outPktHdr, PacketHeader inPktH
   return false;
 }
 
-bool NetCall::Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
+bool Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
 	bool success;
 	
 	if((lockIndex < 0)||(lockIndex > MAX_NUM_GLOBAL_IDS*(MAX_DLOCK-1)))
@@ -2018,7 +2564,7 @@ bool NetCall::Wait(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHea
 	return success;
 }
 
-bool NetCall::Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
+bool Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum)
 {	
 	bool success = false;
 	
@@ -2139,7 +2685,7 @@ bool NetCall::Signal(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketH
 	return success;
 }
 
-bool NetCall::Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
+bool Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, int clientNum){
 	
 	bool success = false;
 	
@@ -2268,7 +2814,7 @@ bool NetCall::Broadcast(int cvIndex, int lockIndex, PacketHeader outPktHdr, Pack
 	}
 }
 
-bool NetCall::SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data)
+bool SendReply(PacketHeader outPktHdr, PacketHeader inPktHdr, MailHeader outMailHdr, MailHeader inMailHdr, char* data)
 {
 	bool success = false;
 	outPktHdr.to = inPktHdr.from;
@@ -2320,8 +2866,7 @@ void itoa( char arr[], int size, int val ) {
   return;
 }
 
-void NetCall::sendError()
-{
+void sendError(){
 	bool success = false;
 	
 	int errorNum = -6;
