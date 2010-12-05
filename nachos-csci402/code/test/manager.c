@@ -260,6 +260,7 @@ void checkLineToEnterRest()
 
 int main()
 {
+  int i;
   PrintOut("=== Manager ===\n", 16);
   
   StartUserProgram();

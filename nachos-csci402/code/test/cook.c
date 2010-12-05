@@ -106,9 +106,14 @@ void Cook(int debug)
 
 int main()
 {
+  int i;
   PrintOut("=== Cook ===\n", 17);
   
   StartUserProgram();
+  for(i = 0; i < 5000; i++)
+  {  
+    Yield(1);
+  }
   Initialize();  
   Cook(0);
   return 0; 

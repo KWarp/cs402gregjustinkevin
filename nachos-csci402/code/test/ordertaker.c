@@ -45,9 +45,14 @@ void OrderTaker(int debug)
 
 int main()
 {
+  int i;
   PrintOut("=== OrderTaker ===\n", 19);
   
   StartUserProgram();
+  for(i = 0; i < 5000; i++)
+  {  
+    Yield(1);
+  }
   Initialize();  
   OrderTaker(0);
   return 0;

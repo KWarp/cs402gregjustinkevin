@@ -391,10 +391,15 @@ void WaitInLineToOrderFood(int ID)
 
 int main()
 {
+  int i;
   PrintOut("=== Customer ===\n", 17);
   
   StartUserProgram();
   Initialize();
+  for(i = 0; i < 5000; i++)
+  {  
+    Yield(1);
+  }
   Customer(0);
   return 0;
 }
