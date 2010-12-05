@@ -28,12 +28,12 @@ void LockTest()
   PrintOut("Testing Lock\n", 13); 
   PrintOut("------------------------------------------\n", 43);
 
-  PrintOut("Creating Lock LK1...\n", 18); 
+  PrintOut("Creating Lock LK1...\n", 21); 
   lock1 = CreateLock("LK1", 3);
   if (lock1 >= 0)
     PrintOut("Succeeded\n", 10);
 
-  PrintOut("Creating Lock LK2...\n", 18); 
+  PrintOut("Creating Lock LK2...\n", 21); 
   lock2 = CreateLock("LK2", 3);
   if (lock2 >= 0)
     PrintOut("Succeeded\n", 10);

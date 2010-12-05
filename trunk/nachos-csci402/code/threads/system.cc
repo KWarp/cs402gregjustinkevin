@@ -99,33 +99,40 @@ static void TimerInterruptHandler(int dummy)
 
 #ifdef CHANGED
 #ifdef NETWORK
-// Gets called on a timer.
+// Gets forked as a kernel thread
 static void MsgResendInterruptHandler(int dummy)
 {
-  static int ResendTimeout = 5;  // Num seconds without receiving an Ack until we resend a message.
-
-  unAckedMessagesLock->Acquire();
-    // Resend any UnAckedMessages that have not been resent for too long.
-    time_t currentTime = time(NULL);
-    for (unsigned int i = 0; i < unAckedMessages.size(); ++i)
-    {
-      if (currentTime - unAckedMessages[i]->lastTimeSent.tv_sec > ResendTimeout)
-      {
-        // Resend the message (addTimeStamp = false).
-        postOffice->Send(unAckedMessages[i]->pktHdr, unAckedMessages[i]->mailHdr, 
-                         unAckedMessages[i]->timeStamp, unAckedMessages[i]->data);
-        
-        printf("Resending: From (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
-              unAckedMessages[i]->pktHdr.from, unAckedMessages[i]->mailHdr.from, 
-              unAckedMessages[i]->pktHdr.to, unAckedMessages[i]->mailHdr.to, unAckedMessages[i]->mailHdr.length,
-              (int)unAckedMessages[i]->timeStamp.tv_sec, (int)unAckedMessages[i]->timeStamp.tv_usec,
-              unAckedMessages[i]->data);
-      }
-    }
-  unAckedMessagesLock->Release();
+  static int ResendTimeout = 2;  // Num seconds without receiving an Ack until we resend a message.
   
-  for (int i = 0; i < 500; ++i)
-    currentThread->Yield();
+  while(true)
+  {
+
+    unAckedMessagesLock->Acquire();
+      // Resend any UnAckedMessages that have not been resent for too long.
+      time_t currentTime = time(NULL);
+      for (unsigned int i = 0; i < unAckedMessages.size(); ++i)
+      {     
+        if (currentTime - unAckedMessages[i]->lastTimeSent.tv_sec > ResendTimeout)
+        {
+          // Resend the message (addTimeStamp = false).
+          postOffice->Send(unAckedMessages[i]->pktHdr, unAckedMessages[i]->mailHdr, 
+                           unAckedMessages[i]->timeStamp, unAckedMessages[i]->data);
+          
+          printf("Resending: From (%d, %d) to (%d, %d) bytes %d time %d.%d data %s\n",
+                unAckedMessages[i]->pktHdr.from, unAckedMessages[i]->mailHdr.from, 
+                unAckedMessages[i]->pktHdr.to, unAckedMessages[i]->mailHdr.to, unAckedMessages[i]->mailHdr.length,
+                (int)unAckedMessages[i]->timeStamp.tv_sec, (int)unAckedMessages[i]->timeStamp.tv_usec,
+                unAckedMessages[i]->data);
+        }
+      }
+    unAckedMessagesLock->Release();
+    
+    for (int i = 0; i < 5000; ++i)
+    {
+      currentThread->Yield();
+    }
+  
+  }
 }
 
 // Returns true if the input message has already been received before.
@@ -628,8 +635,10 @@ void NetworkThread()
     else // if the message is from another thread (including self).
     {
       // Do Total Ordering.
-      PrintNetThreadHeader();
-      printf("=== Do Total Ordering ===\n");
+      #if 0
+        PrintNetThreadHeader();
+        printf("=== Do Total Ordering ===\n");
+      #endif
       // 1. Extract timestamp and member's ID.
       // This is already done above.
       
@@ -706,8 +715,10 @@ void NetworkThread()
           i--;
         }
       }
-      PrintNetThreadHeader();
-      printf("=== Completed Total Ordering ===\n");
+      #if 0
+        PrintNetThreadHeader();
+        printf("=== Completed Total Ordering ===\n");
+      #endif
     }
   }
 }

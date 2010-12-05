@@ -131,6 +131,11 @@ void Initialize()
   int i, hasBeenInitialized, initializationLock;
   char* str;
   str = "12345678901234567890\n"; /* 21 length */
+
+  /* stop initialization */
+  initializationLock = CreateLock("initializationLock", 18);
+  Acquire(initializationLock);
+
   
   /* Initialize Locks */
   lock_MrCr_LineToEnterRest = CreateLock("lock_MrCr_EnterRest", 19);
@@ -209,7 +214,6 @@ void Initialize()
   /* locks and condition variables done here */
   
   hasBeenInitialized = CreateMV("hasBeenInitialized",18);
-  initializationLock = CreateLock("initializationLock", 18);
   
   /* Initialize Monitor Variables and Globals
      create monitor variables */
@@ -278,7 +282,6 @@ void Initialize()
   
   
   
-  Acquire(initializationLock);
   if(GetMV(hasBeenInitialized) != 1)
   {
 	SetMV(hasBeenInitialized,1);

@@ -89,9 +89,14 @@ void Waiter(int debug)
 
 int main()
 {
+  int i;
   PrintOut("=== Waiter ===\n", 15);
   
   StartUserProgram();
+  for(i = 0; i < 5000; i++)
+  {  
+    Yield(1);
+  }  
   Initialize();  
   Waiter(0);
   return 0;  
