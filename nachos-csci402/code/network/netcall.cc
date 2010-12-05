@@ -512,10 +512,6 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						errorInMailHdr = inMailHdr;
 						return false;
 					}
-					
-          // Save lockIndex and increment createDLockIndex for next time.
-					lockIndex = dlocks[createDLockIndex]->GetGlobalId();
-					createDLockIndex++;
 
           // Communicate to my paired user thread to wake it up.
           char ack[MaxMailSize];
