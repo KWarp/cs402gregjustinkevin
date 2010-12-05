@@ -32,17 +32,17 @@ void LockTest()
   lock1 = CreateLock("LK1", 3);
   if (lock1 >= 0)
     PrintOut("Succeeded\n", 10);
-
+    
   PrintOut("Creating Lock LK2...\n", 21); 
   lock2 = CreateLock("LK2", 3);
   if (lock2 >= 0)
     PrintOut("Succeeded\n", 10);
     
+  Exit(0);
+    
   PrintOut("Acquiring Lock...\n", 18);
   Acquire(lock1);
   PrintOut("Succeeded\n", 10);
-  
-  Exit(0);
   
   PrintOut("Releasing Lock...\n", 18);
   Release(lock1);

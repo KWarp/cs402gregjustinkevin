@@ -57,6 +57,15 @@ char lockName[MAX_CLIENTS][32];
 int verifyResponses[MAX_CLIENTS];
 int localLockIndex[MAX_CLIENTS];
 
+enum CreationState {NO, MAYBE, YES};
+CreationState lockCreationStates[MAX_CLIENTS];
+CreationState cvCreationStates[MAX_CLIENTS];
+CreationState mvCreationStates[MAX_CLIENTS];
+
+timeval lockCreationTimeStamps[MAX_CLIENTS];
+timeval cvCreationTimeStamps[MAX_CLIENTS];
+timeval mvCreationTimeStamps[MAX_CLIENTS];
+
 int waitingForCreateLock[MAX_CLIENTS];
 int waitingForSignalCvs[MAX_CLIENTS];
 int waitingForBroadcastCvs[MAX_CLIENTS];
@@ -321,7 +330,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				}
 				lockName[clientNum][j] = '\0';
 
-        // If we have already created a lock the lockName, set the appropriate lockIndex.
+        // If we have already created a lock with lockName, set the appropriate lockIndex.
 				for (int k = 0; k < createDLockIndex; ++k)
 				{
 					if (!strcmp(dlocks[k]->getName(), lockName[clientNum]))
@@ -330,20 +339,51 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 					}
 				}
         
-				for (int k = 0; k < createDLockIndex; ++k)
-				{
-					if (!strcmp(dlocks[k]->getName(), lockName[clientNum]))
-					{
-          
-          }
-        }
-        
         // Store lock index for later.
 				localLockIndex[clientNum] = lockIndex;
 				if (serverCount > 1)
         {
-					// Must always verify if more than 1 net thread.
-          CreateVerify(lockName[clientNum], CREATELOCKVERIFY, clientNum, localNetThreadInfo);
+          // If the lock didn't already exist.
+					if (localLockIndex[clientNum] == -1)
+					{
+            // Store the current timeStamp so we can use it later to determine ownership.
+            timeval currentTimeStamp;
+            gettimeofday(&currentTimeStamp, NULL);
+            lockCreationTimeStamps[clientNum] = currentTimeStamp;
+            
+            // Initilize the number of reponses we have received
+            verifyResponses[clientNum] = 0;
+            
+            // Set the state to MAYBE, meaning we have a request pending.
+            lockCreationStates[clientNum] = MAYBE;
+            
+            // Broadcast a request to all the other threads.
+            CreateVerify(lockName[clientNum], CREATELOCKVERIFY, clientNum, localNetThreadInfo);
+          }
+					else  // if the lock already existed, simply return its value.
+					{
+						lockIndex = dlocks[localLockIndex[clientNum]]->GetGlobalId();
+            
+            // Send response to client.
+            char ack[MaxMailSize];
+            sprintf(ack, "%i", lockIndex);
+            
+            outPktHdr.to = clientNum / 100;
+            outMailHdr.to = (clientNum + 100) % 100 + 1; // +1 to reach user thread
+            outPktHdr.from = postOffice->GetID();
+            outMailHdr.from = currentThread->mailID;
+            outMailHdr.length = strlen(ack) + 1;
+            
+            printf("Sending CREATELOCK response: %s\n", ack);
+            success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+            
+            if ( !success ) 
+              interrupt->Halt();
+            
+            verifyResponses[clientNum] = 0; // Set verifyResponses to 0 to prepare for incoming responses (which there won't be any since this is the single server case).
+            localLockIndex[clientNum] = -1; // Reset localLockIndex for next time.
+            fflush(stdout);
+          }
         }
 				else
 				{
@@ -431,33 +471,24 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			while (c != '\0')
 			{
 				c = msgData[++i];
-				verifyBuffer[clientNum][verifyResponses[clientNum]][a++] = c;
+				verifyBuffer[clientNum][verifyResponses[uniqueGlobalID()]][a++] = c;
 				if (c == '\0')
 					break;
 			}
-			verifyResponses[clientNum]++;
       
-      // If all server threads have responded to my request.
-			if (verifyResponses[clientNum] == serverCount - 1)
-			{
-				for (i = 0; i < serverCount - 1; i++)
-				{
-          // If the verifyResponse was -1 (i.e. it hadn't created the lock already).
-					if (verifyBuffer[clientNum][i][0] == '-' && verifyBuffer[clientNum][i][1] == '1')
-					{
-						otherServerLockIndex = -1;
-					}
-					else  // If the server responded with the lock index it had already created.
-					{
-            
-						otherServerLockIndex = atoi(verifyBuffer[clientNum][i]);
-						break;
-					}
-				}
+      // If the lock didn't already exist.
+      if (localLockIndex[clientNum] == -1)
+      {
+        // Parse the response.
+        int verifyResponse;
+        int index = parseValue(0, verifyBuffer[clientNum][verifyResponses[clientNum]], &verifyResponse);
         
-        // If I haven't created the lock already, and neither has any other server.
-				if (localLockIndex[clientNum] == -1 && otherServerLockIndex == -1)
-				{
+        // If the message we just received is a "Yes", i.e. that server has already created the lock and is the owner.
+        if (verifyResponse == YES)
+        {
+          // Parse the lockIndex.
+          index = parseValue(index, verifyBuffer[clientNum][verifyResponses[clientNum]], &lockIndex);
+          
           // Copy the lockName that our userprog sent to us in the initial request into localLockName.
 					for (i = 0; lockName[clientNum][i] != '\0'; i++)
           {
@@ -465,9 +496,11 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						localLockName[i + 1] = '\0';
 					}
           
+          lockCreationStates[clientNum] = YES;
+          
           // Actually create the lock.
 					dlocks[createDLockIndex] = new DistributedLock(localLockName); 
-					dlocks[createDLockIndex]->SetGlobalId((uniqueGlobalID() * MAX_DLOCK) + createDLockIndex);
+					dlocks[createDLockIndex]->SetGlobalId(lockIndex);
           
           // If we failed to create the lock.
 					if (dlocks[createDLockIndex] == NULL)
@@ -483,41 +516,103 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
           // Save lockIndex and increment createDLockIndex for next time.
 					lockIndex = dlocks[createDLockIndex]->GetGlobalId();
 					createDLockIndex++;
-				}
-        // If the lock has already been created on another server (but not this server).
-				else if (localLockIndex[clientNum] == -1 && otherServerLockIndex != -1)
-				{
-					lockIndex = otherServerLockIndex;
-				}
-        // If the lock has already been created on this server (but not any other server).
-				else if (localLockIndex[clientNum] != -1 && otherServerLockIndex == -1)
-				{
-					lockIndex = dlocks[localLockIndex[clientNum]]->GetGlobalId();
-				}
-				else
-				{}
-        
-				char ack[MaxMailSize];
-				sprintf(ack, "%i", lockIndex);
-        
-        // Communicate to my paired user thread to wake it up.
-				outPktHdr.to = postOffice->GetID();
-				outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
-				outPktHdr.from = postOffice->GetID();
-        outMailHdr.from = currentThread->mailID;
-				outMailHdr.length = strlen(ack) + 1;
-        
-        printf("Sending CREATELOCKANSWER from (%d, %d) to (%d, %d), msg: %s\n", 
-               outPktHdr.from, outMailHdr.from, outPktHdr.to, outMailHdr.to, ack);
-				success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-				if (!success) 
-				  interrupt->Halt();
+          // Communicate to my paired user thread to wake it up.
+          char ack[MaxMailSize];
+          sprintf(ack, "%i", lockIndex);
+          
+          outPktHdr.to = postOffice->GetID();
+          outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+          outPktHdr.from = postOffice->GetID();
+          outMailHdr.from = currentThread->mailID;
+          outMailHdr.length = strlen(ack) + 1;
+          
+          printf("Sending CREATELOCKANSWER from (%d, %d) to (%d, %d), msg: %s\n", 
+                 outPktHdr.from, outMailHdr.from, outPktHdr.to, outMailHdr.to, ack);
+          success = postOffice->Send(outPktHdr, outMailHdr, ack); 
 
-				verifyResponses[clientNum] = 0;
-				localLockIndex[clientNum] = -1;
-				fflush(stdout);
-			}
+          if (!success) 
+            interrupt->Halt();
+
+          // Increment the number of responses.
+          verifyResponses[clientNum]++;
+        }
+        else if (verifyResponse == NO || verifyResponse == MAYBE)
+        {
+          // Parse the timeStamp when the other thread began creating its lock.
+          timeval responseTimeStamp;
+          int sec, usec;
+          index = parseValue(index, verifyBuffer[clientNum][verifyResponses[clientNum]], &sec);
+          index = parseValue(index, verifyBuffer[clientNum][verifyResponses[clientNum]], &usec);
+          responseTimeStamp.tv_sec = sec;
+          responseTimeStamp.tv_usec = usec;
+
+          if (lockCreationTimeStamps[clientNum].tv_sec < responseTimeStamp.tv_sec ||
+              (lockCreationTimeStamps[clientNum].tv_sec == responseTimeStamp.tv_sec &&
+               lockCreationTimeStamps[clientNum].tv_usec < responseTimeStamp.tv_usec))
+          {
+            // Increment the number of responses we've received.
+            verifyResponses[clientNum]++;
+            
+            // If all server threads have responded to my request.
+            if (verifyResponses[clientNum] == serverCount - 1)
+            {
+              // Copy the lockName that our userprog sent to us in the initial request into localLockName.
+              for (i = 0; lockName[clientNum][i] != '\0'; i++)
+              {
+                localLockName[i] = lockName[clientNum][i];
+                localLockName[i + 1] = '\0';
+              }
+              
+              lockCreationStates[clientNum] = YES;
+              
+              // Actually create the lock.
+              dlocks[createDLockIndex] = new DistributedLock(localLockName); 
+              dlocks[createDLockIndex]->SetGlobalId((uniqueGlobalID() * MAX_DLOCK) + createDLockIndex);
+              
+              // If we failed to create the lock.
+              if (dlocks[createDLockIndex] == NULL)
+              {
+                printf("Error in creation of %s!\n", lockName[clientNum]);
+                errorOutPktHdr.to = clientNum / 100;
+                errorInPktHdr = inPktHdr;
+                errorOutMailHdr.to = (clientNum + 100) % 100;
+                errorInMailHdr = inMailHdr;
+                return false;
+              }
+              
+              // Save lockIndex and increment createDLockIndex for next time.
+              lockIndex = dlocks[createDLockIndex]->GetGlobalId();
+              createDLockIndex++;
+                
+              // Broadcast a "YES" to everyone so they know we are the new owner.
+              char tmp[MaxMailSize];
+              sprintf(tmp, "%d_%d_", YES, lockIndex);
+              CreateVerify(tmp, CREATELOCKANSWER, clientNum, localNetThreadInfo);
+                
+              // Communicate to my paired user thread to wake it up.
+              char ack[MaxMailSize];
+              sprintf(ack, "%i", lockIndex);
+              
+              outPktHdr.to = postOffice->GetID();
+              outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+              outPktHdr.from = postOffice->GetID();
+              outMailHdr.from = currentThread->mailID;
+              outMailHdr.length = strlen(ack) + 1;
+              
+              printf("Sending CREATELOCKANSWER from (%d, %d) to (%d, %d), msg: %s\n", 
+                     outPktHdr.from, outMailHdr.from, outPktHdr.to, outMailHdr.to, ack);
+              success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+
+              if (!success) 
+                interrupt->Halt();
+
+              localLockIndex[clientNum] = -1;
+              fflush(stdout);
+            }
+          }
+        }
+      }
 			break;
 
 		case CREATELOCKVERIFY:	
@@ -564,17 +659,26 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 			outMailHdr.from = currentThread->mailID;
       
       // If the lock hasn't already been created on this server.
-			if (lockIndex == -1)
+      if (lockCreationStates[clientNum] == MAYBE)
+      {
+        printf("Lock named %s being created already\n", localLockName);
+				sprintf(request, "%d_%d_%d_%d_%d", CREATELOCKANSWER, clientNum, MAYBE,
+                (int)lockCreationTimeStamps[uniqueGlobalID()].tv_sec, (int)lockCreationTimeStamps[uniqueGlobalID()].tv_usec);
+				outMailHdr.length = strlen(request) + 1;
+
+				success = postOffice->Send(outPktHdr, outMailHdr, request);
+      }
+			else if (lockIndex == -1)
 			{
         printf("Lock named %s not found\n", localLockName);
-				sprintf(request, "%d_%d_%d", CREATELOCKANSWER, clientNum, -1);
+				sprintf(request, "%d_%d_%d", CREATELOCKANSWER, clientNum, NO);
 				outMailHdr.length = strlen(request) + 1;
 
 				success = postOffice->Send(outPktHdr, outMailHdr, request);
 			}
 			else  // If the lock does exist on the server.
 			{
-				sprintf(request, "%d_%d_%d", CREATELOCKANSWER, clientNum, dlocks[lockIndex]->GetGlobalId());
+				sprintf(request, "%d_%d_%d_%d", CREATELOCKANSWER, clientNum, YES, dlocks[lockIndex]->GetGlobalId());
 				outMailHdr.length = strlen(request) + 1;
 				success = postOffice->Send(outPktHdr, outMailHdr, request);
 			}
@@ -607,7 +711,44 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
         
 				localLockIndex[clientNum]=cvIndex;
 				if (serverCount > 1)
-					CreateVerify(lockName[clientNum], CREATECVVERIFY, clientNum, localNetThreadInfo);
+        {
+          // If the cv hasn't been created yet.
+					if (localLockIndex[clientNum] == -1) 
+					{
+            // Store the current timeStamp so we can use it later to determine ownership.
+            timeval currentTimeStamp;
+            gettimeofday(&currentTimeStamp, NULL);
+            cvCreationTimeStamps[clientNum] = currentTimeStamp;
+            
+            // Set the state to MAYBE, meaning we have a request pending.
+            cvCreationStates[clientNum] = MAYBE;
+            
+            // Broadcast a request to all the other threads.
+            CreateVerify(lockName[clientNum], CREATECVVERIFY, clientNum, localNetThreadInfo);
+          }
+					else  // if the cv has already been created.
+					{			
+						cvIndex = cvs[cvIndex]->GetGlobalId();
+          
+            // Send the cvIndex to the client.
+            char ack[MaxMailSize];
+            sprintf(ack, "%i", cvIndex);
+      
+            outPktHdr.to = clientNum / 100;
+            outMailHdr.to = (clientNum + 100) % 100;
+            outMailHdr.from = postOffice->GetID();
+            outMailHdr.length = strlen(ack) + 1;
+            success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+
+            if (!success) 
+              interrupt->Halt();
+
+            // Reset counters for next time.
+            verifyResponses[clientNum] = 0;
+            localLockIndex[clientNum] = -1;
+            fflush(stdout);
+          }
+        }
 				else
 				{
           // If the cv hasn't been created yet.
@@ -643,7 +784,7 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 						cvIndex = cvs[cvIndex]->GetGlobalId();
 					}
           
-          // Send the lockIndex to the client.
+          // Send the cvIndex to the client.
 					char ack[MaxMailSize];
 					sprintf(ack, "%i", cvIndex);
 		
@@ -856,7 +997,47 @@ bool processMessage(PacketHeader inPktHdr, MailHeader inMailHdr, timeval timeSta
 				localLockIndex[clientNum] = mvIndex;
         
 				if (serverCount > 1)
-					CreateVerify(lockName[clientNum], CREATEMVVERIFY, clientNum, localNetThreadInfo);
+        {
+          // If the mv has not been created yet.
+					if (localLockIndex[clientNum] == -1) 
+					{
+            // Store the current timeStamp so we can use it later to determine ownership.
+            timeval currentTimeStamp;
+            gettimeofday(&currentTimeStamp, NULL);
+            mvCreationTimeStamps[clientNum] = currentTimeStamp;
+            
+            // Set the state to MAYBE, meaning we have a request pending.
+            mvCreationStates[clientNum] = MAYBE;
+            
+            // Broadcast a request to all the other threads.
+            CreateVerify(lockName[clientNum], CREATEMVVERIFY, clientNum, localNetThreadInfo);
+          }
+					else  // If we have already created the mv.
+					{
+						mvIndex = mvs[localLockIndex[clientNum]]->GetGlobalId();
+          
+            char ack[MaxMailSize];
+            sprintf(ack, "%i", mvIndex);
+            
+            // Communicate to my paired user thread.
+            outPktHdr.to = postOffice->GetID();
+            outMailHdr.to = currentThread->mailID + 1; // +1 to reach user thread
+            outPktHdr.from = postOffice->GetID();
+            outMailHdr.from = currentThread->mailID;
+            outMailHdr.length = strlen(ack) + 1;
+            
+            printf("Sending CREATEMV response: %s\n", ack);
+            success = postOffice->Send(outPktHdr, outMailHdr, ack); 
+
+            if (!success)
+              interrupt->Halt();
+
+            // Reset local vars for later.
+            verifyResponses[clientNum] = 0;
+            localLockIndex[clientNum] = -1;
+            fflush(stdout);
+          }
+        }
 				else
 				{
           // If the mv has not been created yet.
